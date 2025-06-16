@@ -5,14 +5,13 @@ import datetime
 from PIL import Image, ImageDraw, ImageFont
 
 from config.settings import (
-    REMBOURSEMENTS_JSON_DIR, STATUT_CREEE,
+    DATABASE_FILE, STATUT_CREEE,
     STATUT_REFUSEE_CONSTAT_TP, STATUT_ANNULEE,
     STATUT_PAIEMENT_EFFECTUE, STATUT_TROP_PERCU_CONSTATE,
     STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
     PROFILE_PICTURES_DIR
 )
 from models import user_model
-from utils import archive_utils
 from views.document_viewer import DocumentViewerWindow
 from views.remboursement_item_view import RemboursementItemView
 from views.document_history_viewer import DocumentHistoryViewer
@@ -41,15 +40,16 @@ class MainView(ctk.CTkFrame):
 
         self.pfp_size = 80
         self._polling_job_id = None
-        self._last_known_remboursements_mtime = 0
+        self._last_known_db_mtime = 0
         self.all_demandes_cache = []
         self._is_refreshing = False
 
         self._fetch_user_data()
-        self.initial_theme = self.user_data.get("theme_color", "blue")
 
+        self.initial_theme = self.user_data.theme_color if self.user_data else "blue"
         self.current_sort = "Date de création (récent)"
-        self.current_filter = self.user_data.get("default_filter", "Toutes les demandes")
+        self.current_filter = self.user_data.default_filter if self.user_data else "Toutes les demandes"
+
         self.include_archives = ctk.BooleanVar(value=False)
         self.search_var = ctk.StringVar()
 
@@ -74,8 +74,8 @@ class MainView(ctk.CTkFrame):
         self.start_polling()
 
     def _fetch_user_data(self):
-        self.user_data = user_model.obtenir_info_utilisateur(self.nom_utilisateur)
-        self.user_roles = self.user_data.get("roles", []) if self.user_data else []
+        self.user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
+        self.user_roles = self.user_data.roles if self.user_data else []
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
@@ -183,13 +183,15 @@ class MainView(ctk.CTkFrame):
     def _update_user_display(self):
         def task():
             self._fetch_user_data()
-            pfp_path = self.user_data.get("profile_picture_path")
+            if not self.user_data: return None
+            pfp_path = self.user_data.profile_picture_path
             pfp_image = None
             if pfp_path and os.path.exists(os.path.join(PROFILE_PICTURES_DIR, pfp_path)):
                 pfp_image = create_circular_image(os.path.join(PROFILE_PICTURES_DIR, pfp_path), self.pfp_size)
             return pfp_image
 
         def on_complete(pfp_image):
+            if not self.user_data: return
             if not pfp_image:
                 placeholder = Image.new('RGBA', (self.pfp_size, self.pfp_size), (80, 80, 80, 255))
                 draw = ImageDraw.Draw(placeholder)
@@ -210,17 +212,15 @@ class MainView(ctk.CTkFrame):
 
     def _get_refreshed_and_sorted_data(self, force_reload):
         if force_reload:
-            self.all_demandes_cache = self.remboursement_controller.get_toutes_les_demandes_formatees(
+            self.all_demandes_cache = self.remboursement_controller.get_toutes_les_demandes(
                 self.include_archives.get())
-            if os.path.exists(REMBOURSEMENTS_JSON_DIR):
-                self._last_known_remboursements_mtime = os.path.getmtime(REMBOURSEMENTS_JSON_DIR)
 
         search_term = self.search_var.get().lower().strip()
         if search_term:
             demandes_filtrees = [d for d in self.all_demandes_cache if
-                                 search_term in d.get('nom', '').lower() or search_term in d.get('prenom',
-                                                                                                 '').lower() or search_term in str(
-                                     d.get('reference_facture', '')).lower()]
+                                 search_term in (d.nom or '').lower() or
+                                 search_term in (d.prenom or '').lower() or
+                                 search_term in str(d.reference_facture).lower()]
         else:
             demandes_filtrees = self.all_demandes_cache
 
@@ -228,26 +228,29 @@ class MainView(ctk.CTkFrame):
             demandes_filtrees = [d for d in demandes_filtrees if self._is_active_for_user(d)]
         elif self.current_filter == "En cours":
             demandes_filtrees = [d for d in demandes_filtrees if
-                                 d.get('statut') not in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]]
+                                 d.statut not in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]]
         elif self.current_filter == "Terminées et annulées":
             demandes_filtrees = [d for d in demandes_filtrees if
-                                 d.get('statut') in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]]
+                                 d.statut in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]]
 
         reverse_sort = self.current_sort in ["Date de création (récent)", "Montant (décroissant)"]
 
         def get_sort_key(demande):
-            sort_field_map = {"Date de création (récent)": "date_creation",
-                              "Date de création (ancien)": "date_creation",
-                              "Montant (décroissant)": "montant_demande",
-                              "Montant (croissant)": "montant_demande", "Nom du patient (A-Z)": "nom"}
+            sort_field_map = {
+                "Date de création (récent)": "date_creation",
+                "Date de création (ancien)": "date_creation",
+                "Montant (décroissant)": "montant_demande",
+                "Montant (croissant)": "montant_demande",
+                "Nom du patient (A-Z)": "nom"
+            }
             sort_field = sort_field_map.get(self.current_sort, "date_creation")
-            value = demande.get(sort_field)
-            if isinstance(value, str) and "date" in sort_field:
-                try:
-                    return datetime.datetime.fromisoformat(value)
-                except ValueError:
-                    return datetime.datetime.min
-            return value if value is not None else (datetime.datetime.min if "date" in sort_field else "")
+            value = getattr(demande, sort_field, None)
+
+            if isinstance(value, str):
+                return value.lower()
+            if value is None:
+                return datetime.datetime.min if "date" in sort_field else ""
+            return value
 
         return sorted(demandes_filtrees, key=get_sort_key, reverse=reverse_sort)
 
@@ -261,7 +264,7 @@ class MainView(ctk.CTkFrame):
         else:
             for demande_data in demandes_a_afficher:
                 item_frame = RemboursementItemView(master=self.scrollable_frame_demandes,
-                                                   demande_data=demande_data,
+                                                   demande_data=demande_data.model_dump(),
                                                    current_user_name=self.nom_utilisateur,
                                                    user_roles=self.user_roles,
                                                    callbacks=self.callbacks)
@@ -291,8 +294,8 @@ class MainView(ctk.CTkFrame):
             self.notification_badge.place_forget()
 
     def _is_active_for_user(self, demande):
-        current_status = demande.get("statut")
-        cree_par_user = demande.get("cree_par")
+        current_status = demande.statut
+        cree_par_user = demande.cree_par
         if self.est_comptable_tresorerie() and current_status == STATUT_CREEE: return True
         if (
                 self.nom_utilisateur == cree_par_user or self.est_admin()) and current_status == STATUT_REFUSEE_CONSTAT_TP: return True
@@ -344,41 +347,42 @@ class MainView(ctk.CTkFrame):
 
     def start_polling(self):
         self.stop_polling()
-        self._last_known_remboursements_mtime = 0
+        self._last_known_db_mtime = 0
         self._check_for_data_updates()
 
     def _check_for_data_updates(self):
         try:
-            current_mtime = os.path.getmtime(
-                REMBOURSEMENTS_JSON_DIR) if os.path.exists(REMBOURSEMENTS_JSON_DIR) else 0
-            if current_mtime != self._last_known_remboursements_mtime:
+            current_mtime = os.path.getmtime(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else 0
+            if current_mtime != self._last_known_db_mtime:
+                self._last_known_db_mtime = current_mtime
                 self.afficher_liste_demandes(force_reload=True)
         except Exception as e:
-            print(f"Erreur lors du polling : {e}")
+            print(f"Erreur lors du polling de la base de données : {e}")
         finally:
-            if self.winfo_exists(): self._polling_job_id = self.after(POLLING_INTERVAL_MS,
-                                                                      self._check_for_data_updates)
+            if self.winfo_exists():
+                self._polling_job_id = self.after(POLLING_INTERVAL_MS, self._check_for_data_updates)
 
     def _open_profile_view(self):
         def task():
-            return user_model.obtenir_info_utilisateur(self.nom_utilisateur)
+            return self.auth_controller.get_user_data(self.nom_utilisateur)
 
         def on_complete(user_data):
             if user_data:
                 self.user_data = user_data
-                ProfileView(self, self.auth_controller, self.app_controller, user_data,
+                ProfileView(self, self.auth_controller, self.app_controller, user_data.model_dump(),
                             on_save_callback=self._on_profile_saved)
 
         self.app_controller.run_threaded_task(task, on_complete)
 
     def _on_profile_saved(self):
         self._update_user_display()
-        self.current_filter = self.user_data.get("default_filter", "Toutes les demandes")
-        self.filter_menu.set(self.current_filter)
-        self.afficher_liste_demandes(force_reload=False)
-        new_theme = self.user_data.get("theme_color", "blue")
-        if new_theme != self.initial_theme: self.app_controller.request_restart(
-            "Le changement de thème nécessite un redémarrage.")
+        if self.user_data:
+            self.current_filter = self.user_data.default_filter
+            self.filter_menu.set(self.current_filter)
+            self.afficher_liste_demandes(force_reload=False)
+            new_theme = self.user_data.theme_color
+            if new_theme != self.initial_theme: self.app_controller.request_restart(
+                "Le changement de thème nécessite un redémarrage.")
 
     def _ouvrir_fenetre_creation_demande(self):
         from views.dialogs.creation_demande_dialog import CreationDemandeDialog
@@ -395,7 +399,9 @@ class MainView(ctk.CTkFrame):
                                      temp_dir_to_clean=temp_dir)
             else:
                 self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error")
-                if temp_dir: archive_utils.cleanup_temp_dir(temp_dir)
+                if temp_dir:
+                    # Dans un vrai scénario, logguer cette erreur
+                    pass
 
         self.app_controller.run_threaded_task(task, on_complete)
 

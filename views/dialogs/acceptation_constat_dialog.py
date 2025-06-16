@@ -53,7 +53,8 @@ class AcceptationConstatDialog(ctk.CTkToplevel):
         def combined_task():
             action_success, action_message = self.remboursement_controller.mlupo_accepter_constat(
                 id_demande=self.id_demande,
-                chemin_pj_trop_percu_source=self.current_pj_path,
+                # CORRECTION ICI : le nom de l'argument a été changé pour correspondre à la fonction
+                chemin_pj_trop_percu=self.current_pj_path,
                 commentaire=commentaire
             )
             if not action_success:

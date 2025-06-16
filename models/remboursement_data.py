@@ -1,254 +1,216 @@
-# models/remboursement_data.py
 import os
-import datetime
 import shutil
-import re
-import json
-import zipfile
-from pydantic import ValidationError
+import sqlite3
+from typing import List, Tuple, Optional
 
-from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_JSON_DIR, REMBOURSEMENTS_ARCHIVE_JSON_DIR, \
-    REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
-from utils.data_manager import read_modify_write_json, _save_json_atomically
-from utils.ui_messages import show_recovery_success, show_recovery_error
-from .schemas import Remboursement
+from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
+from models.schemas import Remboursement
+from utils.database_manager import get_db_connection
+from utils.archive_utils import create_archive_for_demande
 
 
-def _sanitize_directory_name(name: str) -> str:
-    if not name: return "ref_inconnue"
-    base_name, ext = os.path.splitext(name)
-    sanitized_base_name = base_name.replace('/', '_').replace('\\', '_').replace(':', '_')
-    sanitized_base_name = "".join(c if c.isalnum() or c in ['_', '-'] else '_' for c in sanitized_base_name)
-    sanitized_base_name = sanitized_base_name.strip('.')
-    sanitized_base_name = re.sub(r'[_.-]+', '_', sanitized_base_name)
-    if not sanitized_base_name:
-        sanitized_base_name = "fichier_inconnu"
-    if ext:
-        sanitized_ext = "".join(c if c.isalnum() else "" for c in ext.lower())
-        if sanitized_ext:
-            ext = "." + sanitized_ext
+def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
+    data = dict(row)
+    historique_list = []
+    if data.get('all_history'):
+        for item in data['all_history'].split(';'):
+            parts = item.split('|', 4)
+            if len(parts) == 5:
+                historique_list.append({
+                    "statut": parts[1], "date": parts[2],
+                    "par_utilisateur": parts[3] if parts[3] != 'None' else None,
+                    "commentaire": parts[4] if parts[4] != 'None' else None
+                })
+    data['historique_statuts'] = historique_list
+
+    factures, ribs, trop_percus = [], [], []
+    if data.get('all_attachments'):
+        for item in data['all_attachments'].split(';'):
+            parts = item.split('|', 1)
+            if len(parts) == 2:
+                pj_type, pj_path = parts
+                if pj_type == 'facture':
+                    factures.append(pj_path)
+                elif pj_type == 'rib':
+                    ribs.append(pj_path)
+                elif pj_type == 'trop_percu':
+                    trop_percus.append(pj_path)
+
+    data['chemins_factures_stockees'] = factures
+    data['chemins_rib_stockes'] = ribs
+    data['chemins_trop_percu_stockes'] = trop_percus
+
+    data.pop('all_history', None)
+    data.pop('all_attachments', None)
+    return Remboursement(**data)
+
+
+def charger_toutes_les_demandes_data(archived: bool = False) -> List[Remboursement]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = """
+            SELECT r.*,
+                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' || \
+                                        IFNULL(h.commentaire, 'None'), ';')
+                    FROM historique h \
+                    WHERE h.id_demande = r.id_demande \
+                    ORDER BY h.date)                    as all_history,
+                   (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
+                    FROM pieces_jointes pj \
+                    WHERE pj.id_demande = r.id_demande) as all_attachments
+            FROM remboursements r \
+            WHERE r.is_archived = ? \
+            """
+    cursor.execute(query, (1 if archived else 0,))
+    rows = cursor.fetchall()
+    conn.close()
+    demandes = [_construct_remboursement_from_row(row) for row in rows]
+    return sorted(demandes, key=lambda d: d.date_derniere_modification, reverse=True)
+
+
+def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = """
+            SELECT r.*,
+                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' || \
+                                        IFNULL(h.commentaire, 'None'), ';')
+                    FROM historique h \
+                    WHERE h.id_demande = r.id_demande \
+                    ORDER BY h.date)                    as all_history,
+                   (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
+                    FROM pieces_jointes pj \
+                    WHERE pj.id_demande = r.id_demande) as all_attachments
+            FROM remboursements r \
+            WHERE r.id_demande = ? \
+            """
+    cursor.execute(query, (id_demande,))
+    row = cursor.fetchone()
+    conn.close()
+    return _construct_remboursement_from_row(row) if row else None
+
+
+def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
+    conn = get_db_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO remboursements (id_demande, nom, prenom, reference_facture, reference_facture_dossier, description, montant_demande, statut, cree_par, date_creation, derniere_modification_par, date_derniere_modification, is_archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (demande.id_demande, demande.nom, demande.prenom, demande.reference_facture,
+                 demande.reference_facture_dossier, demande.description, demande.montant_demande, demande.statut,
+                 demande.cree_par, demande.date_creation, demande.derniere_modification_par,
+                 demande.date_derniere_modification, 0))
+
+            for hist in demande.historique_statuts:
+                cursor.execute(
+                    "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
+                    (demande.id_demande, hist.statut, hist.date, hist.par_utilisateur, hist.commentaire))
+
+            for path in demande.chemins_factures_stockees:
+                cursor.execute(
+                    "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
+                    (demande.id_demande, 'facture', path, demande.date_creation))
+            for path in demande.chemins_rib_stockes:
+                cursor.execute(
+                    "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
+                    (demande.id_demande, 'rib', path, demande.date_creation))
+        return True, "Demande créée avec succès dans la BDD."
+    except sqlite3.Error as e:
+        return False, f"Erreur de base de données : {e}"
+    finally:
+        conn.close()
+
+
+def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optional[str] = None,
+                               type_pj: Optional[str] = None) -> Tuple[bool, str]:
+    conn = get_db_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE remboursements
+                              SET nom                        = ?,
+                                  prenom                     = ?,
+                                  reference_facture          = ?,
+                                  description                = ?,
+                                  montant_demande            = ?,
+                                  statut                     = ?,
+                                  derniere_modification_par  = ?,
+                                  date_derniere_modification = ?,
+                                  date_paiement_effectue     = ?
+                              WHERE id_demande = ?""",
+                           (demande.nom, demande.prenom, demande.reference_facture, demande.description,
+                            demande.montant_demande, demande.statut, demande.derniere_modification_par,
+                            demande.date_derniere_modification, demande.date_paiement_effectue, demande.id_demande))
+            dernier_historique = demande.historique_statuts[-1]
+            cursor.execute(
+                "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
+                (demande.id_demande, dernier_historique.statut, dernier_historique.date,
+                 dernier_historique.par_utilisateur, dernier_historique.commentaire))
+            if nouveau_pj_relatif and type_pj:
+                cursor.execute(
+                    "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
+                    (demande.id_demande, type_pj, nouveau_pj_relatif, demande.date_derniere_modification))
+        return True, "Demande mise à jour avec succès."
+    except sqlite3.Error as e:
+        return False, f"Erreur de base de données : {e}"
+    finally:
+        conn.close()
+
+
+def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
+    demande = obtenir_demande_par_id_data(id_demande)
+    if not demande: return False, "Demande non trouvée."
+    if demande.is_archived: return True, "La demande est déjà archivée."
+
+    dossier_source = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
+    if os.path.isdir(dossier_source):
+        archive_success, archive_message = create_archive_for_demande(
+            dossier_source=dossier_source,
+            dossier_archive=REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
+            nom_dossier_demande=demande.reference_facture_dossier
+        )
+        if not archive_success: return False, archive_message
+
+    conn = get_db_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE remboursements SET is_archived = 1 WHERE id_demande = ?", (id_demande,))
+            if cursor.rowcount == 0: raise sqlite3.OperationalError("Aucune ligne mise à jour.")
+        return True, f"La demande {id_demande} a été archivée."
+    except sqlite3.Error as e:
+        return False, f"Erreur de BDD lors de l'archivage : {e}"
+    finally:
+        conn.close()
+
+
+def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
+    demande = obtenir_demande_par_id_data(id_demande)
+    if not demande:
+        demandes_archivees = charger_toutes_les_demandes_data(archived=True)
+        demande = next((d for d in demandes_archivees if d.id_demande == id_demande), None)
+        if not demande: return False, "Demande non trouvée."
+
+    conn = get_db_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM remboursements WHERE id_demande = ?", (id_demande,))
+            if cursor.rowcount == 0: raise sqlite3.OperationalError("La suppression n'a affecté aucune ligne.")
+
+        if demande.is_archived:
+            chemin_archive = os.path.join(REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
+                                          f"{demande.reference_facture_dossier}.zip")
+            if os.path.exists(chemin_archive): os.remove(chemin_archive)
         else:
-            ext = ""
-    return sanitized_base_name + ext
+            dossier_a_supprimer = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
+            if os.path.isdir(dossier_a_supprimer): shutil.rmtree(dossier_a_supprimer)
 
-
-def _load_and_validate_demande(file_path: str) -> dict | None:
-    """Charge et valide un unique fichier JSON de demande, avec mécanisme de récupération."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            validated_model = Remboursement.model_validate(data)
-            return validated_model.model_dump()
-    except (json.JSONDecodeError, ValidationError, IOError) as e:
-        print(f"ALERTE: Fichier de demande invalide ou corrompu détecté : {file_path}. Erreur : {e}")
-        backup_path = file_path + ".bak"
-        if os.path.exists(backup_path):
-            try:
-                print(f"Tentative de restauration depuis {backup_path}...")
-                shutil.copy2(backup_path, file_path)
-                with open(file_path, 'r', encoding='utf-8') as f_bak:
-                    data_bak = json.load(f_bak)
-                    validated_data = Remboursement.model_validate(data_bak).model_dump()
-                print("Restauration réussie.")
-                show_recovery_success(file_path)
-                return validated_data
-            except (json.JSONDecodeError, ValidationError, IOError):
-                print(f"ERREUR: Le fichier de backup {backup_path} est aussi invalide.")
-                show_recovery_error(file_path, backup_exists=True)
-                return None
-        else:
-            print("ERREUR: Aucun fichier de backup trouvé.")
-            show_recovery_error(file_path, backup_exists=False)
-            return None
-    return None
-
-
-def charger_toutes_les_demandes_data(include_archives: bool = False) -> list:
-    demandes = []
-
-    def read_from_dir(directory, is_archived_flag):
-        if not os.path.exists(directory):
-            return []
-        loaded_demandes = []
-        for filename in os.listdir(directory):
-            if filename.endswith('.json') and not filename.endswith('.bak'):
-                file_path = os.path.join(directory, filename)
-                demande_data = _load_and_validate_demande(file_path)
-                if demande_data:
-                    demande_data['is_archived'] = is_archived_flag
-                    loaded_demandes.append(demande_data)
-        return loaded_demandes
-
-    demandes.extend(read_from_dir(REMBOURSEMENTS_JSON_DIR, is_archived_flag=False))
-    if include_archives:
-        demandes.extend(read_from_dir(REMBOURSEMENTS_ARCHIVE_JSON_DIR, is_archived_flag=True))
-
-    return demandes
-
-
-def creer_demande_data(nouvelle_demande_dict: dict) -> dict | None:
-    id_demande = nouvelle_demande_dict.get("id_demande")
-    if not id_demande:
-        return None
-
-    file_path = os.path.join(REMBOURSEMENTS_JSON_DIR, f"{id_demande}.json")
-    try:
-        _save_json_atomically(file_path, nouvelle_demande_dict)
-    except IOError as e:
-        print(f"Erreur critique lors de la sauvegarde de la nouvelle demande {id_demande}: {e}")
-        return None
-
-    ref_dossier = nouvelle_demande_dict.get("reference_facture_dossier")
-    if ref_dossier:
-        dossier_demande_specifique = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, ref_dossier)
-        nom_fichier_info_txt = "informations_demande.txt"
-        chemin_fichier_info_txt = os.path.join(dossier_demande_specifique, nom_fichier_info_txt)
-        try:
-            with open(chemin_fichier_info_txt, 'w', encoding='utf-8') as f_txt:
-                f_txt.write(json.dumps(nouvelle_demande_dict, indent=4, ensure_ascii=False, default=str))
-        except IOError as e:
-            print(f"Erreur lors de la création du fichier d'information '{chemin_fichier_info_txt}': {e}")
-
-    return nouvelle_demande_dict
-
-
-def obtenir_demande_par_id_data(id_demande: str) -> dict | None:
-    file_path_active = os.path.join(REMBOURSEMENTS_JSON_DIR, f"{id_demande}.json")
-    if os.path.exists(file_path_active):
-        demande = _load_and_validate_demande(file_path_active)
-        if demande:
-            demande['is_archived'] = False
-        return demande
-
-    file_path_archive = os.path.join(REMBOURSEMENTS_ARCHIVE_JSON_DIR, f"{id_demande}.json")
-    if os.path.exists(file_path_archive):
-        demande = _load_and_validate_demande(file_path_archive)
-        if demande:
-            demande['is_archived'] = True
-        return demande
-
-    return None
-
-
-def mettre_a_jour_demande_data(id_demande: str, updates: dict) -> bool:
-    file_path = os.path.join(REMBOURSEMENTS_JSON_DIR, f"{id_demande}.json")
-    if not os.path.exists(file_path):
-        return False
-
-    def modification(demande: dict) -> bool:
-        for cle, valeur in updates.items():
-            if cle in ["chemins_factures_stockees", "chemins_rib_stockes",
-                       "pieces_capture_trop_percu"] and isinstance(valeur, str):
-                if cle not in demande or not isinstance(demande[cle], list):
-                    demande[cle] = []
-                demande[cle].append(valeur)
-            else:
-                demande[cle] = valeur
-        demande["date_derniere_modification"] = datetime.datetime.now().isoformat()
-        return True
-
-    return read_modify_write_json(file_path, modification)
-
-
-def ajouter_entree_historique_data(id_demande: str, nouvelle_entree: dict) -> bool:
-    file_path = os.path.join(REMBOURSEMENTS_JSON_DIR, f"{id_demande}.json")
-    if not os.path.exists(file_path):
-        return False
-
-    def modification(demande: dict) -> bool:
-        demande["historique_statuts"].append(nouvelle_entree)
-        return True
-
-    return read_modify_write_json(file_path, modification)
-
-
-def supprimer_demande_par_id_data(id_demande_a_supprimer: str) -> tuple[bool, str]:
-    demande_a_supprimer = obtenir_demande_par_id_data(id_demande_a_supprimer)
-    if not demande_a_supprimer:
-        return False, f"Demande ID {id_demande_a_supprimer} non trouvée."
-
-    is_archived = demande_a_supprimer.get('is_archived', False)
-    json_dir = REMBOURSEMENTS_ARCHIVE_JSON_DIR if is_archived else REMBOURSEMENTS_JSON_DIR
-    attachment_dir = REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR if is_archived else REMBOURSEMENTS_ATTACHMENTS_DIR
-
-    file_path = os.path.join(json_dir, f"{id_demande_a_supprimer}.json")
-    backup_path = file_path + ".bak"
-
-    try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        if os.path.exists(backup_path):
-            os.remove(backup_path)
+        return True, f"La demande {id_demande} et ses fichiers ont été supprimés."
+    except sqlite3.Error as e:
+        return False, f"Erreur de BDD lors de la suppression : {e}"
     except OSError as e:
-        return False, f"Erreur lors de la suppression des fichiers de données : {e}"
-
-    ref_dossier = demande_a_supprimer.get("reference_facture_dossier")
-    if ref_dossier:
-        if is_archived:
-            chemin_pj_a_supprimer = os.path.join(attachment_dir, f"{ref_dossier}.zip")
-            if os.path.exists(chemin_pj_a_supprimer):
-                try:
-                    os.remove(chemin_pj_a_supprimer)
-                except OSError as e:
-                    return True, f"Données supprimées, mais échec de la suppression de l'archive ZIP : {e}."
-        else:
-            chemin_pj_a_supprimer = os.path.join(attachment_dir, ref_dossier)
-            if os.path.exists(chemin_pj_a_supprimer):
-                try:
-                    shutil.rmtree(chemin_pj_a_supprimer)
-                except OSError as e:
-                    return True, f"Données supprimées, mais échec de la suppression du dossier de PJ : {e}."
-
-    return True, f"Demande ID {id_demande_a_supprimer} et ses fichiers associés supprimés avec succès."
-
-
-def archiver_demande_par_id(id_demande: str) -> bool:
-    demande_data = obtenir_demande_par_id_data(id_demande)
-    if not demande_data or demande_data.get('is_archived'):
-        return False
-
-    source_json_path = os.path.join(REMBOURSEMENTS_JSON_DIR, f"{id_demande}.json")
-    dest_json_path = os.path.join(REMBOURSEMENTS_ARCHIVE_JSON_DIR, f"{id_demande}.json")
-    source_bak_path = source_json_path + ".bak"
-    dest_bak_path = dest_json_path + ".bak"
-    bak_moved = False
-
-    if os.path.exists(source_json_path):
-        try:
-            shutil.move(source_json_path, dest_json_path)
-        except Exception as e:
-            print(f"Erreur archivage JSON demande {id_demande}: {e}")
-            return False
-
-    if os.path.exists(source_bak_path):
-        try:
-            shutil.move(source_bak_path, dest_bak_path)
-            bak_moved = True
-        except Exception as e:
-            print(f"Erreur archivage fichier .bak demande {id_demande}: {e}")
-            if os.path.exists(dest_json_path):
-                shutil.move(dest_json_path, source_json_path)
-            return False
-
-    ref_dossier = demande_data.get("reference_facture_dossier")
-    if ref_dossier:
-        source_attachment_path = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, ref_dossier)
-        dest_zip_path = os.path.join(REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR, f"{ref_dossier}.zip")
-        if os.path.exists(source_attachment_path) and os.path.isdir(source_attachment_path):
-            try:
-                with zipfile.ZipFile(dest_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                    for root, _, files in os.walk(source_attachment_path):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            zipf.write(file_path, os.path.relpath(file_path, source_attachment_path))
-                shutil.rmtree(source_attachment_path)
-            except Exception as e:
-                print(f"Erreur lors de la compression des PJ pour la demande {id_demande}: {e}")
-                if os.path.exists(dest_zip_path):
-                    os.remove(dest_zip_path)
-                if os.path.exists(dest_json_path):
-                    shutil.move(dest_json_path, source_json_path)
-                if bak_moved and os.path.exists(dest_bak_path):
-                    shutil.move(dest_bak_path, source_bak_path)
-                return False
-    return True
+        return False, f"Erreur système lors de la suppression des fichiers : {e}"
+    finally:
+        conn.close()

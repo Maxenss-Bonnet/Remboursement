@@ -1,4 +1,3 @@
-# config/settings.py
 import os
 import configparser
 import sys
@@ -23,19 +22,15 @@ SHARED_DATA_BASE_PATH = "Z:\\REMBOURSEMENT"
 IS_DEPLOYMENT_MODE = not SHARED_DATA_BASE_PATH.startswith(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- Sous-dossiers de données ---
-APP_DATA_JSON_DIR = os.path.join(SHARED_DATA_BASE_PATH, "data_json")
 REMBOURSEMENTS_BASE_DIR = os.path.join(SHARED_DATA_BASE_PATH, "remboursements")
-REMBOURSEMENTS_JSON_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "data")
 REMBOURSEMENTS_ATTACHMENTS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "fichiers")
 PROFILE_PICTURES_DIR = os.path.join(SHARED_DATA_BASE_PATH, "assets", "profile_pictures")
 
 # --- Dossiers d'archives ---
-REMBOURSEMENTS_ARCHIVE_JSON_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "archive", "data")
 REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "archive", "fichiers")
 
 # --- Fichiers de configuration ---
-USER_DATA_FILE = os.path.join(APP_DATA_JSON_DIR, "utilisateurs.json")
-RESET_CODES_FILE = os.path.join(APP_DATA_JSON_DIR, "codes_reset.json")
+DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 CONFIG_EMAIL_FILE = os.path.join(APP_ROOT_PATH, "config", "config_email.ini")
 SMTP_CONFIG = {}
 
@@ -111,21 +106,18 @@ ASSIGNABLE_ROLES = ["demandeur", "comptable_tresorerie", "validateur_chef", "com
 def load_smtp_config():
     global SMTP_CONFIG
     config = configparser.ConfigParser()
-    # Lire la config depuis le fichier .ini s'il existe
     if os.path.exists(CONFIG_EMAIL_FILE):
         config.read(CONFIG_EMAIL_FILE, encoding='utf-8')
         if 'SMTP' in config:
             SMTP_CONFIG = dict(config.items('SMTP'))
-            # Assurer la conversion correcte des types
             if 'port' in SMTP_CONFIG:
                 try:
                     SMTP_CONFIG['port'] = int(SMTP_CONFIG['port'])
                 except ValueError:
-                    SMTP_CONFIG['port'] = 587 # Port par défaut
+                    SMTP_CONFIG['port'] = 587
             for key in ['use_tls', 'use_ssl']:
                 if key in SMTP_CONFIG:
                     SMTP_CONFIG[key] = str(SMTP_CONFIG[key]).lower() in ('true', '1', 't', 'on', 'yes')
-    # Si le fichier ou la section n'existe pas, SMTP_CONFIG reste vide
     if not SMTP_CONFIG:
         print("ATTENTION: Fichier de configuration email manquant ou invalide. Les fonctionnalités d'email seront désactivées.")
         SMTP_CONFIG = {}
@@ -136,18 +128,16 @@ def save_email_config_to_ini(new_config: dict) -> tuple[bool, str]:
     try:
         with open(CONFIG_EMAIL_FILE, 'w', encoding='utf-8') as configfile:
             config.write(configfile)
-        load_smtp_config() # Recharger la configuration en mémoire
+        load_smtp_config()
         return True, "Configuration enregistrée avec succès."
     except IOError as e:
         return False, f"Erreur lors de l'écriture du fichier de configuration : {e}"
 
 def ensure_shared_dirs_exist():
+    # CORRECTION : Ne créer que les dossiers encore utiles
     dirs_to_create = [
-        APP_DATA_JSON_DIR,
-        REMBOURSEMENTS_JSON_DIR,
         REMBOURSEMENTS_ATTACHMENTS_DIR,
         PROFILE_PICTURES_DIR,
-        REMBOURSEMENTS_ARCHIVE_JSON_DIR,
         REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
     ]
     for directory in dirs_to_create:

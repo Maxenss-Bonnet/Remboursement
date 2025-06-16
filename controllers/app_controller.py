@@ -12,6 +12,7 @@ from controllers.remboursement_controller import RemboursementController
 from controllers.password_reset_controller import PasswordResetController
 from models import user_model
 from utils.ui_utils import LoadingOverlay, ToastManager
+from utils.database_manager import create_tables  # <-- IMPORT AJOUTÉ
 
 
 class AppController:
@@ -27,8 +28,20 @@ class AppController:
         self.loading_overlay = LoadingOverlay(self.root)
         self.toast_manager = ToastManager(self.root)
 
+        # CORRECTION : S'assurer que les tables de la BDD existent au démarrage
+        self._ensure_database_is_ready()
+
         self._run_startup_tasks()
         self.show_login_view()
+
+    def _ensure_database_is_ready(self):
+        """Vérifie et crée les tables de la base de données si elles n'existent pas."""
+        try:
+            create_tables()
+        except Exception as e:
+            messagebox.showerror("Erreur Critique de Base de Données",
+                                 f"Impossible d'initialiser la base de données.\nErreur: {e}\n\nL'application va se fermer.")
+            sys.exit(1)
 
     def _run_startup_tasks(self):
         def task():
@@ -99,9 +112,15 @@ class AppController:
 
     def on_login_success(self, nom_utilisateur: str):
         self.current_user = nom_utilisateur
-        user_info = user_model.obtenir_info_utilisateur(nom_utilisateur)
-        is_admin = "admin" in user_info.get("roles", [])
-        user_theme = user_info.get("theme_color", "blue")
+        user_info = user_model.obtenir_utilisateur_par_login_data(nom_utilisateur)
+
+        if not user_info:
+            self.show_toast("Erreur critique: Impossible de charger les données de l'utilisateur.", "error")
+            self.on_logout()
+            return
+
+        is_admin = "admin" in user_info.roles
+        user_theme = user_info.theme_color or "blue"
 
         ctk.set_default_color_theme(user_theme)
 

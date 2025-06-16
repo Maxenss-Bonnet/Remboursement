@@ -1,7 +1,5 @@
-# views/remboursement_item_view.py
 import os
 import customtkinter as ctk
-import datetime
 from config.settings import (
     STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
     STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
@@ -135,7 +133,7 @@ class RemboursementItemView(ctk.CTkFrame):
         if historique:
             for entree_hist in reversed(historique):
                 hist_text_box.insert("end",
-                                     f"{entree_hist.get('date', 'N/A')} - {entree_hist.get('par', 'Système')}:\n")
+                                     f"{entree_hist.get('date', 'N/A')} - {entree_hist.get('par_utilisateur', 'Système')}:\n")
                 if entree_hist.get('statut'): hist_text_box.insert("end", f"  Statut: {entree_hist.get('statut')}\n")
                 if entree_hist.get('commentaire', '').strip(): hist_text_box.insert("end",
                                                                                     f"  Commentaire: {entree_hist.get('commentaire').strip()}\n")
@@ -168,7 +166,6 @@ class RemboursementItemView(ctk.CTkFrame):
 
     def _populate_documents_buttons(self, parent_frame):
         parent_frame.grid_columnconfigure(0, weight=1)
-        btn_width_action = 140
         btn_width_dl = 40
 
         def add_doc_row(label_text, file_list):
@@ -196,11 +193,13 @@ class RemboursementItemView(ctk.CTkFrame):
 
         add_doc_row("Facture", self.demande_data.get("chemins_factures_stockees", []))
         add_doc_row("RIB", self.demande_data.get("chemins_rib_stockes", []))
-        add_doc_row("Preuve TP", self.demande_data.get("pieces_capture_trop_percu", []))
+        # CORRECTION : Utiliser le nouveau nom de clé "chemins_trop_percu_stockes"
+        add_doc_row("Preuve TP", self.demande_data.get("chemins_trop_percu_stockes", []))
 
+        # CORRECTION : Utiliser le nouveau nom de clé pour la vérification de l'historique
         if any(len(lst) > 1 for lst in [self.demande_data.get(k, []) for k in
                                         ["chemins_factures_stockees", "chemins_rib_stockes",
-                                         "pieces_capture_trop_percu"]]):
+                                         "chemins_trop_percu_stockes"]]):
             ctk.CTkFrame(parent_frame, height=2, fg_color="gray50").pack(fill="x", pady=5, padx=10)
             ctk.CTkButton(parent_frame, text="Historique des Documents", fg_color="gray50",
                           command=lambda d=self.demande_data: self.callbacks['voir_historique_docs'](d)).pack(fill="x",
