@@ -1,4 +1,3 @@
-# views/document_history_viewer.py
 import os
 import customtkinter as ctk
 
@@ -22,7 +21,6 @@ class DocumentHistoryViewer(ctk.CTkToplevel):
 
         label_font = ctk.CTkFont(weight="bold")
 
-        # Section Factures
         chemins_factures_rel = self.demande_data.get("chemins_factures_stockees", [])
         if chemins_factures_rel:
             ctk.CTkLabel(main_frame, text="Historique des Factures:", font=label_font).pack(anchor="w", pady=(10, 5))
@@ -35,7 +33,6 @@ class DocumentHistoryViewer(ctk.CTkToplevel):
                 ctk.CTkButton(item_frame, text="Voir", width=60,
                               command=lambda d=self.id_demande, p=rel_path: self.callbacks['voir_pj'](d, p)).pack(side="right", padx=2)
 
-        # Section RIBs
         chemins_ribs_rel = self.demande_data.get("chemins_rib_stockes", [])
         if chemins_ribs_rel:
             ctk.CTkLabel(main_frame, text="Historique des RIBs:", font=label_font).pack(anchor="w", pady=(15, 5))
@@ -48,8 +45,7 @@ class DocumentHistoryViewer(ctk.CTkToplevel):
                 ctk.CTkButton(item_frame, text="Voir", width=60,
                               command=lambda d=self.id_demande, p=rel_path: self.callbacks['voir_pj'](d, p)).pack(side="right", padx=2)
 
-        # Section Preuves de Trop-Perçu
-        chemins_trop_percu_rel = self.demande_data.get("pieces_capture_trop_percu", [])
+        chemins_trop_percu_rel = self.demande_data.get("chemins_trop_percu_stockes", [])
         if chemins_trop_percu_rel:
             ctk.CTkLabel(main_frame, text="Historique des Preuves de Trop-Perçu:", font=label_font).pack(anchor="w", pady=(15, 5))
             for idx, rel_path in enumerate(chemins_trop_percu_rel):

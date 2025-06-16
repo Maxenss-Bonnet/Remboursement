@@ -1,4 +1,5 @@
 import os
+import re
 import customtkinter as ctk
 from config.settings import (
     STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
@@ -164,6 +165,12 @@ class RemboursementItemView(ctk.CTkFrame):
             admin_actions_frame.grid(row=2, column=0, columnspan=3, pady=(4, 8), sticky="e")
             self._populate_admin_buttons(admin_actions_frame, statut_actuel)
 
+    def _sort_files_by_version(self, file_paths):
+        def get_version(path):
+            match = re.search(r'_v(\d+)', os.path.basename(path))
+            return int(match.group(1)) if match else 0
+        return sorted(file_paths, key=get_version)
+
     def _populate_documents_buttons(self, parent_frame):
         parent_frame.grid_columnconfigure(0, weight=1)
         btn_width_dl = 40
@@ -173,6 +180,9 @@ class RemboursementItemView(ctk.CTkFrame):
                 ctk.CTkLabel(parent_frame, text=f"{label_text}: N/A", font=ctk.CTkFont(size=12, slant="italic")).pack(
                     fill="x", pady=2, padx=5, anchor="w")
                 return
+
+            sorted_file_list = self._sort_files_by_version(file_list)
+            latest_file = sorted_file_list[-1]
 
             ctk.CTkLabel(parent_frame, text=label_text, font=ctk.CTkFont(size=12, weight="bold")).pack(fill="x",
                                                                                                        pady=(5, 0),
@@ -184,19 +194,17 @@ class RemboursementItemView(ctk.CTkFrame):
             button_frame.grid_columnconfigure(0, weight=1)
 
             btn_voir = ctk.CTkButton(button_frame, text="Voir",
-                                     command=lambda p=file_list[-1]: self.callbacks['voir_pj'](self.id_demande, p))
+                                     command=lambda p=latest_file: self.callbacks['voir_pj'](self.id_demande, p))
             btn_voir.grid(row=0, column=0, sticky="ew", padx=(0, 2))
 
             btn_dl = ctk.CTkButton(button_frame, text="DL", width=btn_width_dl, fg_color="gray50",
-                                   command=lambda p=file_list[-1]: self.callbacks['dl_pj'](self.id_demande, p))
+                                   command=lambda p=latest_file: self.callbacks['dl_pj'](self.id_demande, p))
             btn_dl.grid(row=0, column=1, sticky="e")
 
         add_doc_row("Facture", self.demande_data.get("chemins_factures_stockees", []))
         add_doc_row("RIB", self.demande_data.get("chemins_rib_stockes", []))
-        # CORRECTION : Utiliser le nouveau nom de clé "chemins_trop_percu_stockes"
         add_doc_row("Preuve TP", self.demande_data.get("chemins_trop_percu_stockes", []))
 
-        # CORRECTION : Utiliser le nouveau nom de clé pour la vérification de l'historique
         if any(len(lst) > 1 for lst in [self.demande_data.get(k, []) for k in
                                         ["chemins_factures_stockees", "chemins_rib_stockes",
                                          "chemins_trop_percu_stockes"]]):
@@ -204,8 +212,7 @@ class RemboursementItemView(ctk.CTkFrame):
             ctk.CTkButton(parent_frame, text="Historique des Documents", fg_color="gray50",
                           command=lambda d=self.demande_data: self.callbacks['voir_historique_docs'](d)).pack(fill="x",
                                                                                                               padx=2,
-                                                                                                              pady=(5,
-                                                                                                                    0))
+                                                                                                              pady=(5, 0))
 
     def _get_workflow_buttons(self, statut_actuel):
         buttons = []

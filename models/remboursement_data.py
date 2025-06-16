@@ -14,12 +14,12 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     historique_list = []
     if data.get('all_history'):
         for item in data['all_history'].split(';'):
-            parts = item.split('|', 4)
-            if len(parts) == 5:
+            parts = item.split('|', 3)
+            if len(parts) == 4:
                 historique_list.append({
-                    "statut": parts[1], "date": parts[2],
-                    "par_utilisateur": parts[3] if parts[3] != 'None' else None,
-                    "commentaire": parts[4] if parts[4] != 'None' else None
+                    "statut": parts[0], "date": parts[1],
+                    "par_utilisateur": parts[2] if parts[2] != 'None' else None,
+                    "commentaire": parts[3] if parts[3] != 'None' else None
                 })
     data['historique_statuts'] = historique_list
 
@@ -33,12 +33,12 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
                     factures.append(pj_path)
                 elif pj_type == 'rib':
                     ribs.append(pj_path)
-                elif pj_type == 'trop_percu':
+                elif pj_type == 'trop_percu' or pj_type == 'chemins_trop_percu_stockes':
                     trop_percus.append(pj_path)
 
     data['chemins_factures_stockees'] = factures
     data['chemins_rib_stockes'] = ribs
-    data['chemins_trop_percu_stockes'] = trop_percus
+    data['chemins_trop_percu_stockees'] = trop_percus
 
     data.pop('all_history', None)
     data.pop('all_attachments', None)
@@ -50,16 +50,15 @@ def charger_toutes_les_demandes_data(archived: bool = False) -> List[Rembourseme
     cursor = conn.cursor()
     query = """
             SELECT r.*,
-                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' || \
+                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' ||
                                         IFNULL(h.commentaire, 'None'), ';')
-                    FROM historique h \
-                    WHERE h.id_demande = r.id_demande \
-                    ORDER BY h.date)                    as all_history,
+                    FROM (SELECT * FROM historique WHERE id_demande = r.id_demande ORDER BY date) h
+                   ) AS all_history,
                    (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
-                    FROM pieces_jointes pj \
-                    WHERE pj.id_demande = r.id_demande) as all_attachments
-            FROM remboursements r \
-            WHERE r.is_archived = ? \
+                    FROM (SELECT * FROM pieces_jointes WHERE id_demande = r.id_demande ORDER BY date_ajout) pj
+                   ) AS all_attachments
+            FROM remboursements r
+            WHERE r.is_archived = ?
             """
     cursor.execute(query, (1 if archived else 0,))
     rows = cursor.fetchall()
@@ -73,16 +72,15 @@ def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
     cursor = conn.cursor()
     query = """
             SELECT r.*,
-                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' || \
+                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' ||
                                         IFNULL(h.commentaire, 'None'), ';')
-                    FROM historique h \
-                    WHERE h.id_demande = r.id_demande \
-                    ORDER BY h.date)                    as all_history,
+                    FROM (SELECT * FROM historique WHERE id_demande = r.id_demande ORDER BY date) h
+                   ) AS all_history,
                    (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
-                    FROM pieces_jointes pj \
-                    WHERE pj.id_demande = r.id_demande) as all_attachments
-            FROM remboursements r \
-            WHERE r.id_demande = ? \
+                    FROM (SELECT * FROM pieces_jointes WHERE id_demande = r.id_demande ORDER BY date_ajout) pj
+                   ) AS all_attachments
+            FROM remboursements r
+            WHERE r.id_demande = ?
             """
     cursor.execute(query, (id_demande,))
     row = cursor.fetchone()
@@ -142,11 +140,12 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
                            (demande.nom, demande.prenom, demande.reference_facture, demande.description,
                             demande.montant_demande, demande.statut, demande.derniere_modification_par,
                             demande.date_derniere_modification, demande.date_paiement_effectue, demande.id_demande))
-            dernier_historique = demande.historique_statuts[-1]
-            cursor.execute(
-                "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
-                (demande.id_demande, dernier_historique.statut, dernier_historique.date,
-                 dernier_historique.par_utilisateur, dernier_historique.commentaire))
+            if demande.historique_statuts:
+                dernier_historique = demande.historique_statuts[-1]
+                cursor.execute(
+                    "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
+                    (demande.id_demande, dernier_historique.statut, dernier_historique.date,
+                     dernier_historique.par_utilisateur, dernier_historique.commentaire))
             if nouveau_pj_relatif and type_pj:
                 cursor.execute(
                     "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",

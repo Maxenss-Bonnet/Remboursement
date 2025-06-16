@@ -2,22 +2,21 @@ import os
 import datetime
 import uuid
 import shutil
+import re
 from . import remboursement_data
 from . import remboursement_workflow
 from config.settings import (
     REMBOURSEMENTS_ATTACHMENTS_DIR,
     STATUT_CREEE,
     STATUT_PAIEMENT_EFFECTUE,
-    STATUT_ANNULEE
+    STATUT_ANNULEE,
+    STATUT_REFUSEE_CONSTAT_TP,
+    STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO
 )
 from .schemas import Remboursement as RemboursementSchema, HistoriqueStatut
 
 
 def _copy_and_version_attachment(source_path: str, demande_id: str, subfolder: str, file_prefix: str) -> str | None:
-    """
-    Copie un fichier dans le bon sous-dossier avec un nom versionné.
-    Retourne le chemin relatif pour la BDD (ex: 'D2025.../RIB/RIB_v1.pdf').
-    """
     if not source_path or not os.path.exists(source_path):
         return None
 
@@ -26,18 +25,21 @@ def _copy_and_version_attachment(source_path: str, demande_id: str, subfolder: s
 
     _, extension = os.path.splitext(source_path)
 
-    # Compter les fichiers existants pour déterminer la nouvelle version
-    version = 1
+    version_pattern = re.compile(f"^{re.escape(file_prefix)}_v(\\d+)")
+    max_version = 0
     for item in os.listdir(destination_folder):
-        if item.startswith(file_prefix) and item.endswith(extension):
-            version += 1
+        match = version_pattern.match(item)
+        if match:
+            version_num = int(match.group(1))
+            if version_num > max_version:
+                max_version = version_num
 
-    new_filename = f"{file_prefix}_v{version}{extension}"
+    new_version = max_version + 1
+    new_filename = f"{file_prefix}_v{new_version}{extension}"
     destination_path = os.path.join(destination_folder, new_filename)
 
     try:
         shutil.copy2(source_path, destination_path)
-        # Retourne le chemin relatif complet depuis la base des attachments
         return os.path.join(demande_id, subfolder, new_filename)
     except Exception as e:
         print(f"Erreur lors de la copie de {source_path} vers {destination_path}: {e}")
@@ -59,7 +61,8 @@ def creer_nouvelle_demande(
     chemins_factures_relatifs = []
     if chemin_facture_source:
         path = _copy_and_version_attachment(chemin_facture_source, id_unique_demande, "Facture", "Facture")
-        if path: chemins_factures_relatifs.append(path)
+        if path:
+            chemins_factures_relatifs.append(path)
 
     chemins_rib_relatifs = []
     if chemin_rib_source:
@@ -132,13 +135,111 @@ def admin_supprimer_archives_anciennes(age_en_annees: int) -> tuple[int, list[st
     return demandes_supprimees, erreurs
 
 
+def _generic_workflow_action(id_demande: str, commentaire: str | None, utilisateur: str,
+                             action_function) -> tuple[bool, str]:
+    demande = obtenir_demande_par_id(id_demande)
+    if not demande:
+        return False, "Demande non trouvée."
+    return action_function(demande, commentaire, utilisateur)
+
+
+def annuler_demande(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.annuler_demande_action)
+
+
+def accepter_constat_trop_percu(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.accepter_constat_trop_percu_action)
+
+
+def refuser_constat_trop_percu(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.refuser_constat_trop_percu_action)
+
+
+def valider_demande_par_validateur(id_demande: str, commentaire: str | None, utilisateur: str) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.valider_demande_par_validateur_action)
+
+
+def refuser_demande_par_validateur(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.refuser_demande_par_validateur_action)
+
+
+def confirmer_paiement_effectue(id_demande: str, utilisateur: str, commentaire: str | None) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.confirmer_paiement_action)
+
+
+def mlupo_refuser_correction(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+    return _generic_workflow_action(id_demande, commentaire, utilisateur,
+                                    remboursement_workflow.mlupo_refuser_correction_action)
+
+
+def pneri_resoumettre_demande_corrigee(id_demande: str, commentaire: str, nouveau_chemin_facture: str | None,
+                                       nouveau_chemin_rib: str | None, utilisateur: str) -> tuple[bool, str]:
+    demande = obtenir_demande_par_id(id_demande)
+    if not demande:
+        return False, "Demande non trouvée."
+    if demande.statut != STATUT_REFUSEE_CONSTAT_TP:
+        return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_CONSTAT_TP}'."
+
+    if nouveau_chemin_facture:
+        path = _copy_and_version_attachment(nouveau_chemin_facture, id_demande, "Facture", "Facture")
+        if not path:
+            return False, "Erreur lors de la copie de la nouvelle facture."
+
+        demande.derniere_modification_par = utilisateur
+        demande.date_derniere_modification = datetime.datetime.now()
+        succes, msg = remboursement_data.mettre_a_jour_demande_data(demande, path, "facture")
+        if not succes:
+            return False, f"Erreur BDD (facture): {msg}"
+
+    if nouveau_chemin_rib:
+        path = _copy_and_version_attachment(nouveau_chemin_rib, id_demande, "RIB", "RIB")
+        if not path:
+            return False, "Erreur lors de la copie du nouveau RIB."
+
+        demande.derniere_modification_par = utilisateur
+        demande.date_derniere_modification = datetime.datetime.now()
+        succes, msg = remboursement_data.mettre_a_jour_demande_data(demande, path, "rib")
+        if not succes:
+            return False, f"Erreur BDD (RIB): {msg}"
+
+    return remboursement_workflow.pneri_resoumettre_demande_action(demande, commentaire, utilisateur)
+
+
+def mlupo_resoumettre_constat_corrige(id_demande: str, commentaire: str, nouveau_chemin_pj_trop_percu: str | None,
+                                      utilisateur: str) -> tuple[bool, str]:
+    demande = obtenir_demande_par_id(id_demande)
+    if not demande:
+        return False, "Demande non trouvée."
+    if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
+        return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO}'."
+
+    if nouveau_chemin_pj_trop_percu:
+        path = _copy_and_version_attachment(nouveau_chemin_pj_trop_percu, id_demande, "Trop_Percu", "Preuve_TP")
+        if not path:
+            return False, "Erreur lors de la copie de la nouvelle preuve de trop-perçu."
+
+        demande.derniere_modification_par = utilisateur
+        demande.date_derniere_modification = datetime.datetime.now()
+
+        succes, msg = remboursement_data.mettre_a_jour_demande_data(demande, path, "trop_percu")
+        if not succes:
+            return False, f"Erreur BDD (Trop Percu): {msg}"
+
+    return remboursement_workflow.mlupo_resoumettre_constat_action(demande, commentaire, utilisateur)
+
+
 def ajouter_piece_jointe_trop_percu(id_demande: str, chemin_pj_source: str, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
     if not demande:
         return False, "Demande non trouvée."
 
     chemin_relatif = _copy_and_version_attachment(chemin_pj_source, demande.id_demande, "Trop_Percu", "Preuve_TP")
-
     if not chemin_relatif:
         return False, "Erreur lors de la copie de la preuve de trop-perçu."
 
@@ -150,18 +251,9 @@ def ajouter_piece_jointe_trop_percu(id_demande: str, chemin_pj_source: str, util
         par_utilisateur=utilisateur,
         commentaire=f"Ajout pièce jointe : {os.path.basename(chemin_relatif)}"
     ))
+
     return remboursement_data.mettre_a_jour_demande_data(demande, chemin_relatif, 'trop_percu')
 
 
-# Alias pour les fonctions
 archiver_demande_par_id = remboursement_data.archiver_demande_par_id_data
 supprimer_demande_par_id = remboursement_data.supprimer_demande_par_id_data
-accepter_constat_trop_percu = remboursement_workflow.accepter_constat_trop_percu_action
-refuser_constat_trop_percu = remboursement_workflow.refuser_constat_trop_percu_action
-annuler_demande = remboursement_workflow.annuler_demande_action
-valider_demande_par_validateur = remboursement_workflow.valider_demande_par_validateur_action
-refuser_demande_par_validateur = remboursement_workflow.refuser_demande_par_validateur_action
-confirmer_paiement_effectue = remboursement_workflow.confirmer_paiement_action
-pneri_resoumettre_demande_corrigee = remboursement_workflow.pneri_resoumettre_demande_action
-mlupo_resoumettre_constat_corrige = remboursement_workflow.mlupo_resoumettre_constat_action
-mlupo_refuser_correction = remboursement_workflow.mlupo_refuser_correction_action
