@@ -23,6 +23,8 @@ class DocumentViewerWindow(ctk.CTkToplevel):
         self.pdf_doc = None
         self.temp_dir_to_clean = temp_dir_to_clean
 
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
         self.scrollable_frame = ctk.CTkScrollableFrame(self)
         self.scrollable_frame.pack(expand=True, fill="both", padx=10, pady=10)
 

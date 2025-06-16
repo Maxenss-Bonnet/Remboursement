@@ -95,7 +95,9 @@ class RemboursementController:
                 return None, None
             try:
                 temp_dir = tempfile.mkdtemp(prefix="remb-archive-")
-                file_in_zip = os.path.join(*relative_path.split(os.path.sep)[1:])
+                path_parts = relative_path.replace('\\', '/').split('/')
+                file_in_zip = '/'.join(path_parts[1:]) if len(path_parts) > 1 else path_parts[0]
+
                 with zipfile.ZipFile(zip_path, 'r') as zf:
                     if file_in_zip in zf.namelist():
                         extracted_path = zf.extract(file_in_zip, path=temp_dir)
@@ -124,18 +126,15 @@ class RemboursementController:
             return False, f"Erreur lors du téléchargement : {e}"
         finally:
             if temp_dir_a_nettoyer and os.path.isdir(temp_dir_a_nettoyer):
-                shutil.rmtree(temp_dir_a_nettoyer)
+                from utils.archive_utils import cleanup_temp_dir
+                cleanup_temp_dir(temp_dir_a_nettoyer)
 
     def pneri_annuler_demande(self, id_demande: str, commentaire: str) -> tuple[bool, str]:
         return remboursement_model.annuler_demande(id_demande, commentaire, self.utilisateur_actuel)
 
     def mlupo_accepter_constat(self, id_demande: str, commentaire: str, chemin_pj_trop_percu: str) -> tuple[bool, str]:
-        succes_pj, msg_pj = remboursement_model.ajouter_piece_jointe_trop_percu(
-            id_demande, chemin_pj_trop_percu, self.utilisateur_actuel
-        )
-        if not succes_pj:
-            return False, f"Erreur lors de l'ajout de la pièce jointe : {msg_pj}"
-        return remboursement_model.accepter_constat_trop_percu(id_demande, commentaire, self.utilisateur_actuel)
+        return remboursement_model.accepter_constat_trop_percu(id_demande, commentaire, self.utilisateur_actuel,
+                                                               chemin_pj_trop_percu)
 
     def mlupo_refuser_constat(self, id_demande: str, commentaire: str) -> tuple[bool, str]:
         return remboursement_model.refuser_constat_trop_percu(id_demande, commentaire, self.utilisateur_actuel)

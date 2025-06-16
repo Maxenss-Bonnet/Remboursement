@@ -6,10 +6,11 @@ from config.settings import (
     STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
     STATUT_PAIEMENT_EFFECTUE
 )
-from .schemas import HistoriqueStatut
+from .schemas import HistoriqueStatut, Remboursement
 
 
-def accepter_constat_trop_percu_action(demande, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def accepter_constat_trop_percu_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_CREEE:
         return False, f"La demande n'est pas au statut '{STATUT_CREEE}'."
 
@@ -23,14 +24,19 @@ def accepter_constat_trop_percu_action(demande, commentaire: str, utilisateur: s
         commentaire=commentaire
     ))
 
-    succes, msg = remboursement_data.mettre_a_jour_demande_data(demande)
+    succes, msg = remboursement_data.mettre_a_jour_demande_data(
+        demande,
+        nouveau_pj_relatif=kwargs.get('nouveau_pj_relatif'),
+        type_pj=kwargs.get('type_pj')
+    )
     if succes:
         nom_patient = f"{demande.prenom} {demande.nom}".strip()
         return True, f"Constat accepté pour {nom_patient}."
     return False, f"Erreur lors de l'acceptation du constat: {msg}"
 
 
-def refuser_constat_trop_percu_action(demande, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def refuser_constat_trop_percu_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_CREEE:
         return False, f"La demande n'est pas au statut '{STATUT_CREEE}' pour un refus."
 
@@ -51,7 +57,7 @@ def refuser_constat_trop_percu_action(demande, commentaire: str, utilisateur: st
     return False, f"Erreur lors du refus du constat: {msg}"
 
 
-def annuler_demande_action(demande, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def annuler_demande_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[bool, str]:
     if demande.statut == STATUT_ANNULEE:
         return False, "Demande déjà annulée."
 
@@ -72,7 +78,8 @@ def annuler_demande_action(demande, commentaire: str, utilisateur: str) -> tuple
     return False, f"Erreur lors de l'annulation: {msg}"
 
 
-def valider_demande_par_validateur_action(demande, commentaire: str | None, utilisateur: str) -> tuple[bool, str]:
+def valider_demande_par_validateur_action(demande: Remboursement, commentaire: str | None, utilisateur: str,
+                                          **kwargs) -> tuple[bool, str]:
     if demande.statut != STATUT_TROP_PERCU_CONSTATE:
         return False, f"La demande n'est pas au statut '{STATUT_TROP_PERCU_CONSTATE}'."
 
@@ -93,7 +100,8 @@ def valider_demande_par_validateur_action(demande, commentaire: str | None, util
     return False, f"Erreur lors de la validation: {msg}"
 
 
-def refuser_demande_par_validateur_action(demande, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def refuser_demande_par_validateur_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_TROP_PERCU_CONSTATE:
         return False, f"La demande n'est pas au statut '{STATUT_TROP_PERCU_CONSTATE}'."
 
@@ -114,7 +122,8 @@ def refuser_demande_par_validateur_action(demande, commentaire: str, utilisateur
     return False, f"Erreur lors du refus par le validateur: {msg}"
 
 
-def confirmer_paiement_action(demande, utilisateur: str, commentaire: str | None) -> tuple[bool, str]:
+def confirmer_paiement_action(demande: Remboursement, utilisateur: str, commentaire: str | None, **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_VALIDEE:
         return False, f"La demande n'est pas au statut '{STATUT_VALIDEE}'."
 
@@ -137,7 +146,9 @@ def confirmer_paiement_action(demande, utilisateur: str, commentaire: str | None
     return False, f"Erreur lors de la confirmation du paiement: {msg}"
 
 
-def pneri_resoumettre_demande_action(demande, nouveau_commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def pneri_resoumettre_demande_action(demande: Remboursement, nouveau_commentaire: str, utilisateur: str,
+                                     **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_REFUSEE_CONSTAT_TP:
         return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_CONSTAT_TP}'."
 
@@ -158,7 +169,9 @@ def pneri_resoumettre_demande_action(demande, nouveau_commentaire: str, utilisat
     return False, f"Erreur lors de la resoumission : {msg}"
 
 
-def mlupo_resoumettre_constat_action(demande, nouveau_commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def mlupo_resoumettre_constat_action(demande: Remboursement, nouveau_commentaire: str, utilisateur: str,
+                                      **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
         return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO}'."
 
@@ -172,14 +185,19 @@ def mlupo_resoumettre_constat_action(demande, nouveau_commentaire: str, utilisat
         commentaire=f"Constat corrigé et resoumis: {nouveau_commentaire}"
     ))
 
-    succes, msg = remboursement_data.mettre_a_jour_demande_data(demande)
+    succes, msg = remboursement_data.mettre_a_jour_demande_data(
+        demande,
+        nouveau_pj_relatif=kwargs.get('nouveau_pj_relatif'),
+        type_pj=kwargs.get('type_pj')
+    )
     if succes:
         nom_patient = f"{demande.prenom} {demande.nom}".strip()
         return True, f"Constat pour {nom_patient} corrigé et resoumis."
     return False, f"Erreur lors de la resoumission: {msg}"
 
 
-def mlupo_refuser_correction_action(demande, commentaire: str, utilisateur: str) -> tuple[bool, str]:
+def mlupo_refuser_correction_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+    bool, str]:
     if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
         return False, f"L'action n'est pas possible depuis le statut '{demande.statut}'."
 

@@ -1,4 +1,3 @@
-# utils/archive_utils.py
 import os
 import shutil
 from typing import Tuple
@@ -18,24 +17,31 @@ def create_archive_for_demande(dossier_source: str, dossier_archive: str, nom_do
         Tuple[bool, str]: Un tuple contenant un booléen de succès et un message.
     """
     if not os.path.isdir(dossier_source):
-        return False, f"Le dossier source n'existe pas : {dossier_source}"
+        # Ce n'est pas une erreur si le dossier a déjà été supprimé
+        return True, f"Le dossier source n'existe pas ou a déjà été traité : {dossier_source}"
 
     os.makedirs(dossier_archive, exist_ok=True)
 
     chemin_archive_zip = os.path.join(dossier_archive, nom_dossier_demande)
 
     try:
-        # Créer l'archive (shutil créera un .zip)
         shutil.make_archive(base_name=chemin_archive_zip,
                             format='zip',
                             root_dir=dossier_source)
 
-        # Si la création de l'archive réussit, supprimer le dossier original
         shutil.rmtree(dossier_source)
 
         return True, f"Archive créée avec succès : {chemin_archive_zip}.zip"
     except Exception as e:
-        # En cas d'erreur, s'assurer que l'archive potentiellement incomplète est supprimée
         if os.path.exists(f"{chemin_archive_zip}.zip"):
             os.remove(f"{chemin_archive_zip}.zip")
         return False, f"Erreur lors de la création de l'archive : {e}"
+
+
+def cleanup_temp_dir(temp_dir: str):
+    """Supprime un répertoire temporaire et son contenu."""
+    if temp_dir and os.path.isdir(temp_dir):
+        try:
+            shutil.rmtree(temp_dir)
+        except OSError as e:
+            print(f"Avertissement : Impossible de nettoyer le dossier temporaire {temp_dir}: {e}")

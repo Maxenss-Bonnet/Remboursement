@@ -45,7 +45,7 @@ class DocumentHistoryViewer(ctk.CTkToplevel):
                 ctk.CTkButton(item_frame, text="Voir", width=60,
                               command=lambda d=self.id_demande, p=rel_path: self.callbacks['voir_pj'](d, p)).pack(side="right", padx=2)
 
-        chemins_trop_percu_rel = self.demande_data.get("chemins_trop_percu_stockes", [])
+        chemins_trop_percu_rel = self.demande_data.get("chemins_trop_percu_stockees", [])
         if chemins_trop_percu_rel:
             ctk.CTkLabel(main_frame, text="Historique des Preuves de Trop-Perçu:", font=label_font).pack(anchor="w", pady=(15, 5))
             for idx, rel_path in enumerate(chemins_trop_percu_rel):

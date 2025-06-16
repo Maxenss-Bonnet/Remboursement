@@ -1,6 +1,9 @@
 import os
 import shutil
 import sqlite3
+import datetime
+import stat
+import errno
 from typing import List, Tuple, Optional
 
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
@@ -33,7 +36,7 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
                     factures.append(pj_path)
                 elif pj_type == 'rib':
                     ribs.append(pj_path)
-                elif pj_type == 'trop_percu' or pj_type == 'chemins_trop_percu_stockes':
+                elif pj_type == 'trop_percu':
                     trop_percus.append(pj_path)
 
     data['chemins_factures_stockees'] = factures
@@ -157,6 +160,26 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
         conn.close()
 
 
+def ajouter_piece_jointe_data(id_demande: str, chemin_relatif: str, type_pj: str) -> Tuple[bool, str]:
+    conn = get_db_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
+                (id_demande, type_pj, chemin_relatif, datetime.datetime.now())
+            )
+            cursor.execute(
+                "UPDATE remboursements SET date_derniere_modification = ? WHERE id_demande = ?",
+                (datetime.datetime.now(), id_demande)
+            )
+        return True, "Pièce jointe ajoutée."
+    except sqlite3.Error as e:
+        return False, f"Erreur de BDD lors de l'ajout de la PJ: {e}"
+    finally:
+        conn.close()
+
+
 def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande: return False, "Demande non trouvée."
@@ -198,13 +221,22 @@ def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
             cursor.execute("DELETE FROM remboursements WHERE id_demande = ?", (id_demande,))
             if cursor.rowcount == 0: raise sqlite3.OperationalError("La suppression n'a affecté aucune ligne.")
 
+        def handle_remove_readonly(func, path, exc):
+            excvalue = exc[1]
+            if func in (os.rmdir, os.remove, os.unlink) and excvalue.errno == errno.EACCES:
+                os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                func(path)
+            else:
+                raise
+
         if demande.is_archived:
             chemin_archive = os.path.join(REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
                                           f"{demande.reference_facture_dossier}.zip")
             if os.path.exists(chemin_archive): os.remove(chemin_archive)
         else:
             dossier_a_supprimer = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
-            if os.path.isdir(dossier_a_supprimer): shutil.rmtree(dossier_a_supprimer)
+            if os.path.isdir(dossier_a_supprimer):
+                shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
 
         return True, f"La demande {id_demande} et ses fichiers ont été supprimés."
     except sqlite3.Error as e:

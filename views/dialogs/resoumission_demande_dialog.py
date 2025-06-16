@@ -20,6 +20,9 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
         self.keep_facture_var = ctk.BooleanVar(value=True)
         self.keep_rib_var = ctk.BooleanVar(value=True)
 
+        self.chemin_facture_var = ctk.StringVar(value="Ancienne facture conservée")
+        self.chemin_rib_var = ctk.StringVar(value="Ancien RIB conservé")
+
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.pack(expand=True, fill="both", padx=20, pady=10)
 
@@ -42,43 +45,53 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self.main_frame, text="Veuillez fournir les documents mis à jour et un commentaire.").pack(
             pady=(0, 15))
 
-        # Facture Section
-        self.btn_sel_facture = ctk.CTkButton(self.main_frame, text="Choisir Nouvelle Facture (Optionnel)",
+        # --- Section Facture ---
+        facture_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        facture_frame.pack(fill="x", pady=(5, 0))
+        facture_frame.columnconfigure(1, weight=1)
+
+        self.btn_sel_facture = ctk.CTkButton(facture_frame, text="Choisir Nouvelle Facture (Optionnel)",
                                              command=self._sel_new_facture, state="disabled")
-        self.chemin_facture_var = ctk.StringVar(value="Ancienne facture conservée")
-        self.lbl_facture_sel = ctk.CTkLabel(self.main_frame, textvariable=self.chemin_facture_var, text_color="gray")
+        self.btn_sel_facture.grid(row=0, column=0, padx=(0, 10))
+
+        self.lbl_facture_sel = ctk.CTkLabel(facture_frame, textvariable=self.chemin_facture_var, text_color="gray",
+                                            anchor="w")
+        self.lbl_facture_sel.grid(row=0, column=1, sticky="ew")
+
         factures_existantes = demande.chemins_factures_stockees
         self.cb_keep_facture = ctk.CTkCheckBox(self.main_frame, variable=self.keep_facture_var,
                                                command=self._toggle_facture_ui)
-
-        self.btn_sel_facture.pack(anchor="w", padx=20, pady=(5, 2))
-        self.lbl_facture_sel.pack(anchor="w", padx=20, pady=(0, 5))
         if factures_existantes:
             self.cb_keep_facture.configure(text=f"Conserver la facture : {os.path.basename(factures_existantes[-1])}")
         else:
             self.cb_keep_facture.configure(text="Pas de facture précédente à conserver", state="disabled")
             self.keep_facture_var.set(False)
             self._toggle_facture_ui()
-        self.cb_keep_facture.pack(anchor="w", padx=20, pady=(0, 10))
+        self.cb_keep_facture.pack(anchor="w", padx=20, pady=(5, 15))
 
-        # RIB Section
-        self.btn_sel_rib = ctk.CTkButton(self.main_frame, text="Choisir Nouveau RIB", command=self._sel_new_rib,
+        # --- Section RIB ---
+        rib_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        rib_frame.pack(fill="x", pady=(5, 0))
+        rib_frame.columnconfigure(1, weight=1)
+
+        self.btn_sel_rib = ctk.CTkButton(rib_frame, text="Choisir Nouveau RIB", command=self._sel_new_rib,
                                          state="disabled")
-        self.chemin_rib_var = ctk.StringVar(value="Ancien RIB conservé")
-        self.lbl_rib_sel = ctk.CTkLabel(self.main_frame, textvariable=self.chemin_rib_var, text_color="gray")
+        self.btn_sel_rib.grid(row=0, column=0, padx=(0, 10))
+
+        self.lbl_rib_sel = ctk.CTkLabel(rib_frame, textvariable=self.chemin_rib_var, text_color="gray", anchor="w")
+        self.lbl_rib_sel.grid(row=0, column=1, sticky="ew")
+
         ribs_existants = demande.chemins_rib_stockes
         self.cb_keep_rib = ctk.CTkCheckBox(self.main_frame, variable=self.keep_rib_var, command=self._toggle_rib_ui)
-
-        self.btn_sel_rib.pack(anchor="w", padx=20, pady=(5, 2))
-        self.lbl_rib_sel.pack(anchor="w", padx=20, pady=(0, 5))
         if ribs_existants:
             self.cb_keep_rib.configure(text=f"Conserver le RIB : {os.path.basename(ribs_existants[-1])}")
         else:
             self.cb_keep_rib.configure(text="Pas de RIB précédent à conserver", state="disabled")
             self.keep_rib_var.set(False)
             self._toggle_rib_ui()
-        self.cb_keep_rib.pack(anchor="w", padx=20, pady=(0, 10))
+        self.cb_keep_rib.pack(anchor="w", padx=20, pady=(5, 15))
 
+        # --- Section Commentaire et Soumission ---
         ctk.CTkLabel(self.main_frame, text="Commentaire de correction (Obligatoire):").pack(pady=(15, 0))
         self.commentaire_box = ctk.CTkTextbox(self.main_frame, height=80)
         self.commentaire_box.pack(pady=5, padx=20, fill="x", expand=True)
@@ -89,16 +102,23 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
     def _toggle_facture_ui(self):
         is_kept = self.keep_facture_var.get()
         self.btn_sel_facture.configure(state="disabled" if is_kept else "normal")
-        self.lbl_facture_sel.configure(text_color="gray" if is_kept else self.cget("fg_color"))
+        self.lbl_facture_sel.configure(
+            text_color="gray" if is_kept else ctk.ThemeManager.theme["CTkLabel"]["text_color"])
         self.new_facture_path = None
-        self.chemin_facture_var.set("Ancienne facture conservée" if is_kept else "Aucun fichier sélectionné")
+        if is_kept:
+            self.chemin_facture_var.set("Ancienne facture conservée")
+        else:
+            self.chemin_facture_var.set("Aucun fichier sélectionné")
 
     def _toggle_rib_ui(self):
         is_kept = self.keep_rib_var.get()
         self.btn_sel_rib.configure(state="disabled" if is_kept else "normal")
-        self.lbl_rib_sel.configure(text_color="gray" if is_kept else self.cget("fg_color"))
+        self.lbl_rib_sel.configure(text_color="gray" if is_kept else ctk.ThemeManager.theme["CTkLabel"]["text_color"])
         self.new_rib_path = None
-        self.chemin_rib_var.set("Ancien RIB conservé" if is_kept else "Aucun fichier sélectionné")
+        if is_kept:
+            self.chemin_rib_var.set("Ancien RIB conservé")
+        else:
+            self.chemin_rib_var.set("Aucun fichier sélectionné")
 
     def _sel_new_facture(self):
         path = self.remboursement_controller.selectionner_fichier_document_ou_image("Nouvelle Facture")

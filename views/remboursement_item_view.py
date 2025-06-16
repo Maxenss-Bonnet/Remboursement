@@ -203,16 +203,17 @@ class RemboursementItemView(ctk.CTkFrame):
 
         add_doc_row("Facture", self.demande_data.get("chemins_factures_stockees", []))
         add_doc_row("RIB", self.demande_data.get("chemins_rib_stockes", []))
-        add_doc_row("Preuve TP", self.demande_data.get("chemins_trop_percu_stockes", []))
+        add_doc_row("Preuve TP", self.demande_data.get("chemins_trop_percu_stockees", []))
 
         if any(len(lst) > 1 for lst in [self.demande_data.get(k, []) for k in
                                         ["chemins_factures_stockees", "chemins_rib_stockes",
-                                         "chemins_trop_percu_stockes"]]):
+                                         "chemins_trop_percu_stockees"]]):
             ctk.CTkFrame(parent_frame, height=2, fg_color="gray50").pack(fill="x", pady=5, padx=10)
             ctk.CTkButton(parent_frame, text="Historique des Documents", fg_color="gray50",
                           command=lambda d=self.demande_data: self.callbacks['voir_historique_docs'](d)).pack(fill="x",
                                                                                                               padx=2,
-                                                                                                              pady=(5, 0))
+                                                                                                              pady=(5,
+                                                                                                                    0))
 
     def _get_workflow_buttons(self, statut_actuel):
         buttons = []
@@ -244,7 +245,8 @@ class RemboursementItemView(ctk.CTkFrame):
         if (
                 self._est_comptable_tresorerie() or self._est_admin()) and statut_actuel == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
             buttons.append(
-                ("Corriger Constat TP", lambda: self.callbacks['mlupo_resoumettre_constat'](id_demande), "teal", None))
+                ("Corriger Constat TP", lambda: self.callbacks['mlupo_resoumettre_constat'](id_demande), "teal",
+                 None))
 
         return buttons
 
@@ -260,5 +262,6 @@ class RemboursementItemView(ctk.CTkFrame):
                                                                                                         padx=(5, 5))
 
         ctk.CTkButton(parent_frame, text="Supprimer (Admin)", width=btn_width_action, fg_color="red",
-                      hover_color="darkred", command=lambda: self.callbacks['supprimer_demande'](self.id_demande)).pack(
+                      hover_color="darkred",
+                      command=lambda: self.callbacks['supprimer_demande'](self.id_demande)).pack(
             side="right", padx=(0, 5))

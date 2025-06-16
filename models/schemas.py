@@ -18,7 +18,7 @@ class Remboursement(BaseModel):
     montant_demande: float
     chemins_factures_stockees: List[str] = Field(default_factory=list)
     chemins_rib_stockes: List[str] = Field(default_factory=list)
-    chemins_trop_percu_stockes: List[str] = Field(default_factory=list)
+    chemins_trop_percu_stockees: List[str] = Field(default_factory=list)
     statut: str
     cree_par: str
     date_creation: datetime.datetime

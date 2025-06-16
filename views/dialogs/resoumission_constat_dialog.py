@@ -19,6 +19,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
 
         self.new_pj_path = None
         self.keep_pj_var = ctk.BooleanVar(value=True)
+        self.chemin_pj_var = ctk.StringVar(value="Ancienne preuve conservée")
 
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.pack(expand=True, fill="both", padx=10, pady=10)
@@ -52,15 +53,19 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
                                                                                                            side="top",
                                                                                                            padx=10)
 
-        self.btn_sel_pj = ctk.CTkButton(self.main_frame, text="Choisir Nouvelle Preuve TP", command=self._sel_new_pj_tp,
+        # --- Section PJ Trop Percu ---
+        pj_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        pj_frame.pack(fill="x", padx=10, pady=(5, 0))
+        pj_frame.columnconfigure(1, weight=1)
+
+        self.btn_sel_pj = ctk.CTkButton(pj_frame, text="Choisir Nouvelle Preuve TP", command=self._sel_new_pj_tp,
                                         state="disabled")
-        self.btn_sel_pj.pack(anchor="w", padx=20, pady=(5, 2), side="top")
+        self.btn_sel_pj.grid(row=0, column=0, padx=(0, 10))
 
-        self.chemin_pj_var = ctk.StringVar(value="Ancienne preuve conservée")
-        self.lbl_pj_sel = ctk.CTkLabel(self.main_frame, textvariable=self.chemin_pj_var, text_color="gray")
-        self.lbl_pj_sel.pack(anchor="w", padx=20, pady=(0, 5), side="top")
+        self.lbl_pj_sel = ctk.CTkLabel(pj_frame, textvariable=self.chemin_pj_var, text_color="gray", anchor="w")
+        self.lbl_pj_sel.grid(row=0, column=1, sticky="ew")
 
-        pjs_existantes = demande.chemins_trop_percu_stockes
+        pjs_existantes = demande.chemins_trop_percu_stockees
         self.cb_keep_pj = ctk.CTkCheckBox(self.main_frame, variable=self.keep_pj_var, command=self._toggle_pj_ui)
 
         if pjs_existantes:
@@ -69,9 +74,9 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             self.cb_keep_pj.configure(text="Pas de preuve précédente", state="disabled")
             self.keep_pj_var.set(False)
             self._toggle_pj_ui()
+        self.cb_keep_pj.pack(anchor="w", padx=20, pady=(5, 15))
 
-        self.cb_keep_pj.pack(anchor="w", padx=20, pady=(0, 10), side="top")
-
+        # --- Section Commentaire ---
         ctk.CTkLabel(self.main_frame, text="Commentaire de correction (Obligatoire):").pack(pady=(15, 0), side="top",
                                                                                             padx=10)
         self.commentaire_box = ctk.CTkTextbox(self.main_frame)
@@ -81,9 +86,12 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
     def _toggle_pj_ui(self):
         is_kept = self.keep_pj_var.get()
         self.btn_sel_pj.configure(state="disabled" if is_kept else "normal")
-        self.lbl_pj_sel.configure(text_color="gray" if is_kept else self.cget("fg_color"))
+        self.lbl_pj_sel.configure(text_color="gray" if is_kept else ctk.ThemeManager.theme["CTkLabel"]["text_color"])
         self.new_pj_path = None
-        self.chemin_pj_var.set("Ancienne preuve conservée" if is_kept else "Aucun fichier sélectionné")
+        if is_kept:
+            self.chemin_pj_var.set("Ancienne preuve conservée")
+        else:
+            self.chemin_pj_var.set("Aucun fichier sélectionné")
 
     def _sel_new_pj_tp(self):
         path = self.remboursement_controller.selectionner_fichier_document_ou_image("Nouvelle Preuve Trop-Perçu")
