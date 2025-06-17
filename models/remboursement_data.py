@@ -49,26 +49,54 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     return Remboursement(**data)
 
 
-def charger_toutes_les_demandes_data(archived: bool = False) -> List[Remboursement]:
+def charger_demandes_data(
+        statut_filter: Optional[List[str]] = None,
+        search_term: Optional[str] = None,
+        sort_field: str = 'date_derniere_modification',
+        sort_order: str = 'DESC',
+        is_archived: bool = False
+) -> List[Remboursement]:
     conn = get_db_connection()
     cursor = conn.cursor()
-    query = """
-            SELECT r.*,
-                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' ||
-                                        IFNULL(h.commentaire, 'None'), ';')
-                    FROM (SELECT * FROM historique WHERE id_demande = r.id_demande ORDER BY date) h
-                   ) AS all_history,
-                   (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
-                    FROM (SELECT * FROM pieces_jointes WHERE id_demande = r.id_demande ORDER BY date_ajout) pj
-                   ) AS all_attachments
-            FROM remboursements r
-            WHERE r.is_archived = ?
-            """
-    cursor.execute(query, (1 if archived else 0,))
+
+    base_query = """
+    SELECT r.*,
+           (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' ||
+                                IFNULL(h.commentaire, 'None'), ';')
+            FROM (SELECT * FROM historique WHERE id_demande = r.id_demande ORDER BY date) h
+           ) AS all_history,
+           (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
+            FROM (SELECT * FROM pieces_jointes WHERE id_demande = r.id_demande ORDER BY date_ajout) pj
+           ) AS all_attachments
+    FROM remboursements r
+    """
+
+    where_clauses = ["r.is_archived = ?"]
+    params = [1 if is_archived else 0]
+
+    if search_term:
+        where_clauses.append("(r.nom LIKE ? OR r.prenom LIKE ? OR r.reference_facture LIKE ?)")
+        term = f"%{search_term}%"
+        params.extend([term, term, term])
+
+    if statut_filter:
+        placeholders = ', '.join('?' for _ in statut_filter)
+        where_clauses.append(f"r.statut IN ({placeholders})")
+        params.extend(statut_filter)
+
+    if where_clauses:
+        base_query += " WHERE " + " AND ".join(where_clauses)
+
+    valid_sort_fields = ['nom', 'montant_demande', 'date_derniere_modification', 'date_creation']
+    if sort_field in valid_sort_fields:
+        order = 'DESC' if sort_order.upper() == 'DESC' else 'ASC'
+        base_query += f" ORDER BY r.{sort_field} {order}"
+
+    cursor.execute(base_query, tuple(params))
     rows = cursor.fetchall()
     conn.close()
-    demandes = [_construct_remboursement_from_row(row) for row in rows]
-    return sorted(demandes, key=lambda d: d.date_derniere_modification, reverse=True)
+
+    return [_construct_remboursement_from_row(row) for row in rows]
 
 
 def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
@@ -121,7 +149,8 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
     except sqlite3.Error as e:
         return False, f"Erreur de base de données : {e}"
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optional[str] = None,
@@ -211,7 +240,7 @@ def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
 def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande:
-        demandes_archivees = charger_toutes_les_demandes_data(archived=True)
+        demandes_archivees = charger_demandes_data(is_archived=True)
         demande = next((d for d in demandes_archivees if d.id_demande == id_demande), None)
         if not demande: return False, "Demande non trouvée."
 

@@ -1,5 +1,6 @@
 import os
 import customtkinter as ctk
+import threading
 from .comment_dialog import CommentDialog
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 
@@ -20,8 +21,9 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.transient(master)
         self.grab_set()
         self.minsize(500, 400)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self.new_pj_path = None
+        self.chemin_pj_reseau_temp = None
         self.keep_pj_var = ctk.BooleanVar(value=True)
         self.chemin_pj_var = ctk.StringVar(value="Ancienne preuve conservée")
 
@@ -83,67 +85,79 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         is_kept = self.keep_pj_var.get()
         self.btn_sel_pj.configure(state="disabled" if is_kept else "normal")
         self.lbl_pj_sel.configure(text_color="gray" if is_kept else ctk.ThemeManager.theme["CTkLabel"]["text_color"])
-        self.new_pj_path = None
+        if self.chemin_pj_reseau_temp:
+            self.remboursement_controller.supprimer_fichier_temporaire_reseau(self.chemin_pj_reseau_temp)
+            self.chemin_pj_reseau_temp = None
         if is_kept:
             self.chemin_pj_var.set("Ancienne preuve conservée")
         else:
             self.chemin_pj_var.set("Aucun fichier sélectionné")
 
     def _sel_new_pj_tp(self):
-        path = self.remboursement_controller.selectionner_fichier_document_ou_image("Nouvelle Preuve Trop-Perçu")
-        if path:
-            self.new_pj_path = path
-            self.chemin_pj_var.set(os.path.basename(path))
+        chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image("Nouvelle Preuve Trop-Perçu")
+        if not chemin_local: return
+
+        if self.chemin_pj_reseau_temp:
+            self.run_task(lambda p=self.chemin_pj_reseau_temp: self.remboursement_controller.supprimer_fichier_temporaire_reseau(p), None, show_overlay=False)
+        self.chemin_pj_reseau_temp = None
+
+        self.chemin_pj_var.set("Copie en cours...")
+        def task(): return self.remboursement_controller.preparer_piece_jointe_reseau(chemin_local)
+        def on_complete(result, error):
+            if error:
+                self.chemin_pj_var.set("Échec copie!")
+            else:
+                self.chemin_pj_reseau_temp = result
+                self.chemin_pj_var.set(os.path.basename(result))
+        self.run_task(task, on_complete, show_overlay=False)
 
     def _submit_correction_constat(self):
         commentaire = self.commentaire_box.get("1.0", "end-1c").strip()
-        if not self.keep_pj_var.get() and not self.new_pj_path:
-            self.app_controller.show_toast("Une nouvelle preuve est obligatoire si vous ne conservez pas l'ancienne.",
-                                           "error")
+        if not self.keep_pj_var.get() and not self.chemin_pj_reseau_temp:
+            self.app_controller.show_toast("Une nouvelle preuve est obligatoire si vous ne conservez pas l'ancienne.", "error")
             return
         if not commentaire:
             self.app_controller.show_toast("Un commentaire expliquant la correction est obligatoire.", "error")
             return
 
         def task():
+            path_to_submit = self.chemin_pj_reseau_temp
+            self.chemin_pj_reseau_temp = None
             return self.remboursement_controller.mlupo_resoumettre_constat_corrige(
                 self.id_demande, commentaire,
-                None if self.keep_pj_var.get() else self.new_pj_path
+                None if self.keep_pj_var.get() else path_to_submit
             )
 
         def on_complete(result, error):
-            if error:
-                self.app_controller.show_toast(f"Erreur : {error}", 'error')
-                return
-            action_success, action_message = result
-            if action_success:
-                self.app_controller.show_toast(action_message, 'success')
+            if error: self.app_controller.show_toast(f"Erreur : {error}", 'error'); return
+            success, message = result
+            if success:
+                self.app_controller.show_toast(message, 'success')
                 self.submitted = True
                 self.destroy()
             else:
-                self.app_controller.show_toast(action_message, 'error')
-
+                self.app_controller.show_toast(message, 'error')
         self.run_task(task, on_complete, "Resoumission du constat...")
 
     def _reject_and_return_to_demandeur(self):
-        dialog = CommentDialog(self, title="Renvoyer au Demandeur", prompt="Motif du renvoi à p.neri (obligatoire) :",
-                               is_mandatory=True)
+        dialog = CommentDialog(self, title="Renvoyer au Demandeur", prompt="Motif du renvoi à p.neri (obligatoire) :", is_mandatory=True)
         commentaire = dialog.get_comment()
         if commentaire is None: return
 
-        def task():
-            return self.remboursement_controller.mlupo_refuser_correction(self.id_demande, commentaire)
-
+        self._on_close() # Nettoie les fichiers temporaires avant de potentiellement détruire la fenêtre
+        def task(): return self.remboursement_controller.mlupo_refuser_correction(self.id_demande, commentaire)
         def on_complete(result, error):
-            if error:
-                self.app_controller.show_toast(f"Erreur : {error}", 'error')
-                return
-            action_success, action_message = result
-            if action_success:
-                self.app_controller.show_toast(action_message, 'success')
+            if error: self.app_controller.show_toast(f"Erreur : {error}", 'error'); return
+            success, message = result
+            if success:
+                self.app_controller.show_toast(message, 'success')
                 self.submitted = True
-                self.destroy()
+                # La fenêtre est déjà fermée par _on_close() qui appelle self.destroy()
             else:
-                self.app_controller.show_toast(action_message, 'error')
-
+                self.app_controller.show_toast(message, 'error')
         self.run_task(task, on_complete, "Renvoi au demandeur...")
+
+    def _on_close(self):
+        if self.chemin_pj_reseau_temp:
+            threading.Thread(target=self.remboursement_controller.supprimer_fichier_temporaire_reseau, args=(self.chemin_pj_reseau_temp,), daemon=True).start()
+        self.destroy()

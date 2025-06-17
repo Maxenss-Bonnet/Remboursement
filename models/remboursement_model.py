@@ -20,14 +20,15 @@ def _sanitize_for_filename(text: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "_", text).replace(" ", "_")
 
 
-def _copy_and_version_attachment(source_path: str, dossier_demande: str, subfolder: str, file_prefix: str) -> str | None:
-    if not source_path or not os.path.exists(source_path):
+def _move_and_version_preuploaded_attachment(source_path_reseau: str, dossier_demande: str, subfolder: str,
+                                             file_prefix: str) -> str | None:
+    if not source_path_reseau or not os.path.exists(source_path_reseau):
         return None
 
     destination_folder = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, dossier_demande, subfolder)
     os.makedirs(destination_folder, exist_ok=True)
 
-    _, extension = os.path.splitext(source_path)
+    _, extension = os.path.splitext(source_path_reseau)
 
     version_pattern = re.compile(f"^{re.escape(file_prefix)}_v(\\d+)")
     max_version = 0
@@ -44,11 +45,18 @@ def _copy_and_version_attachment(source_path: str, dossier_demande: str, subfold
     destination_path = os.path.join(destination_folder, new_filename)
 
     try:
-        shutil.copy2(source_path, destination_path)
+        shutil.move(source_path_reseau, destination_path)
         return os.path.join(dossier_demande, subfolder, new_filename)
     except Exception as e:
-        print(f"Erreur lors de la copie de {source_path} vers {destination_path}: {e}")
-        return None
+        print(f"Erreur lors du déplacement de {source_path_reseau} vers {destination_path}: {e}")
+        # Tenter de recopier en fallback si le déplacement échoue (ex: lecteurs différents)
+        try:
+            shutil.copy2(source_path_reseau, destination_path)
+            os.remove(source_path_reseau)
+            return os.path.join(dossier_demande, subfolder, new_filename)
+        except Exception as e2:
+            print(f"La copie de secours a également échoué: {e2}")
+            return None
 
 
 def creer_nouvelle_demande(
@@ -56,8 +64,8 @@ def creer_nouvelle_demande(
         prenom: str,
         reference_facture: str,
         montant_demande: float,
-        chemin_facture_source: str | None,
-        chemin_rib_source: str,
+        chemin_facture_temp_reseau: str | None,
+        chemin_rib_temp_reseau: str | None,
         utilisateur_createur: str,
         description: str
 ) -> tuple[bool, str]:
@@ -67,16 +75,16 @@ def creer_nouvelle_demande(
     nom_dossier = f"{ref_sanitized}_{id_unique_demande}"
 
     chemins_factures_relatifs = []
-    if chemin_facture_source:
-        path = _copy_and_version_attachment(chemin_facture_source, nom_dossier, "Facture", "Facture")
+    if chemin_facture_temp_reseau:
+        path = _move_and_version_preuploaded_attachment(chemin_facture_temp_reseau, nom_dossier, "Facture", "Facture")
         if path:
             chemins_factures_relatifs.append(path)
 
     chemins_rib_relatifs = []
-    if chemin_rib_source:
-        path = _copy_and_version_attachment(chemin_rib_source, nom_dossier, "RIB", "RIB")
+    if chemin_rib_temp_reseau:
+        path = _move_and_version_preuploaded_attachment(chemin_rib_temp_reseau, nom_dossier, "RIB", "RIB")
         if not path:
-            return False, "Erreur critique lors de la copie du RIB."
+            return False, "Erreur critique lors du déplacement du RIB."
         chemins_rib_relatifs.append(path)
 
     now = datetime.datetime.now()
@@ -108,15 +116,22 @@ def obtenir_demande_par_id(id_demande: str) -> RemboursementSchema | None:
     return remboursement_data.obtenir_demande_par_id_data(id_demande)
 
 
-def obtenir_toutes_les_demandes(include_archives: bool = False) -> list[RemboursementSchema]:
-    return remboursement_data.charger_toutes_les_demandes_data(include_archives)
+def obtenir_demandes_filtrees_triees(statut_filter: list | None, search_term: str, sort_field: str, sort_order: str,
+                                     is_archived: bool) -> list[RemboursementSchema]:
+    return remboursement_data.charger_demandes_data(
+        statut_filter=statut_filter,
+        search_term=search_term,
+        sort_field=sort_field,
+        sort_order=sort_order,
+        is_archived=is_archived
+    )
 
 
 def archiver_les_vieilles_demandes() -> int:
     count = 0
     douze_mois = datetime.timedelta(days=365)
     now = datetime.datetime.now()
-    demandes_actives = obtenir_toutes_les_demandes(include_archives=False)
+    demandes_actives = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", False)
 
     for demande in demandes_actives:
         if demande.statut in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]:
@@ -131,7 +146,7 @@ def admin_supprimer_archives_anciennes(age_en_annees: int) -> tuple[int, list[st
     demandes_supprimees = 0
     erreurs = []
     date_limite = datetime.datetime.now() - datetime.timedelta(days=age_en_annees * 365.25)
-    demandes_archivees = obtenir_toutes_les_demandes(include_archives=True)
+    demandes_archivees = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", True)
 
     for demande in demandes_archivees:
         if demande.is_archived and demande.date_derniere_modification < date_limite:
@@ -165,7 +180,7 @@ def accepter_constat_trop_percu(id_demande: str, commentaire: str, utilisateur: 
     if not chemin_pj_trop_percu or not os.path.exists(chemin_pj_trop_percu):
         return False, "Le chemin de la pièce jointe du trop-perçu est invalide."
 
-    chemin_relatif = _copy_and_version_attachment(chemin_pj_trop_percu, demande.reference_facture_dossier, "Trop_Percu",
+    chemin_relatif = _move_and_version_preuploaded_attachment(chemin_pj_trop_percu, demande.reference_facture_dossier, "Trop_Percu",
                                                   "Preuve_TP")
     if not chemin_relatif:
         return False, "Erreur lors de la copie de la preuve de trop-perçu."
@@ -217,7 +232,7 @@ def pneri_resoumettre_demande_corrigee(id_demande: str, commentaire: str, nouvea
         return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_CONSTAT_TP}'."
 
     if nouveau_chemin_facture:
-        path = _copy_and_version_attachment(nouveau_chemin_facture, demande.reference_facture_dossier, "Facture",
+        path = _move_and_version_preuploaded_attachment(nouveau_chemin_facture, demande.reference_facture_dossier, "Facture",
                                             "Facture")
         if not path:
             return False, "Erreur lors de la copie de la nouvelle facture."
@@ -226,7 +241,7 @@ def pneri_resoumettre_demande_corrigee(id_demande: str, commentaire: str, nouvea
             return False, f"Erreur BDD (facture): {msg}"
 
     if nouveau_chemin_rib:
-        path = _copy_and_version_attachment(nouveau_chemin_rib, demande.reference_facture_dossier, "RIB", "RIB")
+        path = _move_and_version_preuploaded_attachment(nouveau_chemin_rib, demande.reference_facture_dossier, "RIB", "RIB")
         if not path:
             return False, "Erreur lors de la copie du nouveau RIB."
         succes, msg = remboursement_data.ajouter_piece_jointe_data(id_demande, path, "rib")
@@ -248,7 +263,7 @@ def mlupo_resoumettre_constat_corrige(id_demande: str, commentaire: str, nouveau
 
     nouveau_pj_relatif = None
     if nouveau_chemin_pj_trop_percu:
-        nouveau_pj_relatif = _copy_and_version_attachment(nouveau_chemin_pj_trop_percu,
+        nouveau_pj_relatif = _move_and_version_preuploaded_attachment(nouveau_chemin_pj_trop_percu,
                                                           demande.reference_facture_dossier, "Trop_Percu",
                                                           "Preuve_TP")
         if not nouveau_pj_relatif:

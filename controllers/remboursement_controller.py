@@ -1,14 +1,18 @@
-from models import remboursement_model
-from utils import pdf_utils
-from tkinter import filedialog
 import os
 import shutil
 import datetime
 import tempfile
 import zipfile
+import uuid
+from tkinter import filedialog
 
+from models import remboursement_model
+from utils import pdf_utils
 from config.settings import (
-    REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR, REMBOURSEMENTS_ATTACHMENTS_DIR
+    REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR, REMBOURSEMENTS_ATTACHMENTS_DIR,
+    REMBOURSEMENTS_TEMP_UPLOADS_DIR, STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE,
+    STATUT_REFUSEE_CONSTAT_TP, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
+    STATUT_VALIDEE, STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE
 )
 
 
@@ -38,39 +42,95 @@ class RemboursementController:
         )
         return filedialog.askopenfilename(title=titre_dialogue, filetypes=filetypes)
 
-    def _valider_donnees_demande(self, nom: str, prenom: str, reference_facture: str, montant_demande_str: str,
-                                 description: str, chemin_facture_source: str | None, chemin_rib_source: str
-                                 ) -> tuple[bool, str, float | None]:
+    def preparer_piece_jointe_reseau(self, chemin_local_source: str) -> str:
+        if not chemin_local_source or not os.path.exists(chemin_local_source):
+            raise ValueError("Le fichier source local n'existe pas.")
+
+        os.makedirs(REMBOURSEMENTS_TEMP_UPLOADS_DIR, exist_ok=True)
+        _, extension = os.path.splitext(chemin_local_source)
+        nom_fichier_unique = f"temp_{uuid.uuid4()}{extension}"
+        chemin_destination_reseau = os.path.join(REMBOURSEMENTS_TEMP_UPLOADS_DIR, nom_fichier_unique)
+
+        shutil.copy2(chemin_local_source, chemin_destination_reseau)
+        return chemin_destination_reseau
+
+    def supprimer_fichier_temporaire_reseau(self, chemin_fichier_temp: str):
+        if not chemin_fichier_temp:
+            return
+        try:
+            # Sécurité : vérifier que le chemin est bien dans le dossier temporaire
+            if os.path.commonpath([chemin_fichier_temp, REMBOURSEMENTS_TEMP_UPLOADS_DIR]) == REMBOURSEMENTS_TEMP_UPLOADS_DIR:
+                if os.path.exists(chemin_fichier_temp):
+                    os.remove(chemin_fichier_temp)
+        except Exception as e:
+            print(f"Avertissement : impossible de supprimer le fichier temporaire {chemin_fichier_temp}. Erreur: {e}")
+
+    def valider_donnees_demande(self, nom: str, prenom: str, reference_facture: str, montant_demande_str: str,
+                                description: str, chemin_facture_temp_reseau: str | None,
+                                chemin_rib_temp_reseau: str | None
+                                ) -> tuple[bool, str, float | None]:
         if not all([nom, prenom, reference_facture, montant_demande_str, description]):
             return False, "Tous les champs de texte (sauf facture) sont obligatoires.", None
-        if not chemin_rib_source:
+        if not chemin_rib_temp_reseau:
             return False, "La sélection du fichier RIB est obligatoire.", None
         try:
             montant_demande = float(montant_demande_str.replace(",", "."))
             if montant_demande <= 0: return False, "Le montant demandé doit être un nombre positif.", None
         except ValueError:
             return False, "Le montant demandé doit être un nombre valide.", None
-        if chemin_facture_source and not os.path.exists(chemin_facture_source):
-            return False, f"Fichier facture non trouvé : {chemin_facture_source}", None
-        if not os.path.exists(chemin_rib_source):
-            return False, f"Fichier RIB non trouvé : {chemin_rib_source}", None
+        if chemin_facture_temp_reseau and not os.path.exists(chemin_facture_temp_reseau):
+            return False, f"Fichier facture temporaire non trouvé : {chemin_facture_temp_reseau}", None
+        if not os.path.exists(chemin_rib_temp_reseau):
+            return False, f"Fichier RIB temporaire non trouvé : {chemin_rib_temp_reseau}", None
         return True, "", montant_demande
 
     def creer_demande_remboursement(
             self, nom: str, prenom: str, reference_facture: str, montant_demande: float,
-            description: str, chemin_facture_source: str | None, chemin_rib_source: str
+            description: str, chemin_facture_temp_reseau: str | None, chemin_rib_temp_reseau: str | None
     ) -> tuple[bool, str]:
         succes, message = remboursement_model.creer_nouvelle_demande(
             nom, prenom, reference_facture, montant_demande,
-            chemin_facture_source, chemin_rib_source, self.utilisateur_actuel, description
+            chemin_facture_temp_reseau, chemin_rib_temp_reseau, self.utilisateur_actuel, description
         )
         if succes:
             return True, f"Demande pour {prenom.title()} {nom.upper()} créée."
         else:
             return False, message
 
-    def get_toutes_les_demandes(self, include_archives: bool = False):
-        return remboursement_model.obtenir_toutes_les_demandes(include_archives)
+    def get_demandes_filtrees_triees(self, user_roles: list, filter_choice: str, sort_choice: str,
+                                     search_term: str, include_archives: bool):
+        sort_map = {
+            "Date de création (récent)": ("date_derniere_modification", "DESC"),
+            "Date de création (ancien)": ("date_derniere_modification", "ASC"),
+            "Montant (décroissant)": ("montant_demande", "DESC"),
+            "Montant (croissant)": ("montant_demande", "ASC"),
+            "Nom du patient (A-Z)": ("nom", "ASC"),
+        }
+        sort_field, sort_order = sort_map.get(sort_choice, ("date_derniere_modification", "DESC"))
+
+        statut_filter = None
+        if filter_choice == "En cours":
+            statut_filter = [STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
+                             STATUT_REFUSEE_CONSTAT_TP, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
+        elif filter_choice == "Terminées et annulées":
+            statut_filter = [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]
+        elif filter_choice == "En attente de mon action":
+            # On prend un sur-ensemble et on filtrera en python car la logique est complexe
+            statut_filter = [STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
+                             STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
+
+        demandes = remboursement_model.obtenir_demandes_filtrees_triees(
+            statut_filter=statut_filter,
+            search_term=search_term,
+            sort_field=sort_field,
+            sort_order=sort_order,
+            is_archived=include_archives
+        )
+
+        if filter_choice == "En attente de mon action":
+            demandes = [d for d in demandes if d.is_active_for(user_roles, self.utilisateur_actuel)]
+
+        return demandes
 
     def get_demande(self, demande_id: str):
         return remboursement_model.obtenir_demande_par_id(demande_id)
