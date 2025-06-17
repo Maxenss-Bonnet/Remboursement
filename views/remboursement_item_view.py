@@ -1,6 +1,7 @@
 import os
 import re
 import customtkinter as ctk
+import datetime
 from tkinter import messagebox
 
 from config.settings import (
@@ -157,8 +158,9 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
                            f"{self.demande_data.get('nom', 'N/A')} {self.demande_data.get('prenom', 'N/A')}")
         add_basic_info_row("Réf. Facture:", self.demande_data.get('reference_facture', 'N/A'))
         add_basic_info_row("Montant:", f"{self.demande_data.get('montant_demande', 0.0):.2f} €")
+        add_basic_info_row("Créée par:", self.demande_data.get('cree_par') or 'Utilisateur supprimé')
         add_basic_info_row("Créée le:", self.demande_data.get('date_creation', 'N/A'))
-        add_basic_info_row("Modifiée par:", self.demande_data.get('derniere_modification_par', 'N/A'))
+        add_basic_info_row("Modifiée par:", self.demande_data.get('derniere_modification_par') or 'Utilisateur supprimé')
         add_basic_info_row("Statut Actuel:", self.demande_data.get('statut', 'Non défini'))
         if self.demande_data.get('date_paiement_effectue'):
             add_basic_info_row("Paiement le:", self.demande_data['date_paiement_effectue'], text_color="lightgreen")
@@ -167,22 +169,47 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         historique_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=5)
         ctk.CTkLabel(historique_frame, text="Historique/Commentaires:", font=label_font_info).pack(anchor="w",
                                                                                                    pady=(0, 2))
-        hist_text_box = ctk.CTkTextbox(historique_frame, height=110, fg_color="gray20", border_width=1,
+        hist_text_box = ctk.CTkTextbox(historique_frame, height=120, fg_color="gray20", border_width=1,
                                        activate_scrollbars=True)
         hist_text_box.pack(fill="both", expand=True, pady=(0, 2))
+
+        hist_text_box.tag_config('header', foreground="#C0C0C0", underline=True)
+        hist_text_box.tag_config('label', foreground="#77AADD")
+        hist_text_box.tag_config('value', foreground="#FFFFFF")
+        hist_text_box.tag_config('comment_value', foreground="#CCCCCC")
+        hist_text_box.tag_config('separator', foreground="gray40")
+
         historique = self.demande_data.get('historique_statuts', [])
         hist_text_box.configure(state="normal")
         hist_text_box.delete("1.0", "end")
+
         if historique:
-            for entree_hist in reversed(historique):
-                hist_text_box.insert("end",
-                                     f"{entree_hist.get('date', 'N/A')} - {entree_hist.get('par_utilisateur', 'Système')}:\n")
-                if entree_hist.get('statut'): hist_text_box.insert("end", f"  Statut: {entree_hist.get('statut')}\n")
-                if entree_hist.get('commentaire', '').strip(): hist_text_box.insert("end",
-                                                                                    f"  Commentaire: {entree_hist.get('commentaire').strip()}\n")
-                hist_text_box.insert("end", "----\n")
+            for i, entree_hist in enumerate(reversed(historique)):
+                date_str = entree_hist.get('date', 'N/A')
+                user_str = entree_hist.get('par_utilisateur') or 'Système'
+                try:
+                    date_obj = datetime.datetime.fromisoformat(str(date_str).split('.')[0])
+                    formatted_date = date_obj.strftime('%d/%m/%y %H:%M')
+                except (ValueError, TypeError):
+                    formatted_date = date_str
+
+                header_text = f"{formatted_date} - {user_str}\n"
+                hist_text_box.insert("end", header_text, 'header')
+
+                statut_text = entree_hist.get('statut')
+                if statut_text:
+                    hist_text_box.insert("end", "  Statut: ", 'label')
+                    hist_text_box.insert("end", f"{statut_text}\n", 'value')
+
+                comment_text = str(entree_hist.get('commentaire', '')).strip()
+                if comment_text:
+                    hist_text_box.insert("end", "  Commentaire: ", 'label')
+                    hist_text_box.insert("end", f"{comment_text}\n", 'comment_value')
+
+                if i < len(historique) - 1:
+                    hist_text_box.insert("end", "\n" + "─" * 50 + "\n\n", 'separator')
         else:
-            hist_text_box.insert("end", "Aucun historique.")
+            hist_text_box.insert("end", "Aucun historique.", 'comment_value')
         hist_text_box.configure(state="disabled")
 
         action_buttons_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")

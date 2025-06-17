@@ -21,6 +21,9 @@ class RemboursementController:
         if count > 0:
             print(f"{count} demande(s) ont été archivée(s).")
 
+    def admin_optimiser_bdd(self):
+        return remboursement_model.optimiser_base_de_donnees_data()
+
     def extraire_info_facture_pdf(self, chemin_pdf: str) -> dict:
         if not chemin_pdf or not os.path.exists(chemin_pdf):
             return {"nom": "", "prenom": "", "reference": ""}

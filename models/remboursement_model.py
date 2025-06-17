@@ -262,5 +262,10 @@ def mlupo_resoumettre_constat_corrige(id_demande: str, commentaire: str, nouveau
     )
 
 
+def optimiser_base_de_donnees_data() -> tuple[bool, str]:
+    """Passe l'appel pour optimiser la base de données."""
+    return remboursement_data.optimiser_base_de_donnees_data()
+
+
 archiver_demande_par_id = remboursement_data.archiver_demande_par_id_data
 supprimer_demande_par_id = remboursement_data.supprimer_demande_par_id_data

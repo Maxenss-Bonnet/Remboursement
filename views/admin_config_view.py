@@ -1,10 +1,13 @@
 import customtkinter as ctk
 from tkinter import messagebox
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
-class AdminConfigView(ctk.CTkToplevel):
+class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, auth_controller):
-        super().__init__(master)
+        ctk.CTkToplevel.__init__(self, master)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.transient(master)
         self.grab_set()
         self.title("Configuration Email Récupération")
@@ -63,14 +66,18 @@ class AdminConfigView(ctk.CTkToplevel):
         def task():
             return self.auth_controller.test_smtp_connection(current_config)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Échec de la Connexion SMTP.\nErreur : {error}", 'error')
+                return
+
             is_ok, message = result
             if is_ok:
                 self.app_controller.show_toast("La connexion au serveur SMTP a réussi !", 'success')
             else:
                 self.app_controller.show_toast(f"Échec de la Connexion SMTP.\nErreur : {message}", 'error')
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Test de la connexion SMTP...")
 
     def _save_config(self):
         new_config_data = self._get_current_values()
@@ -78,7 +85,11 @@ class AdminConfigView(ctk.CTkToplevel):
         def task():
             return self.auth_controller.save_smtp_config(new_config_data)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Impossible d'enregistrer : {error}", 'error')
+                return
+
             success, message = result
             if success:
                 self.app_controller.show_toast("Configuration enregistrée. Redémarrage requis.", 'info')
@@ -86,5 +97,4 @@ class AdminConfigView(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(f"Impossible d'enregistrer la configuration : {message}", 'error')
 
-        self.withdraw()
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Enregistrement de la configuration...")

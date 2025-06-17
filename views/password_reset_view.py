@@ -1,9 +1,12 @@
 import customtkinter as ctk
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
-class PasswordResetView(ctk.CTkToplevel):
+class PasswordResetView(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, controller, app_controller):
-        super().__init__(master)
+        ctk.CTkToplevel.__init__(self, master)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.controller = controller
         self.app_controller = app_controller
         self.master = master
@@ -52,7 +55,11 @@ class PasswordResetView(ctk.CTkToplevel):
         def task():
             return self.controller.request_password_reset(username)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur : {error}", "error")
+                return
+
             success, message = result
             if success:
                 self.username_to_reset = username
@@ -61,7 +68,7 @@ class PasswordResetView(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(message, 'error')
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Envoi du code...")
 
     def _setup_step2(self):
         self._clear_frame()
@@ -108,7 +115,11 @@ class PasswordResetView(ctk.CTkToplevel):
         def task():
             return self.controller.reset_password(self.username_to_reset, code, new_password)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur : {error}", "error")
+                return
+
             success, message = result
             if success:
                 self.app_controller.show_toast(message, 'success')
@@ -116,5 +127,4 @@ class PasswordResetView(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(message, 'error')
 
-        self.withdraw()
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Réinitialisation du mot de passe...")

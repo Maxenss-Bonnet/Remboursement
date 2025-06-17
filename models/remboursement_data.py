@@ -4,6 +4,7 @@ import sqlite3
 import datetime
 import stat
 import errno
+import time
 from typing import List, Tuple, Optional
 
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
@@ -236,12 +237,30 @@ def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
         else:
             dossier_a_supprimer = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
             if os.path.isdir(dossier_a_supprimer):
-                shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
+                for i in range(3):
+                    try:
+                        shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
+                        break
+                    except OSError as e:
+                        if i < 2:
+                            time.sleep(0.1)
+                        else:
+                            return False, f"Erreur système persistante lors de la suppression du dossier {dossier_a_supprimer}: {e}"
 
         return True, f"La demande {id_demande} et ses fichiers ont été supprimés."
     except sqlite3.Error as e:
         return False, f"Erreur de BDD lors de la suppression : {e}"
-    except OSError as e:
-        return False, f"Erreur système lors de la suppression des fichiers : {e}"
+    finally:
+        conn.close()
+
+
+def optimiser_base_de_donnees_data() -> Tuple[bool, str]:
+    """Exécute la commande VACUUM pour réorganiser la BDD et récupérer l'espace disque."""
+    conn = get_db_connection()
+    try:
+        conn.execute("VACUUM")
+        return True, "La base de données a été optimisée."
+    except sqlite3.Error as e:
+        return False, f"Erreur lors de l'optimisation de la base de données : {e}"
     finally:
         conn.close()

@@ -2,11 +2,14 @@ import customtkinter as ctk
 from tkinter import messagebox, simpledialog
 from config.settings import ASSIGNABLE_ROLES
 from .admin_config_view import AdminConfigView
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
-class AdminUserManagementView(ctk.CTkToplevel):
+class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, auth_controller, app_controller):
-        super().__init__(master)
+        ctk.CTkToplevel.__init__(self, master)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.auth_controller = auth_controller
         self.app_controller = app_controller
         self.master = master
@@ -48,7 +51,7 @@ class AdminUserManagementView(ctk.CTkToplevel):
 
         self.populate_user_list()
 
-        close_button = ctk.CTkButton(main_frame, text="Fermer", command=self.destroy, width=100)
+        close_button = ctk.CTkButton(self, text="Fermer", command=self.destroy, width=100)
         close_button.pack(pady=10)
 
     def _open_smtp_config_dialog(self):
@@ -58,7 +61,12 @@ class AdminUserManagementView(ctk.CTkToplevel):
         def task():
             return self.auth_controller.get_all_users_for_management()
 
-        def on_complete(utilisateurs):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur: {error}", 'error')
+                return
+
+            utilisateurs = result
             for widget in self.scrollable_frame.winfo_children():
                 widget.destroy()
 
@@ -123,7 +131,7 @@ class AdminUserManagementView(ctk.CTkToplevel):
                     )
                     delete_button.grid(row=0, rowspan=2, column=3, padx=(2, 5), pady=5, sticky="e")
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Chargement des utilisateurs...")
 
     def _confirm_delete_user(self, username_to_delete: str):
         if messagebox.askyesno("Confirmation de Suppression",
@@ -133,7 +141,11 @@ class AdminUserManagementView(ctk.CTkToplevel):
             def task():
                 return self.auth_controller.admin_delete_user(username_to_delete)
 
-            def on_complete(result):
+            def on_complete(result, error):
+                if error:
+                    self.app_controller.show_toast(f"Erreur: {error}", 'error')
+                    return
+
                 succes, message = result
                 if succes:
                     self.app_controller.show_toast(message, 'success')
@@ -141,7 +153,7 @@ class AdminUserManagementView(ctk.CTkToplevel):
                 else:
                     self.app_controller.show_toast(message, 'error')
 
-            self.app_controller.run_threaded_task(task, on_complete)
+            self.run_task(task, on_complete, f"Suppression de {username_to_delete}...")
 
     def _open_create_user_dialog(self):
         self._open_user_form_dialog(mode="create")
@@ -216,7 +228,11 @@ class AdminUserManagementView(ctk.CTkToplevel):
                                                                           selected_roles,
                                                                           password_val if password_val else None)
 
-            def on_complete(result):
+            def on_complete(result, error):
+                if error:
+                    self.app_controller.show_toast(f"Erreur: {error}", 'error')
+                    return
+
                 succes, message = result
                 if succes:
                     self.app_controller.show_toast(message, 'success')
@@ -225,8 +241,9 @@ class AdminUserManagementView(ctk.CTkToplevel):
                 else:
                     self.app_controller.show_toast(message, 'error')
 
+            # Utilisation de la méthode de la classe mère (AdminUserManagementView)
+            self.run_task(task, on_complete, "Sauvegarde en cours...")
             dialog.withdraw()
-            self.app_controller.run_threaded_task(task, on_complete)
 
         submit_button_text = "Créer Utilisateur" if mode == "create" else "Enregistrer Modifications"
         submit_button = ctk.CTkButton(form_frame, text=submit_button_text, command=_submit_user_form)
@@ -239,7 +256,12 @@ class AdminUserManagementView(ctk.CTkToplevel):
         def task():
             return self.auth_controller.get_role_descriptions_with_users()
 
-        def on_complete(descriptions_data):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur: {error}", 'error')
+                return
+
+            descriptions_data = result
             desc_window = ctk.CTkToplevel(self)
             desc_window.title("Description des Rôles et Utilisateurs Associés")
             desc_window.geometry("750x550")
@@ -279,4 +301,4 @@ class AdminUserManagementView(ctk.CTkToplevel):
 
             ctk.CTkButton(desc_window, text="Fermer", command=desc_window.destroy).pack(pady=10)
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Chargement des descriptions...")

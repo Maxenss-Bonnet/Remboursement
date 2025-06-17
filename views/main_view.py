@@ -132,11 +132,15 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.winfo_toplevel().bind("<F5>", lambda event: self.afficher_liste_demandes(force_reload=True))
 
         if self.est_admin():
-            ctk.CTkButton(actions_bar_frame, text="Gérer Utilisateurs",
+            admin_buttons_frame = ctk.CTkFrame(actions_bar_frame, fg_color="transparent")
+            admin_buttons_frame.pack(side="left", padx=20)
+            ctk.CTkButton(admin_buttons_frame, text="Gérer Utilisateurs",
                           command=self._open_admin_user_management_view,
-                          fg_color="#555555", hover_color="#444444").pack(side="left", pady=5, padx=10)
-            ctk.CTkButton(actions_bar_frame, text="Purger les Archives", command=self._action_admin_purge_archives,
-                          fg_color="#9D0208", hover_color="#6A040F").pack(side="left", pady=5, padx=10)
+                          fg_color="#555555", hover_color="#444444").pack(side="left", padx=5)
+            ctk.CTkButton(admin_buttons_frame, text="Purger les Archives", command=self._action_admin_purge_archives,
+                          fg_color="#9D0208", hover_color="#6A040F").pack(side="left", padx=5)
+            ctk.CTkButton(admin_buttons_frame, text="Maintenance BDD", command=self._action_admin_optimiser_bdd,
+                          fg_color="#1F618D", hover_color="#154360").pack(side="left", padx=5)
 
         options_frame = ctk.CTkFrame(actions_bar_frame, fg_color="transparent")
         options_frame.pack(side="right", pady=5)
@@ -416,10 +420,9 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 self._polling_job_id = self.after(POLLING_INTERVAL_MS, self._check_for_data_updates)
 
     def _open_profile_view(self):
-        dialog = ProfileView(self, self.auth_controller, self.app_controller, self.user_data.model_dump())
+        dialog = ProfileView(self, self.auth_controller, self.app_controller, self.user_data.model_dump(),
+                             on_save_callback=self._on_profile_saved)
         self.wait_window(dialog)
-        if hasattr(dialog, 'saved') and dialog.saved:
-            self._on_profile_saved()
 
     def _on_profile_saved(self):
         def task():
@@ -524,6 +527,26 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                     self.run_task(task, on_complete, "Purge des archives...")
             except ValueError:
                 self.app_controller.show_toast("Veuillez entrer un nombre valide.", "error")
+
+    def _action_admin_optimiser_bdd(self):
+        if messagebox.askyesno("Optimisation BDD",
+                               "Ceci va réorganiser la base de données pour réduire sa taille. "
+                               "L'opération peut prendre quelques instants.\n\nVoulez-vous continuer ?",
+                               icon='info', parent=self):
+            def task():
+                return self.remboursement_controller.admin_optimiser_bdd()
+
+            def on_complete(result, error):
+                if error:
+                    self.app_controller.show_toast(f"Erreur: {error}", "error")
+                    return
+                success, message = result
+                if success:
+                    self.app_controller.show_toast(message, 'success')
+                else:
+                    self.app_controller.show_toast(message, 'error')
+
+            self.run_task(task, on_complete, "Optimisation de la base de données...")
 
     def __del__(self):
         self.stop_polling()

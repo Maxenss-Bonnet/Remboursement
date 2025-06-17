@@ -1,6 +1,8 @@
-# controllers/auth_controller.py
 import smtplib
 import os
+import random
+import string
+import datetime
 from models import user_model
 from utils import password_utils
 from config.settings import (
@@ -16,7 +18,7 @@ from models.schemas import Utilisateur, UtilisateurUpdate
 
 class AuthController:
     def __init__(self):
-        pass
+        self.reset_codes = {}
 
     def tenter_connexion(self, nom_utilisateur: str, mot_de_passe_saisi: str) -> str | None:
         """Tente de connecter un utilisateur en vérifiant son mot de passe contre la BDD."""
@@ -37,14 +39,15 @@ class AuthController:
 
     def demarrer_procedure_reset_mdp(self, nom_utilisateur: str) -> tuple[bool, str | None, str | None]:
         """Démarre la procédure de réinitialisation de mot de passe par email."""
-        # Note: La logique des codes de réinitialisation nécessiterait une table dédiée.
-        # Pour cet exemple, nous nous basons sur l'email de l'utilisateur.
         user = user_model.obtenir_utilisateur_par_login_data(nom_utilisateur)
         if not user or not user.email:
             return False, None, "Utilisateur non trouvé ou email non configuré."
 
         from utils import email_utils
-        code_reset = "12345"  # Ceci est un placeholder, une vraie logique de code serait nécessaire.
+        code_reset = ''.join(random.choices(string.digits, k=6))
+        expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=5)
+        self.reset_codes[nom_utilisateur] = (code_reset, expiry_time)
+
         if email_utils.envoyer_email_reset(user.email, nom_utilisateur, code_reset):
             return True, user.email, None
         else:
@@ -53,15 +56,25 @@ class AuthController:
 
     def verifier_code_et_reinitialiser_mdp(self, nom_utilisateur: str, code_saisi: str, nouveau_mdp: str) -> tuple[
         bool, str | None]:
-        if code_saisi == "12345":  # Placeholder
+        if nom_utilisateur not in self.reset_codes:
+            return False, "Aucune demande de réinitialisation en cours pour cet utilisateur."
+
+        stored_code, expiry_time = self.reset_codes[nom_utilisateur]
+
+        if datetime.datetime.now() > expiry_time:
+            del self.reset_codes[nom_utilisateur]
+            return False, "Le code de réinitialisation a expiré."
+
+        if code_saisi == stored_code:
             update_data = UtilisateurUpdate(password=nouveau_mdp)
             success, _ = user_model.mettre_a_jour_utilisateur_data(nom_utilisateur, update_data)
+            del self.reset_codes[nom_utilisateur]
             if success:
                 return True, "Mot de passe réinitialisé avec succès."
             else:
                 return False, "Erreur lors de la mise à jour du mot de passe."
         else:
-            return False, "Code de réinitialisation invalide ou expiré."
+            return False, "Code de réinitialisation invalide."
 
     def get_user_data(self, login: str):
         """Récupère l'objet Pydantic d'un utilisateur."""

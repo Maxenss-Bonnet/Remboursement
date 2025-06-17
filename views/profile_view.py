@@ -7,11 +7,14 @@ from PIL import Image, ImageDraw, ImageFont
 from config.settings import PROFILE_PICTURES_DIR
 from utils.image_utils import create_circular_image
 from utils.password_utils import check_password_strength
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
-class ProfileView(ctk.CTkToplevel):
+class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, auth_controller, app_controller, user_data: dict, on_save_callback):
-        super().__init__(master)
+        ctk.CTkToplevel.__init__(self, master)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.transient(master)
         self.grab_set()
 
@@ -155,7 +158,10 @@ class ProfileView(ctk.CTkToplevel):
             def task():
                 return self.auth_controller.remove_user_profile_picture(self.current_user)
 
-            def on_complete(result):
+            def on_complete(result, error):
+                if error:
+                    self.app_controller.show_toast(f"Erreur: {error}", 'error')
+                    return
                 success, message = result
                 if success:
                     self.app_controller.show_toast("Photo de profil supprimée.", 'success')
@@ -166,7 +172,7 @@ class ProfileView(ctk.CTkToplevel):
                 else:
                     self.app_controller.show_toast(message, 'error')
 
-            self.app_controller.run_threaded_task(task, on_complete)
+            self.run_task(task, on_complete, "Suppression de la photo...")
 
     def _handle_picture_save(self) -> str | None:
         if not self.new_profile_pic_source_path:
@@ -207,7 +213,10 @@ class ProfileView(ctk.CTkToplevel):
                 preferences=updated_prefs
             )
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur: {error}", 'error')
+                return
             success, message = result
             if success:
                 if self.on_save_callback:
@@ -217,5 +226,4 @@ class ProfileView(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(message, 'error')
 
-        self.withdraw()
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Enregistrement du profil...")

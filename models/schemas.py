@@ -27,9 +27,9 @@ class Remboursement(BaseModel):
     chemins_rib_stockes: List[str] = Field(default_factory=list)
     chemins_trop_percu_stockees: List[str] = Field(default_factory=list)
     statut: str
-    cree_par: str
+    cree_par: Optional[str] = None
     date_creation: datetime.datetime
-    derniere_modification_par: str
+    derniere_modification_par: Optional[str] = None
     date_derniere_modification: datetime.datetime
     historique_statuts: List[HistoriqueStatut] = Field(default_factory=list)
     date_paiement_effectue: Optional[datetime.datetime] = None
