@@ -1,11 +1,15 @@
 import os
 import re
 import customtkinter as ctk
+from tkinter import messagebox
+
 from config.settings import (
     STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
     STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
     STATUT_ANNULEE, STATUT_PAIEMENT_EFFECTUE
 )
+from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.dialogs.comment_dialog import CommentDialog
 
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
 COULEUR_DEMANDE_TERMINEE = "#2E4374"
@@ -14,27 +18,49 @@ COULEUR_BORDURE_ACTIVE = "#38761D"
 COULEUR_BORDURE_TERMINEE = "#4A55A2"
 COULEUR_BORDURE_ANNULEE = "#9D0208"
 COULEUR_BORDURE_DEFAUT = "gray40"
+COULEUR_BORDURE_FLASH = "#FFD700"
 
 
-class RemboursementItemView(ctk.CTkFrame):
-    def __init__(self, master, demande_data: dict, current_user_name: str, user_roles: list, callbacks: dict):
-        super().__init__(master, border_width=1, corner_radius=5)
+class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
+    def __init__(self, master, main_view_instance, demande_data: dict, current_user_name: str, user_roles: list,
+                 app_controller, remboursement_controller, refresh_list_callback):
+        ctk.CTkFrame.__init__(self, master, border_width=1, corner_radius=5)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
 
+        self.main_view = main_view_instance
         self.demande_data = demande_data
         self.current_user_name = current_user_name
         self.user_roles = user_roles
-        self.callbacks = callbacks
+        self.app_controller = app_controller
+        self.remboursement_controller = remboursement_controller
+        self.refresh_list_callback = refresh_list_callback
+
         self.id_demande = self.demande_data.get("id_demande")
         self.content_frame = None
+        self.original_border_color = COULEUR_BORDURE_DEFAUT
 
         self._setup_item_colors_and_ui()
+
+    def flash_update(self, new_data):
+        self.configure(border_color=COULEUR_BORDURE_FLASH, border_width=3)
+        self.update_content(new_data)
+        self.after(1500, self._restore_border_color)
+
+    def _restore_border_color(self):
+        if self.winfo_exists():
+            self._setup_item_colors_and_ui()
+
+    def run_task(self, task_function, on_complete, loading_message="Mise à jour...", show_overlay=True):
+        if self.content_frame and self.content_frame.winfo_manager():
+            self.content_frame.pack_forget()
+        super().run_task(task_function, on_complete, loading_message, show_overlay)
 
     def update_content(self, demande_data: dict):
         self.demande_data = demande_data
         self.id_demande = self.demande_data.get("id_demande")
 
-        for widget in self.winfo_children():
-            widget.destroy()
+        if self.content_frame:
+            self.content_frame.destroy()
         self.content_frame = None
 
         self._setup_item_colors_and_ui()
@@ -90,17 +116,18 @@ class RemboursementItemView(ctk.CTkFrame):
             border_color_to_set = COULEUR_BORDURE_ACTIVE
             border_width_to_set = 2
 
+        self.original_border_color = border_color_to_set
         self.configure(border_width=border_width_to_set, fg_color=item_fg_color_to_set,
                        border_color=border_color_to_set)
+
         self._build_ui_content()
 
     def _build_ui_content(self):
-        if self.content_frame is not None:
-            for widget in self.content_frame.winfo_children():
-                widget.destroy()
-        else:
-            self.content_frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
-            self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
+        if self.content_frame:
+            self.content_frame.destroy()
+
+        self.content_frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
         self.content_frame.grid_columnconfigure(0, weight=2, minsize=280)
         self.content_frame.grid_columnconfigure(1, weight=3, minsize=300)
@@ -184,6 +211,7 @@ class RemboursementItemView(ctk.CTkFrame):
         def get_version(path):
             match = re.search(r'_v(\d+)', os.path.basename(path))
             return int(match.group(1)) if match else 0
+
         return sorted(file_paths, key=get_version)
 
     def _populate_documents_buttons(self, parent_frame):
@@ -195,88 +223,144 @@ class RemboursementItemView(ctk.CTkFrame):
                 ctk.CTkLabel(parent_frame, text=f"{label_text}: N/A", font=ctk.CTkFont(size=12, slant="italic")).pack(
                     fill="x", pady=2, padx=5, anchor="w")
                 return
-
             sorted_file_list = self._sort_files_by_version(file_list)
             latest_file = sorted_file_list[-1]
-
             ctk.CTkLabel(parent_frame, text=label_text, font=ctk.CTkFont(size=12, weight="bold")).pack(fill="x",
                                                                                                        pady=(5, 0),
                                                                                                        padx=5,
                                                                                                        anchor="w")
-
             button_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
             button_frame.pack(fill="x", expand=True)
             button_frame.grid_columnconfigure(0, weight=1)
-
             btn_voir = ctk.CTkButton(button_frame, text="Voir",
-                                     command=lambda p=latest_file: self.callbacks['voir_pj'](self.id_demande, p))
+                                     command=lambda p=latest_file: self.main_view._action_voir_pj(self.id_demande, p))
             btn_voir.grid(row=0, column=0, sticky="ew", padx=(0, 2))
-
             btn_dl = ctk.CTkButton(button_frame, text="DL", width=btn_width_dl, fg_color="gray50",
-                                   command=lambda p=latest_file: self.callbacks['dl_pj'](self.id_demande, p))
+                                   command=lambda p=latest_file: self.main_view._action_telecharger_pj(self.id_demande,
+                                                                                                       p))
             btn_dl.grid(row=0, column=1, sticky="e")
 
         add_doc_row("Facture", self.demande_data.get("chemins_factures_stockees", []))
         add_doc_row("RIB", self.demande_data.get("chemins_rib_stockes", []))
         add_doc_row("Preuve TP", self.demande_data.get("chemins_trop_percu_stockees", []))
-
         if any(len(lst) > 1 for lst in [self.demande_data.get(k, []) for k in
                                         ["chemins_factures_stockees", "chemins_rib_stockes",
                                          "chemins_trop_percu_stockees"]]):
             ctk.CTkFrame(parent_frame, height=2, fg_color="gray50").pack(fill="x", pady=5, padx=10)
             ctk.CTkButton(parent_frame, text="Historique des Documents", fg_color="gray50",
-                          command=lambda d=self.demande_data: self.callbacks['voir_historique_docs'](d)).pack(fill="x",
-                                                                                                              padx=2,
-                                                                                                              pady=(5,
-                                                                                                                    0))
+                          command=lambda d=self.demande_data: self.main_view._action_voir_historique_docs(d)).pack(
+                fill="x", padx=2, pady=(5, 0))
 
     def _get_workflow_buttons(self, statut_actuel):
         buttons = []
-        id_demande = self.id_demande
         cree_par = self.demande_data.get("cree_par")
-
         if self._est_comptable_tresorerie() and statut_actuel == STATUT_CREEE:
-            buttons.append(
-                ("Accepter (Constat TP)", lambda: self.callbacks['mlupo_accepter'](id_demande), "green", "darkgreen"))
-            buttons.append(
-                ("Refuser (Constat TP)", lambda: self.callbacks['mlupo_refuser'](id_demande), "orange", "darkorange"))
-
+            buttons.append(("Accepter (Constat TP)", lambda: self._action_mlupo_accepter(), "green", "darkgreen"))
+            buttons.append(("Refuser (Constat TP)", lambda: self._action_mlupo_refuser(), "orange", "darkorange"))
         if (self._est_validateur_chef() or self._est_admin()) and statut_actuel == STATUT_TROP_PERCU_CONSTATE:
-            buttons.append(
-                ("Valider Demande", lambda: self.callbacks['jdurousset_valider'](id_demande), "blue", "darkblue"))
-            buttons.append(
-                ("Refuser Demande", lambda: self.callbacks['jdurousset_refuser'](id_demande), "orange", "darkorange"))
-
+            buttons.append(("Valider Demande", lambda: self._action_jdurousset_valider(), "blue", "darkblue"))
+            buttons.append(("Refuser Demande", lambda: self._action_jdurousset_refuser(), "orange", "darkorange"))
         if (self._est_comptable_fournisseur() or self._est_admin()) and statut_actuel == STATUT_VALIDEE:
             buttons.append(
-                ("Confirmer Paiement", lambda: self.callbacks['pdiop_confirmer_paiement'](id_demande), "#006400",
-                 "#004d00"))
-
+                ("Confirmer Paiement", lambda: self._action_pdiop_confirmer_paiement(), "#006400", "#004d00"))
         if (self.current_user_name == cree_par or self._est_admin()) and statut_actuel == STATUT_REFUSEE_CONSTAT_TP:
-            buttons.append(("Corriger Demande", lambda: self.callbacks['pneri_resoumettre'](id_demande), "teal", None))
-            buttons.append(
-                ("Annuler Demande", lambda: self.callbacks['pneri_annuler'](id_demande), "#D32F2F", "#B71C1C"))
-
+            buttons.append(("Corriger Demande", lambda: self._action_pneri_resoumettre(), "teal", None))
+            buttons.append(("Annuler Demande", lambda: self._action_pneri_annuler(), "#D32F2F", "#B71C1C"))
         if (
                 self._est_comptable_tresorerie() or self._est_admin()) and statut_actuel == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
-            buttons.append(
-                ("Corriger Constat TP", lambda: self.callbacks['mlupo_resoumettre_constat'](id_demande), "teal",
-                 None))
-
+            buttons.append(("Corriger Constat TP", lambda: self._action_mlupo_resoumettre_constat(), "teal", None))
         return buttons
 
     def _populate_admin_buttons(self, parent_frame, statut_actuel):
         btn_width_action = 150
         is_archived = self.demande_data.get('is_archived', False)
         is_finished = statut_actuel in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]
-
         if not is_archived and is_finished:
             ctk.CTkButton(parent_frame, text="Archiver Manuellement", width=btn_width_action, fg_color="#6c757d",
-                          hover_color="#5a6268",
-                          command=lambda: self.callbacks['admin_manual_archive'](self.id_demande)).pack(side="right",
-                                                                                                        padx=(5, 5))
-
+                          hover_color="#5a6268", command=self._action_admin_manual_archive).pack(side="right",
+                                                                                                 padx=(5, 5))
         ctk.CTkButton(parent_frame, text="Supprimer (Admin)", width=btn_width_action, fg_color="red",
-                      hover_color="darkred",
-                      command=lambda: self.callbacks['supprimer_demande'](self.id_demande)).pack(
-            side="right", padx=(0, 5))
+                      hover_color="darkred", command=self._action_supprimer_demande).pack(side="right", padx=(0, 5))
+
+    def _perform_workflow_action(self, action_func, loading_message="Mise à jour..."):
+        def on_complete(result, error):
+            if self.content_frame:
+                self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
+            if error:
+                self.app_controller.show_toast(f"Erreur: {error}", "error")
+                return
+            success, message = result
+            if success:
+                self.app_controller.show_toast(message, "success")
+                self.refresh_list_callback(show_overlay=False)
+            else:
+                self.app_controller.show_toast(message, "error")
+
+        self.run_task(action_func, on_complete, loading_message)
+
+    def _action_mlupo_accepter(self):
+        from views.dialogs.acceptation_constat_dialog import AcceptationConstatDialog
+        dialog = AcceptationConstatDialog(self, self.remboursement_controller, self.id_demande, self.app_controller)
+        self.winfo_toplevel().wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.refresh_list_callback()
+
+    def _action_mlupo_refuser(self):
+        dialog = CommentDialog(self, title="Refus du Constat", prompt="Motif du refus :", is_mandatory=True)
+        commentaire = dialog.get_comment()
+        if commentaire is not None:
+            self._perform_workflow_action(
+                lambda: self.remboursement_controller.mlupo_refuser_constat(self.id_demande, commentaire))
+
+    def _action_jdurousset_valider(self):
+        dialog = CommentDialog(self, title="Validation", prompt="Commentaire (optionnel) :", is_mandatory=False)
+        commentaire = dialog.get_comment()
+        if commentaire is not None:
+            self._perform_workflow_action(
+                lambda: self.remboursement_controller.jdurousset_valider_demande(self.id_demande, commentaire))
+
+    def _action_jdurousset_refuser(self):
+        dialog = CommentDialog(self, title="Refus de la Demande", prompt="Motif du refus :", is_mandatory=True)
+        commentaire = dialog.get_comment()
+        if commentaire is not None:
+            self._perform_workflow_action(
+                lambda: self.remboursement_controller.jdurousset_refuser_demande(self.id_demande, commentaire))
+
+    def _action_pdiop_confirmer_paiement(self):
+        dialog = CommentDialog(self, title="Confirmation Paiement", prompt="Commentaire (optionnel) :",
+                               is_mandatory=False)
+        commentaire = dialog.get_comment()
+        if commentaire is not None:
+            self._perform_workflow_action(
+                lambda: self.remboursement_controller.pdiop_confirmer_paiement_effectue(self.id_demande, commentaire))
+
+    def _action_pneri_annuler(self):
+        dialog = CommentDialog(self, title="Annulation", prompt="Raison de l'annulation :", is_mandatory=True)
+        commentaire = dialog.get_comment()
+        if commentaire is not None:
+            self._perform_workflow_action(
+                lambda: self.remboursement_controller.pneri_annuler_demande(self.id_demande, commentaire))
+
+    def _action_pneri_resoumettre(self):
+        from views.dialogs.resoumission_demande_dialog import ResoumissionDemandeDialog
+        dialog = ResoumissionDemandeDialog(self, self.remboursement_controller, self.id_demande, self.app_controller)
+        self.winfo_toplevel().wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.refresh_list_callback()
+
+    def _action_mlupo_resoumettre_constat(self):
+        from views.dialogs.resoumission_constat_dialog import ResoumissionConstatDialog
+        dialog = ResoumissionConstatDialog(self, self.remboursement_controller, self.id_demande, self.app_controller)
+        self.winfo_toplevel().wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.refresh_list_callback()
+
+    def _action_supprimer_demande(self):
+        if messagebox.askyesno("Confirmation", f"Voulez-vous vraiment supprimer la demande {self.id_demande}?",
+                               icon='warning', parent=self):
+            self._perform_workflow_action(lambda: self.remboursement_controller.supprimer_demande(self.id_demande))
+
+    def _action_admin_manual_archive(self):
+        if messagebox.askyesno("Archivage", f"Voulez-vous archiver manuellement la demande {self.id_demande}?",
+                               parent=self):
+            self._perform_workflow_action(lambda: self.remboursement_controller.admin_manual_archive(self.id_demande))

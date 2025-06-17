@@ -1,10 +1,13 @@
 import os
 import customtkinter as ctk
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
-class ResoumissionDemandeDialog(ctk.CTkToplevel):
+class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, remboursement_controller, id_demande, app_controller):
-        super().__init__(master)
+        ctk.CTkToplevel.__init__(self, master)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.master = master
         self.remboursement_controller = remboursement_controller
         self.id_demande = id_demande
@@ -33,14 +36,14 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
         def task():
             return self.remboursement_controller.get_demande(self.id_demande)
 
-        def on_complete(demande):
-            if not demande:
+        def on_complete(demande, error):
+            if error or not demande:
                 self.app_controller.show_toast("Impossible de charger les données de la demande.", "error")
                 self.destroy()
                 return
             self._build_ui(demande)
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Chargement de la demande...")
 
     def _build_ui(self, demande):
         ctk.CTkLabel(self.main_frame, text="Veuillez fournir les documents mis à jour et un commentaire.").pack(
@@ -142,14 +145,18 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
             self.app_controller.show_toast("Un commentaire expliquant la correction est obligatoire.", "error")
             return
 
-        def combined_task():
+        def task():
             return self.remboursement_controller.pneri_resoumettre_demande_corrigee(
                 self.id_demande, commentaire,
                 None if self.keep_facture_var.get() else self.new_facture_path,
                 None if self.keep_rib_var.get() else self.new_rib_path
             )
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur : {error}", 'error')
+                return
+
             action_success, action_message = result
             if action_success:
                 self.app_controller.show_toast(action_message, 'success')
@@ -158,5 +165,4 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(action_message, 'error')
 
-        self.withdraw()
-        self.app_controller.run_threaded_task(combined_task, on_complete)
+        self.run_task(task, on_complete, "Resoumission de la demande...")

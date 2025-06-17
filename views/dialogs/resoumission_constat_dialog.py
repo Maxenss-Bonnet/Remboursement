@@ -1,11 +1,14 @@
 import os
 import customtkinter as ctk
 from .comment_dialog import CommentDialog
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
-class ResoumissionConstatDialog(ctk.CTkToplevel):
+class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, remboursement_controller, id_demande, app_controller):
-        super().__init__(master)
+        ctk.CTkToplevel.__init__(self, master)
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.master = master
         self.remboursement_controller = remboursement_controller
         self.id_demande = id_demande
@@ -31,14 +34,14 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
         def task():
             return self.remboursement_controller.get_demande(self.id_demande)
 
-        def on_complete(demande):
-            if not demande:
+        def on_complete(demande, error):
+            if error or not demande:
                 self.app_controller.show_toast("Impossible de charger les données de la demande.", "error")
                 self.destroy()
                 return
             self._build_ui(demande)
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.run_task(task, on_complete, "Chargement de la demande...")
 
     def _build_ui(self, demande):
         button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
@@ -53,22 +56,16 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self.main_frame, text="Veuillez fournir une nouvelle preuve et un commentaire.").pack(pady=(0, 15),
                                                                                                            side="top",
                                                                                                            padx=10)
-
-        # --- Section PJ Trop Percu ---
         pj_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         pj_frame.pack(fill="x", padx=10, pady=(5, 0))
         pj_frame.columnconfigure(1, weight=1)
-
         self.btn_sel_pj = ctk.CTkButton(pj_frame, text="Choisir Nouvelle Preuve TP", command=self._sel_new_pj_tp,
                                         state="disabled")
         self.btn_sel_pj.grid(row=0, column=0, padx=(0, 10))
-
         self.lbl_pj_sel = ctk.CTkLabel(pj_frame, textvariable=self.chemin_pj_var, text_color="gray", anchor="w")
         self.lbl_pj_sel.grid(row=0, column=1, sticky="ew")
-
         pjs_existantes = demande.chemins_trop_percu_stockees
         self.cb_keep_pj = ctk.CTkCheckBox(self.main_frame, variable=self.keep_pj_var, command=self._toggle_pj_ui)
-
         if pjs_existantes:
             self.cb_keep_pj.configure(text=f"Conserver la preuve : {os.path.basename(pjs_existantes[-1])}")
         else:
@@ -76,8 +73,6 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             self.keep_pj_var.set(False)
             self._toggle_pj_ui()
         self.cb_keep_pj.pack(anchor="w", padx=20, pady=(5, 15))
-
-        # --- Section Commentaire ---
         ctk.CTkLabel(self.main_frame, text="Commentaire de correction (Obligatoire):").pack(pady=(15, 0), side="top",
                                                                                             padx=10)
         self.commentaire_box = ctk.CTkTextbox(self.main_frame)
@@ -110,13 +105,16 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             self.app_controller.show_toast("Un commentaire expliquant la correction est obligatoire.", "error")
             return
 
-        def combined_task():
+        def task():
             return self.remboursement_controller.mlupo_resoumettre_constat_corrige(
                 self.id_demande, commentaire,
                 None if self.keep_pj_var.get() else self.new_pj_path
             )
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur : {error}", 'error')
+                return
             action_success, action_message = result
             if action_success:
                 self.app_controller.show_toast(action_message, 'success')
@@ -125,8 +123,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(action_message, 'error')
 
-        self.withdraw()
-        self.app_controller.run_threaded_task(combined_task, on_complete)
+        self.run_task(task, on_complete, "Resoumission du constat...")
 
     def _reject_and_return_to_demandeur(self):
         dialog = CommentDialog(self, title="Renvoyer au Demandeur", prompt="Motif du renvoi à p.neri (obligatoire) :",
@@ -134,10 +131,13 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
         commentaire = dialog.get_comment()
         if commentaire is None: return
 
-        def combined_task():
+        def task():
             return self.remboursement_controller.mlupo_refuser_correction(self.id_demande, commentaire)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur : {error}", 'error')
+                return
             action_success, action_message = result
             if action_success:
                 self.app_controller.show_toast(action_message, 'success')
@@ -146,5 +146,4 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             else:
                 self.app_controller.show_toast(action_message, 'error')
 
-        self.withdraw()
-        self.app_controller.run_threaded_task(combined_task, on_complete)
+        self.run_task(task, on_complete, "Renvoi au demandeur...")

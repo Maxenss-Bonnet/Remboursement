@@ -2,8 +2,6 @@ import customtkinter as ctk
 import os
 import sys
 import threading
-import queue
-import tkinter
 from tkinter import messagebox
 from views.login_view import LoginView
 from views.main_view import MainView
@@ -11,7 +9,7 @@ from controllers.auth_controller import AuthController
 from controllers.remboursement_controller import RemboursementController
 from controllers.password_reset_controller import PasswordResetController
 from models import user_model
-from utils.ui_utils import LoadingOverlay, ToastManager
+from utils.ui_utils import ToastManager
 from utils.database_manager import create_tables
 
 
@@ -25,11 +23,7 @@ class AppController:
         self.login_view = None
         self.main_view = None
 
-        self.loading_overlay = LoadingOverlay(self.root)
         self.toast_manager = ToastManager(self.root)
-
-        self.loading_task_count = 0
-        self.overlay_show_job = None
 
         self._ensure_database_is_ready()
         self._run_startup_tasks()
@@ -60,45 +54,6 @@ class AppController:
             self.remboursement_controller.utilisateur_actuel = nom_utilisateur
         return self.remboursement_controller
 
-    def run_threaded_task(self, task_function, on_complete, loading_message="Chargement..."):
-        self.loading_task_count += 1
-
-        if self.loading_task_count == 1:
-            self.loading_overlay.set_message(loading_message)
-            self.overlay_show_job = self.root.after(300, self.loading_overlay.show)
-
-        task_queue = queue.Queue()
-
-        def worker():
-            try:
-                result = task_function()
-                task_queue.put(result)
-            except Exception as e:
-                task_queue.put(e)
-
-        def check_queue():
-            try:
-                result = task_queue.get_nowait()
-                self.loading_task_count -= 1
-
-                if self.loading_task_count == 0:
-                    if self.overlay_show_job:
-                        self.root.after_cancel(self.overlay_show_job)
-                        self.overlay_show_job = None
-                    self.loading_overlay.hide()
-
-                if isinstance(result, Exception):
-                    print(f"Erreur dans le thread: {result}")
-                    self.show_toast(f"Une erreur est survenue durant l'opération:\n{result}", "error")
-                else:
-                    if on_complete:
-                        on_complete(result)
-            except queue.Empty:
-                self.root.after(100, check_queue)
-
-        threading.Thread(target=worker, daemon=True).start()
-        self.root.after(100, check_queue)
-
     def show_toast(self, message: str, m_type: str = 'success'):
         self.toast_manager.show_toast(message, m_type)
 
@@ -116,22 +71,7 @@ class AppController:
 
     def on_login_success(self, nom_utilisateur: str):
         self.current_user = nom_utilisateur
-        user_info = user_model.obtenir_utilisateur_par_login_data(nom_utilisateur)
-
-        if not user_info:
-            self.show_toast("Erreur critique: Impossible de charger les données de l'utilisateur.", "error")
-            self.on_logout()
-            return
-
-        is_admin = "admin" in user_info.roles
-        user_theme = user_info.theme_color or "blue"
-
-        ctk.set_default_color_theme(user_theme)
-
         self.show_main_view()
-
-        if is_admin:
-            self.root.after(200, self._show_admin_warning_popup)
 
     def show_main_view(self):
         if self.login_view:
@@ -166,6 +106,6 @@ class AppController:
         else:
             self.show_login_view()
 
-    def _show_admin_warning_popup(self):
+    def show_admin_warning_popup(self):
         self.show_toast("Vous êtes connecté en tant qu'administrateur.\nCertaines actions sont irréversibles.",
                         "warning")

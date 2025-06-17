@@ -19,7 +19,7 @@ from views.admin_user_management_view import AdminUserManagementView
 from views.help_view import HelpView
 from views.profile_view import ProfileView
 from utils.image_utils import create_circular_image
-from views.dialogs.comment_dialog import CommentDialog
+from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 POLLING_INTERVAL_MS = 5000
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
@@ -27,9 +27,11 @@ COULEUR_DEMANDE_TERMINEE = "#2E4374"
 COULEUR_DEMANDE_ANNULEE = "#6A040F"
 
 
-class MainView(ctk.CTkFrame):
+class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def __init__(self, master, nom_utilisateur, app_controller, remboursement_controller_factory):
-        super().__init__(master, corner_radius=0, fg_color="transparent")
+        ctk.CTkFrame.__init__(self, master, corner_radius=0, fg_color="transparent")
+        TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+
         self.pack(fill="both", expand=True)
 
         self.master = master
@@ -45,38 +47,39 @@ class MainView(ctk.CTkFrame):
         self.remboursement_widgets = {}
         self.no_demandes_label = None
 
-        self._fetch_user_data()
+        self._fetch_user_data_and_init_ui()
 
-        self.initial_theme = self.user_data.theme_color if self.user_data else "blue"
-        self.current_sort = "Date de création (récent)"
-        self.current_filter = self.user_data.default_filter if self.user_data else "Toutes les demandes"
+    def _fetch_user_data_and_init_ui(self):
+        def task():
+            return self.auth_controller.get_user_data(self.nom_utilisateur)
 
-        self.include_archives = ctk.BooleanVar(value=False)
-        self.search_var = ctk.StringVar()
+        def on_complete(user_data, error):
+            if error or not user_data:
+                self.app_controller.show_toast("Erreur critique au chargement des données utilisateur.", "error")
+                self.app_controller.on_logout()
+                return
 
-        self.callbacks = {
-            'voir_pj': self._action_voir_pj,
-            'dl_pj': self._action_telecharger_pj,
-            'mlupo_accepter': self._action_mlupo_accepter,
-            'mlupo_refuser': self._action_mlupo_refuser,
-            'jdurousset_valider': self._action_jdurousset_valider,
-            'jdurousset_refuser': self._action_jdurousset_refuser,
-            'pdiop_confirmer_paiement': self._action_pdiop_confirmer_paiement,
-            'pneri_annuler': self._action_pneri_annuler,
-            'pneri_resoumettre': self._action_pneri_resoumettre,
-            'mlupo_resoumettre_constat': self._action_mlupo_resoumettre_constat,
-            'supprimer_demande': self._action_supprimer_demande,
-            'voir_historique_docs': self._action_voir_historique_docs,
-            'admin_manual_archive': self._action_admin_manual_archive
-        }
+            self.user_data = user_data
+            self.user_roles = self.user_data.roles if self.user_data else []
 
-        self._creer_widgets()
-        self.afficher_liste_demandes(force_reload=True)
-        self.start_polling()
+            is_admin = "admin" in self.user_roles
+            user_theme = self.user_data.theme_color or "blue"
+            ctk.set_default_color_theme(user_theme)
 
-    def _fetch_user_data(self):
-        self.user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-        self.user_roles = self.user_data.roles if self.user_data else []
+            self.initial_theme = self.user_data.theme_color if self.user_data else "blue"
+            self.current_sort = "Date de création (récent)"
+            self.current_filter = self.user_data.default_filter if self.user_data else "Toutes les demandes"
+            self.include_archives = ctk.BooleanVar(value=False)
+            self.search_var = ctk.StringVar()
+
+            self._creer_widgets()
+            self.afficher_liste_demandes(force_reload=True)
+            self.start_polling()
+
+            if is_admin:
+                self.app_controller.show_admin_warning_popup()
+
+        self.run_task(task, on_complete, "Chargement du profil utilisateur...")
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
@@ -157,7 +160,7 @@ class MainView(ctk.CTkFrame):
             side="left", padx=(0, 5))
         self.search_entry = ctk.CTkEntry(search_frame_parent, textvariable=self.search_var, width=300)
         self.search_entry.pack(side="left", padx=(0, 5), fill="x", expand=True)
-        self.search_var.trace_add("write", lambda name, index, mode: self.afficher_liste_demandes())
+        self.search_var.trace_add("write", lambda name, index, mode: self.afficher_liste_demandes(show_overlay=False))
         ctk.CTkButton(search_frame_parent, text="X", width=30, command=self._clear_search).pack(side="left",
                                                                                                 padx=(5, 0))
         ctk.CTkCheckBox(search_frame_parent, text="Inclure les archives", variable=self.include_archives,
@@ -181,9 +184,8 @@ class MainView(ctk.CTkFrame):
             ctk.CTkFrame(item, width=15, height=15, fg_color=couleur, border_width=1).pack(side="left")
             ctk.CTkLabel(item, text=texte, font=ctk.CTkFont(size=11)).pack(side="left", padx=3)
 
-    def _update_user_display(self):
+    def _update_user_display(self, show_overlay=True):
         def task():
-            self._fetch_user_data()
             if not self.user_data: return None
             pfp_path = self.user_data.profile_picture_path
             pfp_image = None
@@ -191,8 +193,9 @@ class MainView(ctk.CTkFrame):
                 pfp_image = create_circular_image(os.path.join(PROFILE_PICTURES_DIR, pfp_path), self.pfp_size)
             return pfp_image
 
-        def on_complete(pfp_image):
-            if not self.user_data: return
+        def on_complete(pfp_image, error):
+            if error or not self.user_data: return
+
             if not pfp_image:
                 placeholder = Image.new('RGBA', (self.pfp_size, self.pfp_size), (80, 80, 80, 255))
                 draw = ImageDraw.Draw(placeholder)
@@ -209,9 +212,11 @@ class MainView(ctk.CTkFrame):
             roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
             self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
 
-        self.app_controller.run_threaded_task(task, on_complete, "Chargement du profil...")
+        self.run_task(task, on_complete, "Mise à jour de l'affichage...", show_overlay=show_overlay)
 
     def _get_refreshed_and_sorted_data(self, force_reload):
+        old_cache_dict = {d.id_demande: d for d in self.all_demandes_cache}
+
         if force_reload:
             self.all_demandes_cache = self.remboursement_controller.get_toutes_les_demandes(
                 self.include_archives.get())
@@ -247,15 +252,29 @@ class MainView(ctk.CTkFrame):
             sort_field = sort_field_map.get(self.current_sort, "date_creation")
             value = getattr(demande, sort_field, None)
 
-            if isinstance(value, str):
-                return value.lower()
-            if value is None:
-                return datetime.datetime.min if "date" in sort_field else ""
+            if isinstance(value, str): return value.lower()
+            if value is None: return datetime.datetime.min if "date" in sort_field else ""
             return value
 
-        return sorted(demandes_filtrees, key=get_sort_key, reverse=reverse_sort)
+        demandes_triees = sorted(demandes_filtrees, key=get_sort_key, reverse=reverse_sort)
 
-    def _render_demandes_list_intelligently(self, demandes_a_afficher):
+        modified_ids = set()
+        if old_cache_dict and not force_reload:
+            for demande in self.all_demandes_cache:
+                if demande.id_demande in old_cache_dict:
+                    old_demande = old_cache_dict[demande.id_demande]
+                    if demande.date_derniere_modification != old_demande.date_derniere_modification:
+                        modified_ids.add(demande.id_demande)
+
+        return demandes_triees, modified_ids
+
+    def _render_demandes_list_intelligently(self, result, error=None):
+        if error:
+            self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
+            return
+
+        demandes_a_afficher, modified_ids = result
+
         if self.no_demandes_label:
             self.no_demandes_label.destroy()
             self.no_demandes_label = None
@@ -268,7 +287,7 @@ class MainView(ctk.CTkFrame):
             widget = self.remboursement_widgets.pop(demande_id)
             widget.destroy()
 
-        demandes_dict = {d.id_demande: d for d in demandes_a_afficher}
+        demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
 
         for widget in self.remboursement_widgets.values():
             widget.pack_forget()
@@ -277,14 +296,21 @@ class MainView(ctk.CTkFrame):
             demande_id = demande.id_demande
             if demande_id in self.remboursement_widgets:
                 widget = self.remboursement_widgets[demande_id]
-                widget.update_content(demande.model_dump())
+                if demande_id in modified_ids:
+                    widget.flash_update(demandes_dict[demande_id])
+                else:
+                    widget.update_content(demandes_dict[demande_id])
             else:
                 widget = RemboursementItemView(
                     master=self.scrollable_frame_demandes,
-                    demande_data=demande.model_dump(),
+                    main_view_instance=self,
+                    demande_data=demandes_dict[demande_id],
                     current_user_name=self.nom_utilisateur,
                     user_roles=self.user_roles,
-                    callbacks=self.callbacks
+                    app_controller=self.app_controller,
+                    remboursement_controller=self.remboursement_controller,
+                    refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(force_reload=True,
+                                                                                                  show_overlay=show_overlay)
                 )
                 self.remboursement_widgets[demande_id] = widget
 
@@ -297,12 +323,17 @@ class MainView(ctk.CTkFrame):
 
         self._update_notification_badge()
 
-    def afficher_liste_demandes(self, force_reload=False):
+    def afficher_liste_demandes(self, force_reload=False, show_overlay=True):
         loading_message = "Chargement des données..." if force_reload else "Mise à jour de la vue..."
-        self.app_controller.run_threaded_task(
-            task_function=lambda: self._get_refreshed_and_sorted_data(force_reload),
+
+        def task():
+            return self._get_refreshed_and_sorted_data(force_reload)
+
+        self.run_task(
+            task_function=task,
             on_complete=self._render_demandes_list_intelligently,
-            loading_message=loading_message
+            loading_message=loading_message,
+            show_overlay=show_overlay
         )
 
     def _update_notification_badge(self):
@@ -343,14 +374,15 @@ class MainView(ctk.CTkFrame):
 
     def _set_sort(self, sort_choice):
         self.current_sort = sort_choice
-        self.afficher_liste_demandes()
+        self.afficher_liste_demandes(show_overlay=False)
 
     def _set_filter(self, filter_choice):
         self.current_filter = filter_choice
-        self.afficher_liste_demandes()
+        self.afficher_liste_demandes(show_overlay=False)
 
     def _clear_search(self):
         self.search_var.set("")
+        self.afficher_liste_demandes(show_overlay=False)
 
     def _on_archive_toggle(self):
         self.afficher_liste_demandes(force_reload=True)
@@ -377,7 +409,7 @@ class MainView(ctk.CTkFrame):
                 self._last_known_db_mtime = current_mtime
             elif current_mtime != self._last_known_db_mtime:
                 self._last_known_db_mtime = current_mtime
-                self.afficher_liste_demandes(force_reload=True)
+                self.afficher_liste_demandes(force_reload=True, show_overlay=False)
         except Exception as e:
             print(f"Erreur lors du polling de la base de données : {e}")
         finally:
@@ -385,26 +417,27 @@ class MainView(ctk.CTkFrame):
                 self._polling_job_id = self.after(POLLING_INTERVAL_MS, self._check_for_data_updates)
 
     def _open_profile_view(self):
+        dialog = ProfileView(self, self.auth_controller, self.app_controller, self.user_data.model_dump())
+        self.wait_window(dialog)
+        if hasattr(dialog, 'saved') and dialog.saved:
+            self._on_profile_saved()
+
+    def _on_profile_saved(self):
         def task():
             return self.auth_controller.get_user_data(self.nom_utilisateur)
 
-        def on_complete(user_data):
-            if user_data:
-                self.user_data = user_data
-                ProfileView(self, self.auth_controller, self.app_controller, user_data.model_dump(),
-                            on_save_callback=self._on_profile_saved)
-
-        self.app_controller.run_threaded_task(task, on_complete)
-
-    def _on_profile_saved(self):
-        self._update_user_display()
-        if self.user_data:
+        def on_complete(user_data, error):
+            if error or not user_data: return
+            self.user_data = user_data
+            self._update_user_display(show_overlay=False)
             self.current_filter = self.user_data.default_filter
             self.filter_menu.set(self.current_filter)
-            self.afficher_liste_demandes(force_reload=False)
+            self.afficher_liste_demandes(force_reload=False, show_overlay=False)
             new_theme = self.user_data.theme_color
             if new_theme != self.initial_theme:
                 self.app_controller.request_restart("Le changement de thème nécessite un redémarrage.")
+
+        self.run_task(task, on_complete, "Mise à jour du profil...")
 
     def _ouvrir_fenetre_creation_demande(self):
         from views.dialogs.creation_demande_dialog import CreationDemandeDialog
@@ -417,7 +450,11 @@ class MainView(ctk.CTkFrame):
         def task():
             return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur à l'ouverture : {error}", "error")
+                return
+
             chemin_pj, temp_dir = result
             if chemin_pj and os.path.exists(chemin_pj):
                 DocumentViewerWindow(self, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}",
@@ -425,13 +462,17 @@ class MainView(ctk.CTkFrame):
             else:
                 self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error")
 
-        self.app_controller.run_threaded_task(task, on_complete, "Ouverture du document...")
+        self.run_task(task, on_complete, "Préparation du document...")
 
     def _action_telecharger_pj(self, demande_id, rel_path):
         def task():
             return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
 
-        def on_complete(result):
+        def on_complete(result, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur : {error}", "error")
+                return
+
             chemin_pj, temp_dir = result
             if not chemin_pj:
                 self.app_controller.show_toast(f"Fichier non trouvé ou impossible à extraire : {rel_path}", "error")
@@ -443,87 +484,15 @@ class MainView(ctk.CTkFrame):
             elif "annulé" not in message.lower():
                 self.app_controller.show_toast(message, 'error')
 
-        self.app_controller.run_threaded_task(task, on_complete, "Téléchargement...")
+        self.run_task(task, on_complete, "Téléchargement...")
 
-    def _perform_workflow_action(self, action_func):
-        def task():
-            return action_func()
-
-        def on_complete(result):
-            success, message = result
-            if success:
-                self.app_controller.show_toast(message, "success")
-                self.afficher_liste_demandes(force_reload=True)
-            else:
-                self.app_controller.show_toast(message, "error")
-
-        self.app_controller.run_threaded_task(task, on_complete, "Mise à jour du statut...")
-
-    def _action_mlupo_accepter(self, id_demande):
-        from views.dialogs.acceptation_constat_dialog import AcceptationConstatDialog
-        dialog = AcceptationConstatDialog(self, self.remboursement_controller, id_demande, self.app_controller)
-        self.wait_window(dialog)
-        if hasattr(dialog, 'submitted') and dialog.submitted:
-            self.afficher_liste_demandes(force_reload=True)
-
-    def _action_mlupo_refuser(self, id_demande):
-        dialog = CommentDialog(self, title="Refus du Constat", prompt="Veuillez indiquer le motif du refus :",
-                               is_mandatory=True)
-        commentaire = dialog.get_comment()
-        if commentaire is not None:
-            self._perform_workflow_action(
-                lambda: self.remboursement_controller.mlupo_refuser_constat(id_demande, commentaire))
-
-    def _action_jdurousset_valider(self, id_demande):
-        dialog = CommentDialog(self, title="Validation de la Demande", prompt="Voulez-vous ajouter un commentaire ?",
-                               is_mandatory=False)
-        commentaire = dialog.get_comment()
-        if commentaire is not None:
-            self._perform_workflow_action(
-                lambda: self.remboursement_controller.jdurousset_valider_demande(id_demande, commentaire))
-
-    def _action_jdurousset_refuser(self, id_demande):
-        dialog = CommentDialog(self, title="Refus de la Demande", prompt="Veuillez indiquer le motif du refus :",
-                               is_mandatory=True)
-        commentaire = dialog.get_comment()
-        if commentaire is not None:
-            self._perform_workflow_action(
-                lambda: self.remboursement_controller.jdurousset_refuser_demande(id_demande, commentaire))
-
-    def _action_pdiop_confirmer_paiement(self, id_demande):
-        dialog = CommentDialog(self, title="Confirmation du Paiement", prompt="Voulez-vous ajouter un commentaire ?",
-                               is_mandatory=False)
-        commentaire = dialog.get_comment()
-        if commentaire is not None:
-            self._perform_workflow_action(
-                lambda: self.remboursement_controller.pdiop_confirmer_paiement_effectue(id_demande, commentaire))
-
-    def _action_pneri_annuler(self, id_demande):
-        dialog = CommentDialog(self, title="Annulation de la Demande",
-                               prompt="Veuillez indiquer la raison de l'annulation :", is_mandatory=True)
-        commentaire = dialog.get_comment()
-        if commentaire is not None:
-            self._perform_workflow_action(
-                lambda: self.remboursement_controller.pneri_annuler_demande(id_demande, commentaire))
-
-    def _action_pneri_resoumettre(self, id_demande):
-        from views.dialogs.resoumission_demande_dialog import ResoumissionDemandeDialog
-        dialog = ResoumissionDemandeDialog(self, self.remboursement_controller, id_demande, self.app_controller)
-        self.wait_window(dialog)
-        if hasattr(dialog, 'submitted') and dialog.submitted:
-            self.afficher_liste_demandes(force_reload=True)
-
-    def _action_mlupo_resoumettre_constat(self, id_demande):
-        from views.dialogs.resoumission_constat_dialog import ResoumissionConstatDialog
-        dialog = ResoumissionConstatDialog(self, self.remboursement_controller, id_demande, self.app_controller)
-        self.wait_window(dialog)
-        if hasattr(dialog, 'submitted') and dialog.submitted:
-            self.afficher_liste_demandes(force_reload=True)
-
-    def _action_supprimer_demande(self, id_demande):
-        if messagebox.askyesno("Confirmation", f"Êtes-vous sûr de vouloir supprimer la demande {id_demande}?",
-                               icon='warning', parent=self):
-            self._perform_workflow_action(lambda: self.remboursement_controller.supprimer_demande(id_demande))
+    def _action_voir_historique_docs(self, demande_data):
+        DocumentHistoryViewer(
+            self,
+            demande_data=demande_data,
+            remboursement_controller=self.remboursement_controller,
+            app_controller=self.app_controller
+        )
 
     def _action_admin_purge_archives(self):
         age_str = simpledialog.askstring("Purger les Archives",
@@ -534,19 +503,22 @@ class MainView(ctk.CTkFrame):
                 if messagebox.askyesno("Confirmation Purge",
                                        f"Êtes-vous sûr de vouloir purger les archives de plus de {age_en_annees} an(s) ?\nCette action est IRRÉVERSIBLE.",
                                        icon='warning', parent=self):
-                    self._perform_workflow_action(
-                        lambda: self.remboursement_controller.admin_purge_archives(age_en_annees))
+                    def task():
+                        return self.remboursement_controller.admin_purge_archives(age_en_annees)
+
+                    def on_complete(result, error):
+                        if error:
+                            self.app_controller.show_toast(f"Erreur: {error}", "error")
+                            return
+                        nb_suppr, erreurs = result
+                        msg = f"{nb_suppr} demande(s) ont été purgées."
+                        if erreurs: msg += f"\nErreurs : {', '.join(erreurs)}"
+                        self.app_controller.show_toast(msg, 'info')
+                        self.afficher_liste_demandes(force_reload=True)
+
+                    self.run_task(task, on_complete, "Purge des archives...")
             except ValueError:
                 self.app_controller.show_toast("Veuillez entrer un nombre valide.", "error")
-
-    def _action_voir_historique_docs(self, demande_data):
-        DocumentHistoryViewer(self, demande_data=demande_data, callbacks=self.callbacks)
-
-    def _action_admin_manual_archive(self, id_demande: str):
-        if messagebox.askyesno("Archivage Manuel",
-                               f"Êtes-vous sûr de vouloir archiver manuellement la demande {id_demande} ?",
-                               parent=self):
-            self._perform_workflow_action(lambda: self.remboursement_controller.admin_manual_archive(id_demande))
 
     def __del__(self):
         self.stop_polling()
