@@ -11,6 +11,7 @@ from controllers.password_reset_controller import PasswordResetController
 from models import user_model
 from utils.ui_utils import ToastManager
 from utils.database_manager import create_tables
+from utils.cache_manager import CacheManager
 
 
 class AppController:
@@ -24,6 +25,7 @@ class AppController:
         self.main_view = None
 
         self.toast_manager = ToastManager(self.root)
+        self.cache_manager = CacheManager()
 
         self._ensure_database_is_ready()
         self._run_startup_tasks()
@@ -71,7 +73,30 @@ class AppController:
 
     def on_login_success(self, nom_utilisateur: str):
         self.current_user = nom_utilisateur
+        self._sync_user_cache() # Lancement de la synchro du cache
         self.show_main_view()
+
+    def _sync_user_cache(self):
+        """ Déclenche la synchronisation du cache pour l'utilisateur connecté en tâche de fond. """
+        if not self.remboursement_controller or not self.current_user:
+            return
+
+        def task():
+            user_data = self.auth_controller.get_user_data(self.current_user)
+            if not user_data:
+                return
+
+            all_demandes = self.remboursement_controller.get_toutes_les_demandes(include_archives=False)
+            actionable_demandes = [
+                d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)
+            ]
+            self.cache_manager.sync_cache_for_user(actionable_demandes)
+            print(f"Cache synchronisé pour {self.current_user}. {len(actionable_demandes)} demande(s) active(s).")
+
+        # Exécuter en arrière-plan pour ne pas bloquer l'interface
+        cache_thread = threading.Thread(target=task, daemon=True)
+        cache_thread.start()
+
 
     def show_main_view(self):
         if self.login_view:

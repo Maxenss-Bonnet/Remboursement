@@ -1,5 +1,6 @@
 import os
 import customtkinter as ctk
+import threading
 from tkinter import messagebox, simpledialog
 import datetime
 from PIL import Image, ImageDraw, ImageFont
@@ -322,6 +323,14 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             self.no_demandes_label.pack(pady=20)
 
         self._update_notification_badge()
+        self._trigger_cache_sync()
+
+    def _trigger_cache_sync(self):
+        def task():
+            actionable_demandes = [d for d in self.all_demandes_cache if self._is_active_for_user(d)]
+            self.app_controller.cache_manager.sync_cache_for_user(actionable_demandes)
+
+        threading.Thread(target=task, daemon=True).start()
 
     def afficher_liste_demandes(self, force_reload=False, show_overlay=True):
         loading_message = "Chargement des données..." if force_reload else "Mise à jour de la vue..."
@@ -345,17 +354,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             self.notification_badge.place_forget()
 
     def _is_active_for_user(self, demande):
-        current_status = demande.statut
-        cree_par_user = demande.cree_par
-        if self.est_comptable_tresorerie() and current_status == STATUT_CREEE: return True
-        if (
-                self.nom_utilisateur == cree_par_user or self.est_admin()) and current_status == STATUT_REFUSEE_CONSTAT_TP: return True
-        if (
-                self.est_validateur_chef() or self.est_admin()) and current_status == STATUT_TROP_PERCU_CONSTATE: return True
-        if (
-                self.est_comptable_tresorerie() or self.est_admin()) and current_status == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO: return True
-        if (self.est_comptable_fournisseur() or self.est_admin()) and current_status == STATUT_VALIDEE: return True
-        return False
+        return demande.is_active_for(self.user_roles, self.nom_utilisateur)
 
     def est_admin(self):
         return "admin" in self.user_roles
@@ -447,6 +446,12 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             self.afficher_liste_demandes(force_reload=True)
 
     def _action_voir_pj(self, demande_id, rel_path):
+        cached_path = self.app_controller.cache_manager.get_cached_path(rel_path)
+        if cached_path:
+            DocumentViewerWindow(self, cached_path, f"Aperçu (Cache) - {os.path.basename(rel_path)}",
+                                 temp_dir_to_clean=None)
+            return
+
         def task():
             return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
 

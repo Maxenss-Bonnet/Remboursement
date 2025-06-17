@@ -5,9 +5,17 @@ from config.settings import SHARED_DATA_BASE_PATH
 DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 
 def get_db_connection():
-    """Crée et retourne une connexion à la base de données."""
-    conn = sqlite3.connect(DATABASE_FILE)
-    conn.row_factory = sqlite3.Row  # Permet d'accéder aux colonnes par leur nom
+    """Crée et retourne une connexion à la base de données optimisée."""
+    conn = sqlite3.connect(DATABASE_FILE, timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.execute("PRAGMA synchronous = NORMAL;")
+    cursor.execute("PRAGMA cache_size = -4096;")
+    cursor.execute("PRAGMA foreign_keys = ON;")
+    cursor.close()
+
     return conn
 
 def create_tables():

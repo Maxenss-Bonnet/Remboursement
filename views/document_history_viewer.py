@@ -60,6 +60,11 @@ class DocumentHistoryViewer(ctk.CTkToplevel, TaskRunnerMixin):
                       command=lambda p=rel_path: self._voir_document(p)).pack(side="right", padx=2)
 
     def _voir_document(self, rel_path):
+        cached_path = self.app_controller.cache_manager.get_cached_path(rel_path)
+        if cached_path:
+            DocumentViewerWindow(self, cached_path, f"Aperçu (Cache) - {os.path.basename(rel_path)}", temp_dir_to_clean=None)
+            return
+
         def task():
             return self.remboursement_controller.get_viewable_attachment_path(self.id_demande, rel_path)
 
