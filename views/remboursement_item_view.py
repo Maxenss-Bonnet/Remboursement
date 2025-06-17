@@ -25,6 +25,17 @@ class RemboursementItemView(ctk.CTkFrame):
         self.user_roles = user_roles
         self.callbacks = callbacks
         self.id_demande = self.demande_data.get("id_demande")
+        self.content_frame = None
+
+        self._setup_item_colors_and_ui()
+
+    def update_content(self, demande_data: dict):
+        self.demande_data = demande_data
+        self.id_demande = self.demande_data.get("id_demande")
+
+        for widget in self.winfo_children():
+            widget.destroy()
+        self.content_frame = None
 
         self._setup_item_colors_and_ui()
 
@@ -84,14 +95,18 @@ class RemboursementItemView(ctk.CTkFrame):
         self._build_ui_content()
 
     def _build_ui_content(self):
-        content_frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
-        content_frame.pack(fill="both", expand=True, padx=1, pady=1)
+        if self.content_frame is not None:
+            for widget in self.content_frame.winfo_children():
+                widget.destroy()
+        else:
+            self.content_frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+            self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
-        content_frame.grid_columnconfigure(0, weight=2, minsize=280)
-        content_frame.grid_columnconfigure(1, weight=3, minsize=300)
-        content_frame.grid_columnconfigure(2, weight=0, minsize=180)
+        self.content_frame.grid_columnconfigure(0, weight=2, minsize=280)
+        self.content_frame.grid_columnconfigure(1, weight=3, minsize=300)
+        self.content_frame.grid_columnconfigure(2, weight=0, minsize=180)
 
-        basic_info_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        basic_info_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         basic_info_frame.grid(row=0, column=0, sticky="nsew", padx=(8, 5), pady=5)
         basic_info_frame.grid_columnconfigure(1, weight=1)
 
@@ -121,7 +136,7 @@ class RemboursementItemView(ctk.CTkFrame):
         if self.demande_data.get('date_paiement_effectue'):
             add_basic_info_row("Paiement le:", self.demande_data['date_paiement_effectue'], text_color="lightgreen")
 
-        historique_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        historique_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         historique_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=5)
         ctk.CTkLabel(historique_frame, text="Historique/Commentaires:", font=label_font_info).pack(anchor="w",
                                                                                                    pady=(0, 2))
@@ -143,14 +158,14 @@ class RemboursementItemView(ctk.CTkFrame):
             hist_text_box.insert("end", "Aucun historique.")
         hist_text_box.configure(state="disabled")
 
-        action_buttons_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        action_buttons_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         action_buttons_frame.grid(row=0, column=2, sticky="nsew", padx=(5, 8), pady=5)
         self._populate_documents_buttons(action_buttons_frame)
 
         statut_actuel = self.demande_data.get("statut")
         buttons_to_add = self._get_workflow_buttons(statut_actuel)
         if buttons_to_add:
-            workflow_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+            workflow_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
             workflow_frame.grid(row=1, column=0, columnspan=3, pady=(8, 4), sticky="ew")
             workflow_frame.grid_columnconfigure(0, weight=1)
             inner_buttons_frame = ctk.CTkFrame(workflow_frame, fg_color="transparent")
@@ -161,7 +176,7 @@ class RemboursementItemView(ctk.CTkFrame):
                               hover_color=hover_color, command=command).pack(side="left", padx=5)
 
         if self._est_admin():
-            admin_actions_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+            admin_actions_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
             admin_actions_frame.grid(row=2, column=0, columnspan=3, pady=(4, 8), sticky="e")
             self._populate_admin_buttons(admin_actions_frame, statut_actuel)
 

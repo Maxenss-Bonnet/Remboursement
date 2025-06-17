@@ -42,7 +42,8 @@ class MainView(ctk.CTkFrame):
         self._polling_job_id = None
         self._last_known_db_mtime = 0
         self.all_demandes_cache = []
-        self._is_refreshing = False
+        self.remboursement_widgets = {}
+        self.no_demandes_label = None
 
         self._fetch_user_data()
 
@@ -208,7 +209,7 @@ class MainView(ctk.CTkFrame):
             roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
             self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.app_controller.run_threaded_task(task, on_complete, "Chargement du profil...")
 
     def _get_refreshed_and_sorted_data(self, force_reload):
         if force_reload:
@@ -254,36 +255,55 @@ class MainView(ctk.CTkFrame):
 
         return sorted(demandes_filtrees, key=get_sort_key, reverse=reverse_sort)
 
-    def _render_demandes_list(self, demandes_a_afficher):
-        for widget in self.scrollable_frame_demandes.winfo_children():
+    def _render_demandes_list_intelligently(self, demandes_a_afficher):
+        if self.no_demandes_label:
+            self.no_demandes_label.destroy()
+            self.no_demandes_label = None
+
+        demandes_actuelles_ids = {d.id_demande for d in demandes_a_afficher}
+        widgets_actuels_ids = set(self.remboursement_widgets.keys())
+
+        ids_a_supprimer = widgets_actuels_ids - demandes_actuelles_ids
+        for demande_id in ids_a_supprimer:
+            widget = self.remboursement_widgets.pop(demande_id)
             widget.destroy()
 
-        if not demandes_a_afficher:
-            ctk.CTkLabel(self.scrollable_frame_demandes, text="Aucune demande à afficher.",
-                         font=ctk.CTkFont(size=14, slant="italic")).pack(pady=20)
-        else:
-            for demande_data in demandes_a_afficher:
-                item_frame = RemboursementItemView(master=self.scrollable_frame_demandes,
-                                                   demande_data=demande_data.model_dump(),
-                                                   current_user_name=self.nom_utilisateur,
-                                                   user_roles=self.user_roles,
-                                                   callbacks=self.callbacks)
-                item_frame.pack(pady=5, padx=5, fill="x", expand=True)
+        demandes_dict = {d.id_demande: d for d in demandes_a_afficher}
+
+        for widget in self.remboursement_widgets.values():
+            widget.pack_forget()
+
+        for demande in demandes_a_afficher:
+            demande_id = demande.id_demande
+            if demande_id in self.remboursement_widgets:
+                widget = self.remboursement_widgets[demande_id]
+                widget.update_content(demande.model_dump())
+            else:
+                widget = RemboursementItemView(
+                    master=self.scrollable_frame_demandes,
+                    demande_data=demande.model_dump(),
+                    current_user_name=self.nom_utilisateur,
+                    user_roles=self.user_roles,
+                    callbacks=self.callbacks
+                )
+                self.remboursement_widgets[demande_id] = widget
+
+            widget.pack(pady=5, padx=5, fill="x", expand=True)
+
+        if not self.remboursement_widgets:
+            self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes, text="Aucune demande à afficher.",
+                                                  font=ctk.CTkFont(size=14, slant="italic"))
+            self.no_demandes_label.pack(pady=20)
+
         self._update_notification_badge()
 
     def afficher_liste_demandes(self, force_reload=False):
-        if self._is_refreshing:
-            return
-        self._is_refreshing = True
-
-        def task():
-            return self._get_refreshed_and_sorted_data(force_reload)
-
-        def on_complete(data):
-            self._render_demandes_list(data)
-            self._is_refreshing = False
-
-        self.app_controller.run_threaded_task(task, on_complete)
+        loading_message = "Chargement des données..." if force_reload else "Mise à jour de la vue..."
+        self.app_controller.run_threaded_task(
+            task_function=lambda: self._get_refreshed_and_sorted_data(force_reload),
+            on_complete=self._render_demandes_list_intelligently,
+            loading_message=loading_message
+        )
 
     def _update_notification_badge(self):
         count = sum(1 for d in self.all_demandes_cache if self._is_active_for_user(d))
@@ -342,18 +362,20 @@ class MainView(ctk.CTkFrame):
         AdminUserManagementView(self, self.auth_controller, self.app_controller)
 
     def stop_polling(self):
-        if self._polling_job_id: self.after_cancel(self._polling_job_id)
-        self._polling_job_id = None
+        if self._polling_job_id:
+            self.after_cancel(self._polling_job_id)
+            self._polling_job_id = None
 
     def start_polling(self):
         self.stop_polling()
-        self._last_known_db_mtime = 0
-        self._check_for_data_updates()
+        self.after(500, self._check_for_data_updates)
 
     def _check_for_data_updates(self):
         try:
             current_mtime = os.path.getmtime(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else 0
-            if current_mtime != self._last_known_db_mtime:
+            if self._last_known_db_mtime == 0:
+                self._last_known_db_mtime = current_mtime
+            elif current_mtime != self._last_known_db_mtime:
                 self._last_known_db_mtime = current_mtime
                 self.afficher_liste_demandes(force_reload=True)
         except Exception as e:
@@ -381,12 +403,15 @@ class MainView(ctk.CTkFrame):
             self.filter_menu.set(self.current_filter)
             self.afficher_liste_demandes(force_reload=False)
             new_theme = self.user_data.theme_color
-            if new_theme != self.initial_theme: self.app_controller.request_restart(
-                "Le changement de thème nécessite un redémarrage.")
+            if new_theme != self.initial_theme:
+                self.app_controller.request_restart("Le changement de thème nécessite un redémarrage.")
 
     def _ouvrir_fenetre_creation_demande(self):
         from views.dialogs.creation_demande_dialog import CreationDemandeDialog
-        CreationDemandeDialog(self, self.remboursement_controller, self.app_controller)
+        dialog = CreationDemandeDialog(self, self.remboursement_controller, self.app_controller)
+        self.wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.afficher_liste_demandes(force_reload=True)
 
     def _action_voir_pj(self, demande_id, rel_path):
         def task():
@@ -399,11 +424,8 @@ class MainView(ctk.CTkFrame):
                                      temp_dir_to_clean=temp_dir)
             else:
                 self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error")
-                if temp_dir:
-                    # Dans un vrai scénario, logguer cette erreur
-                    pass
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.app_controller.run_threaded_task(task, on_complete, "Ouverture du document...")
 
     def _action_telecharger_pj(self, demande_id, rel_path):
         def task():
@@ -421,34 +443,28 @@ class MainView(ctk.CTkFrame):
             elif "annulé" not in message.lower():
                 self.app_controller.show_toast(message, 'error')
 
-        self.app_controller.run_threaded_task(task, on_complete)
+        self.app_controller.run_threaded_task(task, on_complete, "Téléchargement...")
 
-    def _perform_workflow_action(self, action_task_function):
-        if self._is_refreshing:
-            return
-        self._is_refreshing = True
-
-        def combined_task():
-            action_success, action_message = action_task_function()
-            if not action_success:
-                return {'status': 'error', 'message': action_message}
-
-            refreshed_data = self._get_refreshed_and_sorted_data(force_reload=True)
-            return {'status': 'success', 'data': refreshed_data, 'message': action_message}
+    def _perform_workflow_action(self, action_func):
+        def task():
+            return action_func()
 
         def on_complete(result):
-            if result['status'] == 'error':
-                self.app_controller.show_toast(result['message'], 'error')
+            success, message = result
+            if success:
+                self.app_controller.show_toast(message, "success")
+                self.afficher_liste_demandes(force_reload=True)
             else:
-                self.app_controller.show_toast(result['message'], 'success')
-                self._render_demandes_list(result['data'])
-            self._is_refreshing = False
+                self.app_controller.show_toast(message, "error")
 
-        self.app_controller.run_threaded_task(combined_task, on_complete)
+        self.app_controller.run_threaded_task(task, on_complete, "Mise à jour du statut...")
 
     def _action_mlupo_accepter(self, id_demande):
         from views.dialogs.acceptation_constat_dialog import AcceptationConstatDialog
-        AcceptationConstatDialog(self, self.remboursement_controller, id_demande, self.app_controller)
+        dialog = AcceptationConstatDialog(self, self.remboursement_controller, id_demande, self.app_controller)
+        self.wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.afficher_liste_demandes(force_reload=True)
 
     def _action_mlupo_refuser(self, id_demande):
         dialog = CommentDialog(self, title="Refus du Constat", prompt="Veuillez indiquer le motif du refus :",
@@ -492,11 +508,17 @@ class MainView(ctk.CTkFrame):
 
     def _action_pneri_resoumettre(self, id_demande):
         from views.dialogs.resoumission_demande_dialog import ResoumissionDemandeDialog
-        ResoumissionDemandeDialog(self, self.remboursement_controller, id_demande, self.app_controller)
+        dialog = ResoumissionDemandeDialog(self, self.remboursement_controller, id_demande, self.app_controller)
+        self.wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.afficher_liste_demandes(force_reload=True)
 
     def _action_mlupo_resoumettre_constat(self, id_demande):
         from views.dialogs.resoumission_constat_dialog import ResoumissionConstatDialog
-        ResoumissionConstatDialog(self, self.remboursement_controller, id_demande, self.app_controller)
+        dialog = ResoumissionConstatDialog(self, self.remboursement_controller, id_demande, self.app_controller)
+        self.wait_window(dialog)
+        if hasattr(dialog, 'submitted') and dialog.submitted:
+            self.afficher_liste_demandes(force_reload=True)
 
     def _action_supprimer_demande(self, id_demande):
         if messagebox.askyesno("Confirmation", f"Êtes-vous sûr de vouloir supprimer la demande {id_demande}?",
@@ -512,23 +534,8 @@ class MainView(ctk.CTkFrame):
                 if messagebox.askyesno("Confirmation Purge",
                                        f"Êtes-vous sûr de vouloir purger les archives de plus de {age_en_annees} an(s) ?\nCette action est IRRÉVERSIBLE.",
                                        icon='warning', parent=self):
-                    if self._is_refreshing: return
-                    self._is_refreshing = True
-
-                    def combined_task():
-                        nb_suppr, erreurs = self.remboursement_controller.admin_purge_archives(age_en_annees)
-                        msg = f"{nb_suppr} demande(s) ont été purgées."
-                        if erreurs: msg += f"\nErreurs : {', '.join(erreurs)}"
-
-                        data = self._get_refreshed_and_sorted_data(force_reload=True)
-                        return {'message': msg, 'data': data}
-
-                    def on_complete(result):
-                        self.app_controller.show_toast(result['message'], 'info')
-                        self._render_demandes_list(result['data'])
-                        self._is_refreshing = False
-
-                    self.app_controller.run_threaded_task(combined_task, on_complete)
+                    self._perform_workflow_action(
+                        lambda: self.remboursement_controller.admin_purge_archives(age_en_annees))
             except ValueError:
                 self.app_controller.show_toast("Veuillez entrer un nombre valide.", "error")
 

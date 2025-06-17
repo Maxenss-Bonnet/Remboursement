@@ -9,6 +9,7 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
         self.remboursement_controller = remboursement_controller
         self.id_demande = id_demande
         self.app_controller = app_controller
+        self.submitted = False
 
         self.title(f"Corriger Demande {id_demande[:8]}")
         self.geometry("600x550")
@@ -152,7 +153,7 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel):
             action_success, action_message = result
             if action_success:
                 self.app_controller.show_toast(action_message, 'success')
-                self.master.afficher_liste_demandes(force_reload=True)
+                self.submitted = True
                 self.destroy()
             else:
                 self.app_controller.show_toast(action_message, 'error')

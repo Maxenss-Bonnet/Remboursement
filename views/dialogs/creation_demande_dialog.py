@@ -8,6 +8,7 @@ class CreationDemandeDialog(ctk.CTkToplevel):
         self.master = master
         self.remboursement_controller = remboursement_controller
         self.app_controller = app_controller
+        self.submitted = False
 
         self.title("Nouvelle Demande de Remboursement")
         self.geometry("650x650")
@@ -128,16 +129,15 @@ class CreationDemandeDialog(ctk.CTkToplevel):
             if not action_success:
                 return {'status': 'error', 'message': action_message}
 
-            refreshed_data = self.master._get_refreshed_and_sorted_data(force_reload=True)
-            return {'status': 'success', 'data': refreshed_data, 'message': action_message}
+            return {'status': 'success', 'message': action_message}
 
         def on_complete(result):
             if result['status'] == 'error':
                 self.app_controller.show_toast(result['message'], 'error')
             else:
                 self.app_controller.show_toast(result['message'], 'success')
-                self.master._render_demandes_list(result['data'])
-            self.destroy()
+                self.submitted = True
+                self.destroy()
 
         self.withdraw()
         self.app_controller.run_threaded_task(combined_task, on_complete)

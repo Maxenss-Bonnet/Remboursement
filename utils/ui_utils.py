@@ -1,13 +1,9 @@
+# utils/ui_utils.py
 import customtkinter as ctk
 import tkinter
 
 
 class LoadingCursor:
-    """
-    Un gestionnaire de contexte (context manager) pour afficher un curseur d'attente
-    pendant les opérations potentiellement longues.
-    """
-
     def __init__(self, widget):
         self.widget = widget
         self.toplevel = self.widget.winfo_toplevel()
@@ -21,18 +17,18 @@ class LoadingCursor:
 
 
 class LoadingOverlay(ctk.CTkFrame):
-    """
-    Une surcouche qui s'affiche par-dessus une fenêtre pour indiquer un chargement,
-    empêchant l'interaction de l'utilisateur et le 'freeze' de l'application.
-    """
-
     def __init__(self, parent):
         super().__init__(parent)
         self.configure(fg_color=("gray20", "gray20"))
+
+        self.label = ctk.CTkLabel(self, text="Chargement...", font=ctk.CTkFont(size=16))
+        self.label.place(relx=0.5, rely=0.5, y=-40, anchor="center")
+
         self.progress_bar = ctk.CTkProgressBar(self, mode="indeterminate")
         self.progress_bar.place(relx=0.5, rely=0.5, anchor="center")
-        self.label = ctk.CTkLabel(self, text="Chargement en cours...", font=ctk.CTkFont(size=16))
-        self.label.place(relx=0.5, rely=0.5, y=-40, anchor="center")
+
+    def set_message(self, message: str):
+        self.label.configure(text=message)
 
     def show(self):
         self.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -45,9 +41,6 @@ class LoadingOverlay(ctk.CTkFrame):
 
 
 class ToastNotification(ctk.CTkFrame):
-    """
-    Représente un seul widget de notification. Il est géré par le ToastManager.
-    """
     _styles = {
         'success': {'fg_color': '#2E8B57', 'text_color': 'white', 'duration': 2500},
         'info': {'fg_color': '#1E90FF', 'text_color': 'white', 'duration': 2500},
@@ -75,15 +68,11 @@ class ToastNotification(ctk.CTkFrame):
 
 
 class ToastManager:
-    """
-    Gère la création, l'empilement et la destruction des notifications toast.
-    """
-
     def __init__(self, parent):
         self.parent = parent
         self.active_toasts = []
-        self.padding_x = 0.02  # Utiliser une fraction pour relx
-        self.padding_y = 10    # Garder les pixels pour l'espacement vertical
+        self.padding_x = 0.02
+        self.padding_y = 10
 
     def show_toast(self, message, m_type='success'):
         toast = ToastNotification(self.parent, message, m_type, on_destroy_callback=self._remove_toast)
@@ -111,11 +100,9 @@ class ToastManager:
             toast.update_idletasks()
             toast_height = toast.winfo_reqheight()
 
-            # Convertir la position y absolue en relative
             rel_y_pos = y_for_bottom_edge / parent_height
 
             toast.place(relx=rel_x_pos, rely=rel_y_pos, anchor='se')
             toast.lift()
 
-            # Mettre à jour la position y pour la prochaine notification (au-dessus)
             y_for_bottom_edge -= (toast_height + self.padding_y)

@@ -10,6 +10,7 @@ class AcceptationConstatDialog(ctk.CTkToplevel):
         self.id_demande = id_demande
         self.app_controller = app_controller
         self.current_pj_path = None
+        self.submitted = False
 
         self.title(f"Accepter Constat TP - Demande {id_demande[:8]}")
         self.geometry("500x450")
@@ -50,7 +51,6 @@ class AcceptationConstatDialog(ctk.CTkToplevel):
             return
 
         def combined_task():
-            # Appel à la méthode du contrôleur mise à jour
             action_success, action_message = self.remboursement_controller.mlupo_accepter_constat(
                 id_demande=self.id_demande,
                 chemin_pj_trop_percu=self.current_pj_path,
@@ -58,9 +58,6 @@ class AcceptationConstatDialog(ctk.CTkToplevel):
             )
             if not action_success:
                 return {'status': 'error', 'message': action_message}
-
-            # Forcer le rechargement de la liste dans la vue principale
-            self.master.afficher_liste_demandes(force_reload=True)
             return {'status': 'success', 'message': action_message}
 
         def on_complete(result):
@@ -68,8 +65,8 @@ class AcceptationConstatDialog(ctk.CTkToplevel):
                 self.app_controller.show_toast(result['message'], 'error')
             else:
                 self.app_controller.show_toast(result['message'], 'success')
+                self.submitted = True
                 self.destroy()
 
         self.withdraw()
-        # La vue principale est rafraîchie dans la tâche, pas besoin de le faire ici.
         self.app_controller.run_threaded_task(combined_task, on_complete)

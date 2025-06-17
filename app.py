@@ -28,8 +28,22 @@ class MainApplication(ctk.CTk):
         self.geometry(f"{int(initial_width)}x{int(initial_height)}")
 
         self.after(100, self.attempt_maximize)
-
         self.minsize(800, 600)
+
+        self.app_controller = None
+        self.after(50, self.initialize_app)
+
+    def initialize_app(self):
+        if IS_DEPLOYMENT_MODE and not os.path.exists(SHARED_DATA_BASE_PATH):
+            messagebox.showerror(
+                "Erreur de Connexion Réseau",
+                f"Impossible d'accéder au dossier de données partagées :\n\n{SHARED_DATA_BASE_PATH}\n\n"
+                "Veuillez vérifier votre connexion réseau (VPN, câble, etc.) et que le serveur est accessible.\n\n"
+                "L'application va maintenant se fermer."
+            )
+            self.destroy()
+            sys.exit(1)
+
         self.app_controller = AppController(self)
 
     def attempt_maximize(self):
@@ -48,17 +62,5 @@ class MainApplication(ctk.CTk):
 
 
 if __name__ == "__main__":
-    if IS_DEPLOYMENT_MODE:
-        if not os.path.exists(SHARED_DATA_BASE_PATH):
-            root = tkinter.Tk()
-            root.withdraw()
-            messagebox.showerror(
-                "Erreur de Connexion Réseau",
-                f"Impossible d'accéder au dossier de données partagées :\n\n{SHARED_DATA_BASE_PATH}\n\n"
-                "Veuillez vérifier votre connexion réseau (VPN, câble, etc.) et que le serveur est accessible.\n\n"
-                "L'application va maintenant se fermer."
-            )
-            sys.exit(1)
-
     app = MainApplication()
     app.mainloop()

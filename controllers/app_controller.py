@@ -12,7 +12,7 @@ from controllers.remboursement_controller import RemboursementController
 from controllers.password_reset_controller import PasswordResetController
 from models import user_model
 from utils.ui_utils import LoadingOverlay, ToastManager
-from utils.database_manager import create_tables  # <-- IMPORT AJOUTÉ
+from utils.database_manager import create_tables
 
 
 class AppController:
@@ -28,14 +28,14 @@ class AppController:
         self.loading_overlay = LoadingOverlay(self.root)
         self.toast_manager = ToastManager(self.root)
 
-        # CORRECTION : S'assurer que les tables de la BDD existent au démarrage
-        self._ensure_database_is_ready()
+        self.loading_task_count = 0
+        self.overlay_show_job = None
 
+        self._ensure_database_is_ready()
         self._run_startup_tasks()
         self.show_login_view()
 
     def _ensure_database_is_ready(self):
-        """Vérifie et crée les tables de la base de données si elles n'existent pas."""
         try:
             create_tables()
         except Exception as e:
@@ -60,8 +60,12 @@ class AppController:
             self.remboursement_controller.utilisateur_actuel = nom_utilisateur
         return self.remboursement_controller
 
-    def run_threaded_task(self, task_function, on_complete):
-        overlay_show_job = self.root.after(250, self.loading_overlay.show)
+    def run_threaded_task(self, task_function, on_complete, loading_message="Chargement..."):
+        self.loading_task_count += 1
+
+        if self.loading_task_count == 1:
+            self.loading_overlay.set_message(loading_message)
+            self.overlay_show_job = self.root.after(300, self.loading_overlay.show)
 
         task_queue = queue.Queue()
 
@@ -75,19 +79,20 @@ class AppController:
         def check_queue():
             try:
                 result = task_queue.get_nowait()
+                self.loading_task_count -= 1
 
-                try:
-                    self.root.after_cancel(overlay_show_job)
-                except tkinter.TclError:
-                    pass
-
-                self.loading_overlay.hide()
+                if self.loading_task_count == 0:
+                    if self.overlay_show_job:
+                        self.root.after_cancel(self.overlay_show_job)
+                        self.overlay_show_job = None
+                    self.loading_overlay.hide()
 
                 if isinstance(result, Exception):
                     print(f"Erreur dans le thread: {result}")
                     self.show_toast(f"Une erreur est survenue durant l'opération:\n{result}", "error")
                 else:
-                    on_complete(result)
+                    if on_complete:
+                        on_complete(result)
             except queue.Empty:
                 self.root.after(100, check_queue)
 
@@ -95,7 +100,6 @@ class AppController:
         self.root.after(100, check_queue)
 
     def show_toast(self, message: str, m_type: str = 'success'):
-        """Affiche une notification non-bloquante via le ToastManager."""
         self.toast_manager.show_toast(message, m_type)
 
     def show_login_view(self):

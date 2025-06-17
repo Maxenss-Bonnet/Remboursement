@@ -1,97 +1,100 @@
-# utils/data_manager.py
-import json
+import sqlite3
 import os
-import shutil
-import tempfile
-from typing import Callable, Any
-from .file_lock import FileLock
-from .ui_messages import show_recovery_success, show_recovery_error
+from config.settings import SHARED_DATA_BASE_PATH
 
+DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 
-def _get_lock_path(file_path: str) -> str:
-    return f"{file_path}.lock"
+def get_db_connection():
+    """Crée et retourne une connexion à la base de données optimisée."""
+    conn = sqlite3.connect(DATABASE_FILE, timeout=10)
+    conn.row_factory = sqlite3.Row
 
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.execute("PRAGMA synchronous = NORMAL;")
+    cursor.execute("PRAGMA cache_size = -4096;")
+    cursor.execute("PRAGMA foreign_keys = ON;")
+    cursor.close()
 
-def _save_json_atomically(file_path: str, data: dict | list):
-    dir_name = os.path.dirname(file_path)
-    if not os.path.exists(dir_name):
-        try:
-            os.makedirs(dir_name, exist_ok=True)
-        except OSError as e:
-            print(f"Erreur critique lors de la création du dossier pour la sauvegarde '{dir_name}': {e}")
-            raise
+    return conn
 
-    temp_fd, temp_path = tempfile.mkstemp(dir=dir_name, prefix=os.path.basename(file_path) + '~', suffix='.tmp')
+def create_tables():
+    """Crée les tables de la base de données si elles n'existent pas."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as tf:
-            json.dump(data, tf, indent=4, ensure_ascii=False)
+    # Table des utilisateurs
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS utilisateurs (
+        login TEXT PRIMARY KEY,
+        hashed_password TEXT NOT NULL,
+        email TEXT UNIQUE,
+        theme_color TEXT,
+        default_filter TEXT,
+        profile_picture_path TEXT
+    )""")
 
-        backup_path = file_path + ".bak"
-        if os.path.exists(file_path):
-            try:
-                os.replace(file_path, backup_path)
-            except OSError as e:
-                print(f"AVERTISSEMENT: Impossible de créer le backup pour {file_path}: {e}")
+    # Table des rôles
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS roles (
+        role_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role_name TEXT UNIQUE NOT NULL
+    )""")
 
-        os.replace(temp_path, file_path)
-    except Exception as e:
-        print(f"Erreur lors de la sauvegarde atomique de {file_path}: {e}")
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        raise
-    finally:
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
+    # Table de liaison utilisateurs <-> rôles
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS utilisateur_roles (
+        login TEXT,
+        role_id INTEGER,
+        PRIMARY KEY (login, role_id),
+        FOREIGN KEY (login) REFERENCES utilisateurs (login) ON DELETE CASCADE,
+        FOREIGN KEY (role_id) REFERENCES roles (role_id) ON DELETE CASCADE
+    )""")
 
+    # Table principale des remboursements
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS remboursements (
+        id_demande TEXT PRIMARY KEY,
+        nom TEXT,
+        prenom TEXT,
+        reference_facture TEXT NOT NULL,
+        reference_facture_dossier TEXT,
+        description TEXT,
+        montant_demande REAL NOT NULL,
+        statut TEXT NOT NULL,
+        cree_par TEXT,
+        date_creation TEXT NOT NULL,
+        derniere_modification_par TEXT,
+        date_derniere_modification TEXT NOT NULL,
+        date_paiement_effectue TEXT,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (cree_par) REFERENCES utilisateurs (login) ON DELETE SET NULL,
+        FOREIGN KEY (derniere_modification_par) REFERENCES utilisateurs (login) ON DELETE SET NULL
+    )""")
 
-def read_modify_write_json(file_path: str, modification_func: Callable[[Any], Any]) -> Any:
-    lock_path = _get_lock_path(file_path)
+    # Table pour l'historique des statuts
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS historique (
+        historique_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_demande TEXT NOT NULL,
+        statut TEXT,
+        date TEXT NOT NULL,
+        par_utilisateur TEXT,
+        commentaire TEXT,
+        FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE,
+        FOREIGN KEY (par_utilisateur) REFERENCES utilisateurs (login) ON DELETE SET NULL
+    )""")
 
-    with FileLock(lock_path):
-        data = load_json_data(file_path)
-        result = modification_func(data)
-        _save_json_atomically(file_path, data)
-        return result
+    # Table pour les pièces jointes
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pieces_jointes (
+        pj_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_demande TEXT NOT NULL,
+        type_pj TEXT NOT NULL,
+        chemin_relatif TEXT NOT NULL,
+        date_ajout TEXT NOT NULL,
+        FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
+    )""")
 
-
-def load_json_data(file_path: str) -> Any:
-    is_list_type = 'remboursements_index' in os.path.basename(file_path)
-    default_value = [] if is_list_type else {}
-
-    if not os.path.exists(file_path):
-        return default_value
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            if not content.strip():
-                return default_value
-            return json.loads(content)
-    except json.JSONDecodeError:
-        print(f"ALERTE: Fichier JSON corrompu détecté : {file_path}")
-        backup_path = file_path + ".bak"
-        backup_exists = os.path.exists(backup_path)
-
-        if backup_exists:
-            try:
-                print(f"Tentative de restauration depuis {backup_path}...")
-                shutil.copy2(backup_path, file_path)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    restored_data = json.load(f)
-                print("Restauration réussie.")
-                show_recovery_success(file_path)
-                return restored_data
-            except (IOError, json.JSONDecodeError):
-                print(f"ERREUR: Le fichier de backup {backup_path} est aussi corrompu.")
-                show_recovery_error(file_path, backup_exists=True)
-                return default_value
-        else:
-            print("ERREUR: Aucun fichier de backup trouvé.")
-            show_recovery_error(file_path, backup_exists=False)
-            return default_value
-    except (IOError, FileNotFoundError):
-        return default_value
+    conn.commit()
+    conn.close()

@@ -10,6 +10,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
         self.remboursement_controller = remboursement_controller
         self.id_demande = id_demande
         self.app_controller = app_controller
+        self.submitted = False
 
         self.title(f"Corriger Constat TP {id_demande[:8]}")
         self.geometry("550x450")
@@ -119,7 +120,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             action_success, action_message = result
             if action_success:
                 self.app_controller.show_toast(action_message, 'success')
-                self.master.afficher_liste_demandes(force_reload=True)
+                self.submitted = True
                 self.destroy()
             else:
                 self.app_controller.show_toast(action_message, 'error')
@@ -140,7 +141,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel):
             action_success, action_message = result
             if action_success:
                 self.app_controller.show_toast(action_message, 'success')
-                self.master.afficher_liste_demandes(force_reload=True)
+                self.submitted = True
                 self.destroy()
             else:
                 self.app_controller.show_toast(action_message, 'error')
