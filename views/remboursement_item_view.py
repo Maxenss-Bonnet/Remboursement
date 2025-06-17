@@ -24,7 +24,7 @@ COULEUR_BORDURE_FLASH = "#FFD700"
 
 class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
     def __init__(self, master, main_view_instance, demande_data: dict, current_user_name: str, user_roles: list,
-                 app_controller, remboursement_controller, refresh_list_callback):
+                 app_controller, remboursement_controller, refresh_list_callback, pfp_cache: dict):
         ctk.CTkFrame.__init__(self, master, border_width=1, corner_radius=5)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
 
@@ -35,6 +35,7 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         self.app_controller = app_controller
         self.remboursement_controller = remboursement_controller
         self.refresh_list_callback = refresh_list_callback
+        self.pfp_cache = pfp_cache
 
         self.id_demande = self.demande_data.get("id_demande")
         self.content_frame = None
@@ -160,57 +161,65 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         add_basic_info_row("Montant:", f"{self.demande_data.get('montant_demande', 0.0):.2f} €")
         add_basic_info_row("Créée par:", self.demande_data.get('cree_par') or 'Utilisateur supprimé')
         add_basic_info_row("Créée le:", self.demande_data.get('date_creation', 'N/A'))
-        add_basic_info_row("Modifiée par:", self.demande_data.get('derniere_modification_par') or 'Utilisateur supprimé')
+        add_basic_info_row("Modifiée par:",
+                           self.demande_data.get('derniere_modification_par') or 'Utilisateur supprimé')
         add_basic_info_row("Statut Actuel:", self.demande_data.get('statut', 'Non défini'))
         if self.demande_data.get('date_paiement_effectue'):
             add_basic_info_row("Paiement le:", self.demande_data['date_paiement_effectue'], text_color="lightgreen")
 
-        historique_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        historique_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=5)
-        ctk.CTkLabel(historique_frame, text="Historique/Commentaires:", font=label_font_info).pack(anchor="w",
-                                                                                                   pady=(0, 2))
-        hist_text_box = ctk.CTkTextbox(historique_frame, height=120, fg_color="gray20", border_width=1,
-                                       activate_scrollbars=True)
-        hist_text_box.pack(fill="both", expand=True, pady=(0, 2))
+        # --- Section Historique refactorisée ---
+        hist_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        hist_container.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=5)
+        ctk.CTkLabel(hist_container, text="Historique/Commentaires:", font=label_font_info).pack(anchor="w",
+                                                                                                 pady=(0, 2))
 
-        hist_text_box.tag_config('header', foreground="#C0C0C0", underline=True)
-        hist_text_box.tag_config('label', foreground="#77AADD")
-        hist_text_box.tag_config('value', foreground="#FFFFFF")
-        hist_text_box.tag_config('comment_value', foreground="#CCCCCC")
-        hist_text_box.tag_config('separator', foreground="gray40")
+        hist_scroll_frame = ctk.CTkScrollableFrame(hist_container, fg_color="gray20", border_width=1, label_text="")
+        hist_scroll_frame.pack(fill="both", expand=True)
 
         historique = self.demande_data.get('historique_statuts', [])
-        hist_text_box.configure(state="normal")
-        hist_text_box.delete("1.0", "end")
-
-        if historique:
+        if not historique:
+            ctk.CTkLabel(hist_scroll_frame, text="Aucun historique.", font=value_font_info, text_color="gray60").pack(
+                pady=10)
+        else:
             for i, entree_hist in enumerate(reversed(historique)):
-                date_str = entree_hist.get('date', 'N/A')
                 user_str = entree_hist.get('par_utilisateur') or 'Système'
+                pfp_image = self.pfp_cache.get(user_str, self.pfp_cache.get('default'))
+
+                # --- Cadre pour une entrée d'historique ---
+                entry_frame = ctk.CTkFrame(hist_scroll_frame, fg_color="transparent")
+                entry_frame.pack(fill="x", expand=True, pady=(0, 10))
+                entry_frame.grid_columnconfigure(1, weight=1)
+
+                pfp_label = ctk.CTkLabel(entry_frame, image=pfp_image, text="", width=20, height=20)
+                pfp_label.grid(row=0, column=0, rowspan=3, sticky="n", padx=(5, 8), pady=3)
+
+                # --- Ligne d'en-tête (date et utilisateur) ---
                 try:
-                    date_obj = datetime.datetime.fromisoformat(str(date_str).split('.')[0])
+                    date_obj = datetime.datetime.fromisoformat(str(entree_hist.get('date', 'N/A')).split('.')[0])
                     formatted_date = date_obj.strftime('%d/%m/%y %H:%M')
                 except (ValueError, TypeError):
-                    formatted_date = date_str
+                    formatted_date = entree_hist.get('date', 'N/A')
 
-                header_text = f"{formatted_date} - {user_str}\n"
-                hist_text_box.insert("end", header_text, 'header')
+                header_text = f"{formatted_date} - {user_str}"
+                ctk.CTkLabel(entry_frame, text=header_text, font=ctk.CTkFont(size=11, weight="bold"),
+                             text_color="#C0C0C0", anchor="w").grid(row=0, column=1, sticky="w")
 
+                # --- Ligne de statut ---
                 statut_text = entree_hist.get('statut')
                 if statut_text:
-                    hist_text_box.insert("end", "  Statut: ", 'label')
-                    hist_text_box.insert("end", f"{statut_text}\n", 'value')
+                    ctk.CTkLabel(entry_frame, text=f"Statut: {statut_text}", font=ctk.CTkFont(size=12),
+                                 anchor="w").grid(row=1, column=1, sticky="w")
 
+                # --- Commentaire ---
                 comment_text = str(entree_hist.get('commentaire', '')).strip()
                 if comment_text:
-                    hist_text_box.insert("end", "  Commentaire: ", 'label')
-                    hist_text_box.insert("end", f"{comment_text}\n", 'comment_value')
+                    ctk.CTkLabel(entry_frame, text=comment_text, wraplength=400, justify="left",
+                                 font=ctk.CTkFont(size=12, slant="italic"), text_color="gray85", anchor="w").grid(row=2,
+                                                                                                                  column=1,
+                                                                                                                  sticky="w")
 
                 if i < len(historique) - 1:
-                    hist_text_box.insert("end", "\n" + "─" * 50 + "\n\n", 'separator')
-        else:
-            hist_text_box.insert("end", "Aucun historique.", 'comment_value')
-        hist_text_box.configure(state="disabled")
+                    ctk.CTkFrame(hist_scroll_frame, height=1, fg_color="gray40").pack(fill="x", padx=5, pady=5)
 
         action_buttons_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         action_buttons_frame.grid(row=0, column=2, sticky="nsew", padx=(5, 8), pady=5)

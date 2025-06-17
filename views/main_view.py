@@ -42,6 +42,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.remboursement_controller = remboursement_controller_factory(self.nom_utilisateur)
 
         self.pfp_size = 80
+        self.pfp_cache = {}
         self._polling_job_id = None
         self._last_known_db_mtime = 0
         self.demandes_en_cache = {}
@@ -50,17 +51,50 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
         self._fetch_user_data_and_init_ui()
 
+    def _create_placeholder_image(self, initial: str, size: int) -> ctk.CTkImage:
+        placeholder = Image.new('RGBA', (size, size), (80, 80, 80, 255))
+        draw = ImageDraw.Draw(placeholder)
+        try:
+            font_size = int(size * 0.6)
+            font = ImageFont.truetype("arial", font_size)
+        except IOError:
+            font = ImageFont.load_default()
+        draw.text((size / 2, size / 2), initial, font=font, anchor="mm", fill=(220, 220, 220))
+        return ctk.CTkImage(light_image=placeholder, dark_image=placeholder, size=(size, size))
+
     def _fetch_user_data_and_init_ui(self):
         def task():
-            return self.auth_controller.get_user_data(self.nom_utilisateur)
+            # Tâche 1: Récupérer les données de l'utilisateur actuel
+            current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
 
-        def on_complete(user_data, error):
-            if error or not user_data:
+            # Tâche 2: Construire le cache des photos de profil pour l'historique
+            all_users = self.auth_controller.get_all_users()
+            pfp_cache = {}
+            pfp_size = 20
+
+            # Créer les placeholders par défaut
+            pfp_cache['default'] = self._create_placeholder_image("?", pfp_size)
+            pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size)
+            pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size)
+
+            for user in all_users:
+                if user.profile_picture_path and os.path.exists(os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
+                    full_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
+                    pfp_image = create_circular_image(full_path, pfp_size)
+                    pfp_cache[user.login] = pfp_image if pfp_image else pfp_cache['default']
+                else:
+                    initial = user.login[0].upper() if user.login else "?"
+                    pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size)
+
+            return current_user_data, pfp_cache
+
+        def on_complete(result, error):
+            if error or not result[0]:
                 self.app_controller.show_toast("Erreur critique au chargement des données utilisateur.", "error")
                 self.app_controller.on_logout()
                 return
 
-            self.user_data = user_data
+            self.user_data, self.pfp_cache = result
             self.user_roles = self.user_data.roles if self.user_data else []
 
             is_admin = "admin" in self.user_roles
@@ -262,7 +296,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                     app_controller=self.app_controller,
                     remboursement_controller=self.remboursement_controller,
                     refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
-                        show_overlay=show_overlay)
+                        show_overlay=show_overlay),
+                    pfp_cache=self.pfp_cache
                 )
                 self.remboursement_widgets[demande_id] = widget
 
@@ -389,7 +424,10 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _on_profile_saved(self):
         def task():
-            return self.auth_controller.get_user_data(self.nom_utilisateur)
+            user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
+            # Reconstruire le cache pfp si la photo a changé
+            self._fetch_user_data_and_init_ui()
+            return user_data
 
         def on_complete(user_data, error):
             if error or not user_data: return

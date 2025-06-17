@@ -80,6 +80,10 @@ class AuthController:
         """Récupère l'objet Pydantic d'un utilisateur."""
         return user_model.obtenir_utilisateur_par_login_data(login)
 
+    def get_all_users(self):
+        """Récupère tous les utilisateurs de la base de données."""
+        return user_model.obtenir_tous_les_utilisateurs_data()
+
     def update_user_profile(self, login: str, new_email: str, old_password: str | None, new_password: str | None,
                             preferences: dict) -> tuple[bool, str]:
         """Met à jour le profil d'un utilisateur."""
