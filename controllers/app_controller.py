@@ -2,6 +2,8 @@ import customtkinter as ctk
 import os
 import sys
 import threading
+import time
+import shutil
 from tkinter import messagebox
 from views.login_view import LoginView
 from views.main_view import MainView
@@ -12,6 +14,7 @@ from models import user_model
 from utils.ui_utils import ToastManager
 from utils.database_manager import create_tables
 from utils.cache_manager import CacheManager
+from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR
 
 
 class AppController:
@@ -39,9 +42,32 @@ class AppController:
                                  f"Impossible d'initialiser la base de données.\nErreur: {e}\n\nL'application va se fermer.")
             sys.exit(1)
 
+    def _cleanup_orphaned_temp_folders(self):
+        """Nettoie les dossiers temporaires de création de demande abandonnés."""
+        try:
+            base_dir = REMBOURSEMENTS_ATTACHMENTS_DIR
+            if not os.path.isdir(base_dir):
+                return
+
+            cutoff = time.time() - (24 * 3600)  # 24 heures
+            for filename in os.listdir(base_dir):
+                if filename.startswith("temp_creation_"):
+                    folder_path = os.path.join(base_dir, filename)
+                    if os.path.isdir(folder_path):
+                        folder_mtime = os.path.getmtime(folder_path)
+                        if folder_mtime < cutoff:
+                            shutil.rmtree(folder_path, ignore_errors=True)
+                            print(f"Nettoyage du dossier temporaire orphelin : {folder_path}")
+        except Exception as e:
+            print(f"Erreur lors du nettoyage des dossiers temporaires orphelins : {e}")
+
     def _run_startup_tasks(self):
         def task():
-            print("Lancement des tâches de démarrage (archivage...).")
+            print("Lancement des tâches de démarrage...")
+            # Tâche 1: Nettoyage des dossiers temporaires
+            self._cleanup_orphaned_temp_folders()
+
+            # Tâche 2: Archivage des vieilles demandes
             rc_temp = RemboursementController(utilisateur_actuel="system")
             rc_temp.archive_old_requests()
             print("Tâches de démarrage terminées.")
@@ -73,11 +99,13 @@ class AppController:
 
     def on_login_success(self, nom_utilisateur: str):
         self.current_user = nom_utilisateur
-        self._sync_user_cache() # Lancement de la synchro du cache
+        self._sync_user_cache()
         self.show_main_view()
 
     def _sync_user_cache(self):
         """ Déclenche la synchronisation du cache pour l'utilisateur connecté en tâche de fond. """
+        if self.remboursement_controller is None:
+            self._remboursement_controller_factory(self.current_user)
         if not self.remboursement_controller or not self.current_user:
             return
 
@@ -86,17 +114,18 @@ class AppController:
             if not user_data:
                 return
 
-            all_demandes = self.remboursement_controller.get_toutes_les_demandes(include_archives=False)
+            all_demandes = self.remboursement_controller.get_demandes_filtrees_triees(user_data.roles,
+                                                                                      "Toutes les demandes",
+                                                                                      "Date de création (récent)", "",
+                                                                                      False)
             actionable_demandes = [
                 d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)
             ]
             self.cache_manager.sync_cache_for_user(actionable_demandes)
             print(f"Cache synchronisé pour {self.current_user}. {len(actionable_demandes)} demande(s) active(s).")
 
-        # Exécuter en arrière-plan pour ne pas bloquer l'interface
         cache_thread = threading.Thread(target=task, daemon=True)
         cache_thread.start()
-
 
     def show_main_view(self):
         if self.login_view:

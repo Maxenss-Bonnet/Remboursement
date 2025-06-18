@@ -48,6 +48,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.demandes_en_cache = {}
         self.remboursement_widgets = {}
         self.no_demandes_label = None
+        self._is_refreshing = False
 
         self._fetch_user_data_and_init_ui()
 
@@ -64,21 +65,18 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _fetch_user_data_and_init_ui(self):
         def task():
-            # Tâche 1: Récupérer les données de l'utilisateur actuel
             current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-
-            # Tâche 2: Construire le cache des photos de profil pour l'historique
             all_users = self.auth_controller.get_all_users()
             pfp_cache = {}
             pfp_size = 20
 
-            # Créer les placeholders par défaut
             pfp_cache['default'] = self._create_placeholder_image("?", pfp_size)
             pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size)
             pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size)
 
             for user in all_users:
-                if user.profile_picture_path and os.path.exists(os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
+                if user.profile_picture_path and os.path.exists(
+                        os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
                     full_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
                     pfp_image = create_circular_image(full_path, pfp_size)
                     pfp_cache[user.login] = pfp_image if pfp_image else pfp_cache['default']
@@ -254,62 +252,66 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.run_task(task, on_complete, "Mise à jour de l'affichage...", show_overlay=show_overlay)
 
     def _render_demandes_list(self, result, error=None):
-        if error:
-            self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
-            return
+        try:
+            if error:
+                self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
+                return
 
-        demandes_a_afficher, modified_ids = result
+            demandes_a_afficher, modified_ids = result
 
-        if self.no_demandes_label:
-            self.no_demandes_label.destroy()
-            self.no_demandes_label = None
+            if self.no_demandes_label:
+                self.no_demandes_label.destroy()
+                self.no_demandes_label = None
 
-        demandes_actuelles_ids = {d.id_demande for d in demandes_a_afficher}
-        widgets_actuels_ids = set(self.remboursement_widgets.keys())
+            demandes_actuelles_ids = {d.id_demande for d in demandes_a_afficher}
+            widgets_actuels_ids = set(self.remboursement_widgets.keys())
 
-        ids_a_supprimer = widgets_actuels_ids - demandes_actuelles_ids
-        for demande_id in ids_a_supprimer:
-            if demande_id in self.remboursement_widgets:
-                widget = self.remboursement_widgets.pop(demande_id)
-                widget.destroy()
+            ids_a_supprimer = widgets_actuels_ids - demandes_actuelles_ids
+            for demande_id in ids_a_supprimer:
+                if demande_id in self.remboursement_widgets:
+                    widget = self.remboursement_widgets.pop(demande_id)
+                    widget.destroy()
 
-        demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
+            demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
 
-        for widget in self.remboursement_widgets.values():
-            widget.pack_forget()
+            for widget in self.remboursement_widgets.values():
+                widget.pack_forget()
 
-        for demande in demandes_a_afficher:
-            demande_id = demande.id_demande
-            if demande_id in self.remboursement_widgets:
-                widget = self.remboursement_widgets[demande_id]
-                if demande_id in modified_ids:
-                    widget.flash_update(demandes_dict[demande_id])
+            for demande in demandes_a_afficher:
+                demande_id = demande.id_demande
+                if demande_id in self.remboursement_widgets:
+                    widget = self.remboursement_widgets[demande_id]
+                    if demande_id in modified_ids:
+                        widget.flash_update(demandes_dict[demande_id])
+                    else:
+                        widget.update_content(demandes_dict[demande_id])
                 else:
-                    widget.update_content(demandes_dict[demande_id])
-            else:
-                widget = RemboursementItemView(
-                    master=self.scrollable_frame_demandes,
-                    main_view_instance=self,
-                    demande_data=demandes_dict[demande_id],
-                    current_user_name=self.nom_utilisateur,
-                    user_roles=self.user_roles,
-                    app_controller=self.app_controller,
-                    remboursement_controller=self.remboursement_controller,
-                    refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
-                        show_overlay=show_overlay),
-                    pfp_cache=self.pfp_cache
-                )
-                self.remboursement_widgets[demande_id] = widget
+                    widget = RemboursementItemView(
+                        master=self.scrollable_frame_demandes,
+                        main_view_instance=self,
+                        demande_data=demandes_dict[demande_id],
+                        current_user_name=self.nom_utilisateur,
+                        user_roles=self.user_roles,
+                        app_controller=self.app_controller,
+                        remboursement_controller=self.remboursement_controller,
+                        refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
+                            show_overlay=show_overlay),
+                        pfp_cache=self.pfp_cache
+                    )
+                    self.remboursement_widgets[demande_id] = widget
 
-            widget.pack(pady=5, padx=5, fill="x", expand=True)
+                widget.pack(pady=5, padx=5, fill="x", expand=True)
 
-        if not self.remboursement_widgets:
-            self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes, text="Aucune demande à afficher.",
-                                                  font=ctk.CTkFont(size=14, slant="italic"))
-            self.no_demandes_label.pack(pady=20)
+            if not self.remboursement_widgets:
+                self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
+                                                      text="Aucune demande à afficher.",
+                                                      font=ctk.CTkFont(size=14, slant="italic"))
+                self.no_demandes_label.pack(pady=20)
 
-        self._update_notification_badge(demandes_a_afficher)
-        self._trigger_cache_sync(demandes_a_afficher)
+            self._update_notification_badge(demandes_a_afficher)
+            self._trigger_cache_sync(demandes_a_afficher)
+        finally:
+            self._is_refreshing = False
 
     def _trigger_cache_sync(self, all_demandes):
         def task():
@@ -319,6 +321,10 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         threading.Thread(target=task, daemon=True).start()
 
     def afficher_liste_demandes(self, show_overlay=True):
+        if self._is_refreshing:
+            return
+
+        self._is_refreshing = True
         loading_message = "Chargement des données..."
 
         def task():

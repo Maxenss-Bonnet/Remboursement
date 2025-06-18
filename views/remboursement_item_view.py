@@ -167,7 +167,6 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         if self.demande_data.get('date_paiement_effectue'):
             add_basic_info_row("Paiement le:", self.demande_data['date_paiement_effectue'], text_color="lightgreen")
 
-        # --- Section Historique refactorisée ---
         hist_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         hist_container.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=5)
         ctk.CTkLabel(hist_container, text="Historique/Commentaires:", font=label_font_info).pack(anchor="w",
@@ -185,7 +184,6 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
                 user_str = entree_hist.get('par_utilisateur') or 'Système'
                 pfp_image = self.pfp_cache.get(user_str, self.pfp_cache.get('default'))
 
-                # --- Cadre pour une entrée d'historique ---
                 entry_frame = ctk.CTkFrame(hist_scroll_frame, fg_color="transparent")
                 entry_frame.pack(fill="x", expand=True, pady=(0, 10))
                 entry_frame.grid_columnconfigure(1, weight=1)
@@ -193,7 +191,6 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
                 pfp_label = ctk.CTkLabel(entry_frame, image=pfp_image, text="", width=20, height=20)
                 pfp_label.grid(row=0, column=0, rowspan=3, sticky="n", padx=(5, 8), pady=3)
 
-                # --- Ligne d'en-tête (date et utilisateur) ---
                 try:
                     date_obj = datetime.datetime.fromisoformat(str(entree_hist.get('date', 'N/A')).split('.')[0])
                     formatted_date = date_obj.strftime('%d/%m/%y %H:%M')
@@ -204,15 +201,14 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
                 ctk.CTkLabel(entry_frame, text=header_text, font=ctk.CTkFont(size=11, weight="bold"),
                              text_color="#C0C0C0", anchor="w").grid(row=0, column=1, sticky="w")
 
-                # --- Ligne de statut ---
                 statut_text = entree_hist.get('statut')
                 if statut_text:
                     ctk.CTkLabel(entry_frame, text=f"Statut: {statut_text}", font=ctk.CTkFont(size=12),
                                  anchor="w").grid(row=1, column=1, sticky="w")
 
-                # --- Commentaire ---
                 comment_text = str(entree_hist.get('commentaire', '')).strip()
                 if comment_text:
+                    comment_text += "\u00A0"
                     ctk.CTkLabel(entry_frame, text=comment_text, wraplength=400, justify="left",
                                  font=ctk.CTkFont(size=12, slant="italic"), text_color="gray85", anchor="w").grid(row=2,
                                                                                                                   column=1,

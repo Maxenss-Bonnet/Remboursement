@@ -24,7 +24,6 @@ IS_DEPLOYMENT_MODE = not SHARED_DATA_BASE_PATH.startswith(os.path.dirname(os.pat
 # --- Sous-dossiers de données ---
 REMBOURSEMENTS_BASE_DIR = os.path.join(SHARED_DATA_BASE_PATH, "remboursements")
 REMBOURSEMENTS_ATTACHMENTS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "fichiers")
-REMBOURSEMENTS_TEMP_UPLOADS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "temp_uploads")
 PROFILE_PICTURES_DIR = os.path.join(SHARED_DATA_BASE_PATH, "assets", "profile_pictures")
 
 # --- Dossiers d'archives ---
@@ -138,8 +137,7 @@ def ensure_shared_dirs_exist():
     dirs_to_create = [
         REMBOURSEMENTS_ATTACHMENTS_DIR,
         PROFILE_PICTURES_DIR,
-        REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
-        REMBOURSEMENTS_TEMP_UPLOADS_DIR
+        REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
     ]
     for directory in dirs_to_create:
         os.makedirs(directory, exist_ok=True)

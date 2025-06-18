@@ -13,7 +13,7 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.remboursement_controller = remboursement_controller
         self.id_demande = id_demande
         self.app_controller = app_controller
-        self.chemin_pj_reseau_temp = None
+        self.chemin_pj_reseau = None
         self.submitted = False
 
         self.title(f"Accepter Constat TP - Demande {id_demande[:8]}")
@@ -35,63 +35,59 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.commentaire_box.pack(pady=5, padx=10, fill="x", expand=True)
         self.commentaire_box.focus()
 
-        ctk.CTkButton(self, text="Valider et Soumettre à J. Durousset", command=self._submit, height=35).pack(pady=20)
+        self.btn_submit = ctk.CTkButton(self, text="Valider et Soumettre à J. Durousset", command=self._submit,
+                                        height=35)
+        self.btn_submit.pack(pady=20)
 
     def _select_pj(self):
-        chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image("Sélectionner Preuve Trop-Perçu")
-        if not chemin_local:
-            return
+        chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
+            "Sélectionner Preuve Trop-Perçu")
+        if not chemin_local: return
 
-        if self.chemin_pj_reseau_temp:
+        if self.chemin_pj_reseau:
             self.run_task(
-                lambda path=self.chemin_pj_reseau_temp: self.remboursement_controller.supprimer_fichier_temporaire_reseau(path),
-                on_complete=None, show_overlay=False
-            )
-        self.chemin_pj_reseau_temp = None
+                lambda p=self.chemin_pj_reseau: self.remboursement_controller.supprimer_piece_jointe_reseau(p), None,
+                show_overlay=False)
+        self.chemin_pj_reseau = None
 
         original_text_color = self.label_pj.cget("text_color")
         self.chemin_pj_var.set(f"Copie en cours: {os.path.basename(chemin_local)}...")
         self.label_pj.configure(text_color="orange")
 
         def task():
-            return self.remboursement_controller.preparer_piece_jointe_reseau(chemin_local)
+            return self.remboursement_controller.ajouter_pj_a_demande_existante(self.id_demande, chemin_local,
+                                                                                "trop_percu")
 
         def on_complete(result, error):
             if error:
                 self.app_controller.show_toast(f"Erreur de copie: {error}", "error")
                 self.chemin_pj_var.set("Échec de la copie !")
                 self.label_pj.configure(text_color="red")
-                self.chemin_pj_reseau_temp = None
-                return
-
-            self.chemin_pj_reseau_temp = result
-            self.chemin_pj_var.set(os.path.basename(result))
-            self.label_pj.configure(text_color=original_text_color)
+            else:
+                self.chemin_pj_reseau = result
+                self.chemin_pj_var.set(os.path.basename(chemin_local))
+                self.label_pj.configure(text_color=original_text_color)
 
         self.run_task(task, on_complete, show_overlay=False)
 
     def _submit(self):
+        self.btn_submit.configure(state="disabled")
         commentaire = self.commentaire_box.get("1.0", "end-1c").strip()
-        if not commentaire:
-            commentaire = "Constat de trop-perçu accepté."
-
-        if not self.chemin_pj_reseau_temp:
+        if not commentaire: commentaire = "Constat de trop-perçu accepté."
+        if not self.chemin_pj_reseau:
             self.app_controller.show_toast("La pièce jointe de preuve est obligatoire.", "error")
+            self.btn_submit.configure(state="normal")
             return
 
         def task():
-            path_to_submit = self.chemin_pj_reseau_temp
-            self.chemin_pj_reseau_temp = None
-
-            return self.remboursement_controller.mlupo_accepter_constat(
-                id_demande=self.id_demande,
-                chemin_pj_trop_percu=path_to_submit,
-                commentaire=commentaire
-            )
+            path_to_submit = self.chemin_pj_reseau
+            self.chemin_pj_reseau = None
+            return self.remboursement_controller.mlupo_accepter_constat(self.id_demande, commentaire, path_to_submit)
 
         def on_complete(result, error):
             if error:
                 self.app_controller.show_toast(f"Erreur : {error}", 'error')
+                self.btn_submit.configure(state="normal")
                 return
 
             success, message = result
@@ -101,15 +97,12 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
                 self.destroy()
             else:
                 self.app_controller.show_toast(message, 'error')
+                self.btn_submit.configure(state="normal")
 
         self.run_task(task, on_complete, "Acceptation du constat...")
 
     def _on_close(self):
-        if self.chemin_pj_reseau_temp:
-            # Utilise un thread simple pour ne pas bloquer la fermeture
-            threading.Thread(
-                target=self.remboursement_controller.supprimer_fichier_temporaire_reseau,
-                args=(self.chemin_pj_reseau_temp,),
-                daemon=True
-            ).start()
+        if self.chemin_pj_reseau:
+            threading.Thread(target=self.remboursement_controller.supprimer_piece_jointe_reseau,
+                             args=(self.chemin_pj_reseau,), daemon=True).start()
         self.destroy()
