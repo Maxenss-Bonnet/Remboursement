@@ -10,10 +10,12 @@ from models.schemas import Remboursement
 class CacheManager:
     def __init__(self):
         self.cache_dir = os.path.join(tempfile.gettempdir(), "remboursements_cache")
+        self.pfp_cache_dir = os.path.join(self.cache_dir, "pfp_cache")
         self.ensure_cache_dir()
 
     def ensure_cache_dir(self):
         os.makedirs(self.cache_dir, exist_ok=True)
+        os.makedirs(self.pfp_cache_dir, exist_ok=True)
 
     def _get_cached_filename(self, rel_path: str) -> str:
         return rel_path.replace('\\', '_').replace('/', '_')
@@ -38,6 +40,23 @@ class CacheManager:
             shutil.copy2(source_path, destination_path)
         except Exception as e:
             print(f"Erreur lors de l'ajout du fichier au cache : {e}")
+
+    def get_cached_pfp_path(self, login: str, size: int) -> str:
+        """Retourne le chemin attendu pour une PFP mise en cache."""
+        safe_login = login.replace('.', '_').replace(' ', '_')
+        return os.path.join(self.pfp_cache_dir, f"pfp_{safe_login}_{size}.png")
+
+    def invalidate_pfp_cache(self, login: str):
+        """Supprime toutes les versions mises en cache de la PFP d'un utilisateur."""
+        safe_login = login.replace('.', '_').replace(' ', '_')
+        prefix_to_find = f"pfp_{safe_login}_"
+        try:
+            if os.path.exists(self.pfp_cache_dir):
+                for filename in os.listdir(self.pfp_cache_dir):
+                    if filename.startswith(prefix_to_find):
+                        os.remove(os.path.join(self.pfp_cache_dir, filename))
+        except OSError as e:
+            print(f"Erreur lors de l'invalidation du cache PFP pour {login}: {e}")
 
     def sync_proactive_cache(self, demands_to_cache: List[Remboursement]):
         try:

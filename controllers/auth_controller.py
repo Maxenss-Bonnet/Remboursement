@@ -17,6 +17,7 @@ from config.settings import (
     SHARED_DATA_BASE_PATH
 )
 from models.schemas import Utilisateur, UtilisateurUpdate
+from utils.cache_manager import CacheManager
 
 
 class AuthController:
@@ -83,7 +84,7 @@ class AuthController:
         return user_model.obtenir_tous_les_utilisateurs_data()
 
     def update_user_profile(self, login: str, new_email: str, old_password: str | None, new_password: str | None,
-                            preferences: dict) -> tuple[bool, str]:
+                            preferences: dict, cache_manager: CacheManager) -> tuple[bool, str]:
         user = user_model.obtenir_utilisateur_par_login_data(login)
         if not user:
             return False, "Utilisateur non trouvé."
@@ -95,7 +96,9 @@ class AuthController:
         old_pfp_path = user.profile_picture_path
         new_pfp_path = preferences.get("profile_picture_path")
 
-        if old_pfp_path and old_pfp_path != new_pfp_path:
+        pfp_changed = old_pfp_path != new_pfp_path
+
+        if old_pfp_path and pfp_changed:
             try:
                 full_old_path = os.path.join(PROFILE_PICTURES_DIR, old_pfp_path)
                 if os.path.exists(full_old_path):
@@ -110,9 +113,14 @@ class AuthController:
             default_filter=preferences.get("default_filter"),
             profile_picture_path=new_pfp_path
         )
-        return user_model.mettre_a_jour_utilisateur_data(login, update_data)
+        success, message = user_model.mettre_a_jour_utilisateur_data(login, update_data)
 
-    def remove_user_profile_picture(self, login: str) -> tuple[bool, str]:
+        if success and pfp_changed:
+            cache_manager.invalidate_pfp_cache(login)
+
+        return success, message
+
+    def remove_user_profile_picture(self, login: str, cache_manager: CacheManager) -> tuple[bool, str]:
         user = user_model.obtenir_utilisateur_par_login_data(login)
         if not user:
             return False, "Utilisateur non trouvé."
@@ -127,7 +135,12 @@ class AuthController:
                 return False, f"Erreur lors de la suppression du fichier image : {e}"
 
         update_data = UtilisateurUpdate(profile_picture_path="")
-        return user_model.mettre_a_jour_utilisateur_data(login, update_data)
+        success, message = user_model.mettre_a_jour_utilisateur_data(login, update_data)
+
+        if success:
+            cache_manager.invalidate_pfp_cache(login)
+
+        return success, message
 
     def get_all_users_for_management(self) -> list[dict]:
         tous_les_utilisateurs = user_model.obtenir_tous_les_utilisateurs_data()

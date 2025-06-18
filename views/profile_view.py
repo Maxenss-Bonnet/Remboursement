@@ -2,10 +2,10 @@ import os
 import shutil
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from config.settings import PROFILE_PICTURES_DIR
-from utils.image_utils import create_circular_image
+from utils.image_utils import get_or_create_circular_pfp
 from utils.password_utils import check_password_strength
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 
@@ -121,11 +121,16 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         self.strength_label.configure(text=feedback, text_color=color)
 
     def load_profile_picture(self):
-        pfp_image = None
+        full_path = None
         if self.profile_pic_rel_path:
             full_path = os.path.join(PROFILE_PICTURES_DIR, self.profile_pic_rel_path)
-            if os.path.exists(full_path):
-                pfp_image = create_circular_image(full_path, self.pfp_size)
+
+        pfp_image = get_or_create_circular_pfp(
+            login=self.current_user,
+            source_path=full_path,
+            size=self.pfp_size,
+            cache_manager=self.app_controller.cache_manager
+        )
 
         if pfp_image:
             self.pfp_label.configure(image=pfp_image)
@@ -150,15 +155,28 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         )
         if filepath:
             self.new_profile_pic_source_path = filepath
-            pfp_image = create_circular_image(filepath, self.pfp_size)
-            if pfp_image:
-                self.pfp_label.configure(image=pfp_image)
+            # On affiche un aperçu temporaire sans passer par le cache, en utilisant 'with'
+            try:
+                with Image.open(filepath) as img_source:
+                    img = ImageOps.fit(img_source, (self.pfp_size, self.pfp_size), Image.Resampling.LANCZOS)
+                    mask = Image.new('L', (self.pfp_size, self.pfp_size), 0)
+                    draw = ImageDraw.Draw(mask)
+                    draw.ellipse((0, 0, self.pfp_size, self.pfp_size), fill=255)
+                    img.putalpha(mask)
+                    pfp_image = ctk.CTkImage(light_image=img, dark_image=img, size=(self.pfp_size, self.pfp_size))
+                    self.pfp_label.configure(image=pfp_image)
+            except Exception as e:
+                self.app_controller.show_toast(f"Impossible de prévisualiser l'image: {e}", "error")
+
 
     def _remove_profile_picture(self):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir supprimer votre photo de profil ?",
                                parent=self):
             def task():
-                return self.auth_controller.remove_user_profile_picture(self.current_user)
+                return self.auth_controller.remove_user_profile_picture(
+                    login=self.current_user,
+                    cache_manager=self.app_controller.cache_manager
+                )
 
             def on_complete(result, error):
                 if error:
@@ -168,6 +186,7 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
                 if success:
                     self.app_controller.show_toast("Photo de profil supprimée.", 'success')
                     self.profile_pic_rel_path = None
+                    self.new_profile_pic_source_path = None
                     self.load_profile_picture()
                     if self.on_save_callback:
                         self.on_save_callback()
@@ -187,7 +206,6 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         try:
             with Image.open(self.new_profile_pic_source_path) as img:
                 img.thumbnail(PFP_MAX_SIZE, Image.Resampling.LANCZOS)
-                # Convertir en RGB pour éviter les problèmes de palette (pour les GIF, etc.)
                 rgb_img = img.convert('RGB')
                 rgb_img.save(destination_path, quality=90, optimize=True)
             return new_filename
@@ -216,7 +234,8 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
                 new_email=new_email,
                 old_password=old_password if old_password else None,
                 new_password=new_password if new_password else None,
-                preferences=updated_prefs
+                preferences=updated_prefs,
+                cache_manager=self.app_controller.cache_manager
             )
 
         def on_complete(result, error):

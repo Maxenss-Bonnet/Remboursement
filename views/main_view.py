@@ -19,7 +19,7 @@ from views.document_history_viewer import DocumentHistoryViewer
 from views.admin_user_management_view import AdminUserManagementView
 from views.help_view import HelpView
 from views.profile_view import ProfileView
-from utils.image_utils import create_circular_image
+from utils.image_utils import get_or_create_circular_pfp
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 POLLING_INTERVAL_MS = 5000
@@ -82,11 +82,20 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size)
 
             for user in all_users:
+                full_path = None
                 if user.profile_picture_path and os.path.exists(
                         os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
                     full_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
-                    pfp_image = create_circular_image(full_path, pfp_size)
-                    pfp_cache[user.login] = pfp_image if pfp_image else pfp_cache['default']
+
+                pfp_image = get_or_create_circular_pfp(
+                    login=user.login,
+                    source_path=full_path,
+                    size=pfp_size,
+                    cache_manager=self.app_controller.cache_manager
+                )
+
+                if pfp_image:
+                    pfp_cache[user.login] = pfp_image
                 else:
                     initial = user.login[0].upper() if user.login else "?"
                     pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size)
@@ -235,25 +244,23 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         def task():
             if not self.user_data: return None
             pfp_path = self.user_data.profile_picture_path
-            pfp_image = None
+            source_path = None
             if pfp_path and os.path.exists(os.path.join(PROFILE_PICTURES_DIR, pfp_path)):
-                pfp_image = create_circular_image(os.path.join(PROFILE_PICTURES_DIR, pfp_path), self.pfp_size)
-            return pfp_image
+                source_path = os.path.join(PROFILE_PICTURES_DIR, pfp_path)
+
+            return get_or_create_circular_pfp(
+                login=self.nom_utilisateur,
+                source_path=source_path,
+                size=self.pfp_size,
+                cache_manager=self.app_controller.cache_manager
+            )
 
         def on_complete(pfp_image, error):
             if error or not self.user_data: return
 
             if not pfp_image:
-                placeholder = Image.new('RGBA', (self.pfp_size, self.pfp_size), (80, 80, 80, 255))
-                draw = ImageDraw.Draw(placeholder)
-                try:
-                    font = ImageFont.truetype("arial", 45)
-                except IOError:
-                    font = ImageFont.load_default()
-                draw.text((self.pfp_size / 2, self.pfp_size / 2), self.nom_utilisateur[0].upper(), font=font,
-                          anchor="mm")
-                pfp_image = ctk.CTkImage(light_image=placeholder, dark_image=placeholder,
-                                         size=(self.pfp_size, self.pfp_size))
+                pfp_image = self._create_placeholder_image(self.nom_utilisateur[0].upper(), self.pfp_size)
+
             self.pfp_label.configure(image=pfp_image)
             self.pfp_label.image = pfp_image
             roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
@@ -500,17 +507,73 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _on_profile_saved(self):
         def task():
-            user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-            self._fetch_user_data_and_init_ui()
-            return user_data
+            # 1. Obtenir les données utilisateur fraîches
+            current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
 
-        def on_complete(user_data, error):
-            if error or not user_data: return
-            self.user_data = user_data
-            self._update_user_display(show_overlay=False)
+            # 2. Reconstruire le cache PFP pour les petits avatars de l'historique
+            all_users = self.auth_controller.get_all_users()
+            new_pfp_cache = {}
+            pfp_size_small = 20
+
+            new_pfp_cache['default'] = self._create_placeholder_image("?", pfp_size_small)
+            new_pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size_small)
+            new_pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size_small)
+
+            for user in all_users:
+                source_path = None
+                if user.profile_picture_path and os.path.exists(
+                        os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
+                    source_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
+
+                pfp_image = get_or_create_circular_pfp(
+                    login=user.login, source_path=source_path, size=pfp_size_small,
+                    cache_manager=self.app_controller.cache_manager
+                )
+                if pfp_image:
+                    new_pfp_cache[user.login] = pfp_image
+                else:
+                    initial = user.login[0].upper() if user.login else "?"
+                    new_pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size_small)
+
+            # 3. Obtenir la grande PFP mise à jour pour l'utilisateur principal
+            main_pfp_source_path = None
+            if current_user_data and current_user_data.profile_picture_path:
+                path = os.path.join(PROFILE_PICTURES_DIR, current_user_data.profile_picture_path)
+                if os.path.exists(path):
+                    main_pfp_source_path = path
+
+            main_pfp_image = get_or_create_circular_pfp(
+                login=self.nom_utilisateur, source_path=main_pfp_source_path, size=self.pfp_size,
+                cache_manager=self.app_controller.cache_manager
+            )
+
+            return current_user_data, new_pfp_cache, main_pfp_image
+
+        def on_complete(result, error):
+            if error or not result:
+                self.app_controller.show_toast("Erreur critique lors de la mise à jour du profil.", "error")
+                return
+
+            new_user_data, new_pfp_cache, main_pfp_image = result
+
+            # Mettre à jour les données et le cache en une seule fois
+            self.user_data = new_user_data
+            self.user_roles = self.user_data.roles if self.user_data else []
+            self.pfp_cache = new_pfp_cache
+
+            # Mettre à jour l'affichage de l'utilisateur principal
+            if not main_pfp_image:
+                main_pfp_image = self._create_placeholder_image(self.nom_utilisateur[0].upper(), self.pfp_size)
+            self.pfp_label.configure(image=main_pfp_image)
+            roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
+            self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
+
+            # Mettre à jour les préférences et rafraîchir la liste
             self.current_filter = self.user_data.default_filter
             self.filter_menu.set(self.current_filter)
             self.afficher_liste_demandes(show_overlay=True)
+
+            # Gérer le changement de thème
             new_theme = self.user_data.theme_color
             if new_theme != self.initial_theme:
                 self.app_controller.request_restart("Le changement de thème nécessite un redémarrage.")
