@@ -6,7 +6,7 @@ DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 
 def get_db_connection():
     """Crée et retourne une connexion à la base de données optimisée."""
-    conn = sqlite3.connect(DATABASE_FILE, timeout=10)
+    conn = sqlite3.connect(DATABASE_FILE, timeout=20)
     conn.row_factory = sqlite3.Row
 
     cursor = conn.cursor()

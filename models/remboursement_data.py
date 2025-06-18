@@ -11,8 +11,10 @@ from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHI
 from models.schemas import Remboursement
 from utils.database_manager import get_db_connection
 from utils.archive_utils import create_archive_for_demande
+from utils.db_decorators import handle_db_locks
 
 
+@handle_db_locks
 def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     data = dict(row)
     historique_list = []
@@ -49,6 +51,7 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     return Remboursement(**data)
 
 
+@handle_db_locks
 def charger_demandes_data(
         statut_filter: Optional[List[str]] = None,
         search_term: Optional[str] = None,
@@ -76,9 +79,6 @@ def charger_demandes_data(
     where_clauses = []
     params = []
 
-    # Correction de la logique d'archivage :
-    # Si la case n'est PAS cochée, on filtre pour n'afficher que les non-archivées.
-    # Si elle EST cochée, on n'ajoute aucun filtre sur ce critère, affichant ainsi tout.
     if not is_archived:
         where_clauses.append("r.is_archived = ?")
         params.append(0)
@@ -112,6 +112,7 @@ def charger_demandes_data(
     return [_construct_remboursement_from_row(row) for row in rows]
 
 
+@handle_db_locks
 def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -133,6 +134,7 @@ def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
     return _construct_remboursement_from_row(row) if row else None
 
 
+@handle_db_locks
 def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
     conn = get_db_connection()
     try:
@@ -166,6 +168,7 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
             conn.close()
 
 
+@handle_db_locks
 def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optional[str] = None,
                                type_pj: Optional[str] = None) -> Tuple[bool, str]:
     conn = get_db_connection()
@@ -203,6 +206,7 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
         conn.close()
 
 
+@handle_db_locks
 def ajouter_piece_jointe_data(id_demande: str, chemin_relatif: str, type_pj: str) -> Tuple[bool, str]:
     conn = get_db_connection()
     try:
@@ -223,6 +227,7 @@ def ajouter_piece_jointe_data(id_demande: str, chemin_relatif: str, type_pj: str
         conn.close()
 
 
+@handle_db_locks
 def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande: return False, "Demande non trouvée."
@@ -250,6 +255,7 @@ def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
         conn.close()
 
 
+@handle_db_locks
 def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande:
@@ -296,6 +302,7 @@ def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
         conn.close()
 
 
+@handle_db_locks
 def optimiser_base_de_donnees_data() -> Tuple[bool, str]:
     """Exécute la commande VACUUM pour réorganiser la BDD et récupérer l'espace disque."""
     conn = get_db_connection()

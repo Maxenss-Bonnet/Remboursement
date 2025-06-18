@@ -3,8 +3,10 @@ from typing import List, Optional, Tuple
 from models.schemas import Utilisateur, UtilisateurUpdate
 from utils.database_manager import get_db_connection
 from utils.password_utils import generer_hachage_mdp
+from utils.db_decorators import handle_db_locks
 
 
+@handle_db_locks
 def obtenir_tous_les_utilisateurs_data() -> List[Utilisateur]:
     """Récupère tous les utilisateurs et leurs rôles depuis la base de données."""
     conn = get_db_connection()
@@ -36,6 +38,7 @@ def obtenir_tous_les_utilisateurs_data() -> List[Utilisateur]:
     return utilisateurs
 
 
+@handle_db_locks
 def obtenir_utilisateur_par_login_data(login: str) -> Optional[Utilisateur]:
     """Récupère un utilisateur spécifique par son login."""
     users = obtenir_tous_les_utilisateurs_data()
@@ -45,6 +48,7 @@ def obtenir_utilisateur_par_login_data(login: str) -> Optional[Utilisateur]:
     return None
 
 
+@handle_db_locks
 def ajouter_utilisateur_data(user_create: Utilisateur) -> Tuple[bool, str]:
     """Ajoute un nouvel utilisateur à la base de données."""
     conn = get_db_connection()
@@ -85,6 +89,7 @@ def ajouter_utilisateur_data(user_create: Utilisateur) -> Tuple[bool, str]:
         conn.close()
 
 
+@handle_db_locks
 def mettre_a_jour_utilisateur_data(login: str, user_update: UtilisateurUpdate) -> Tuple[bool, str]:
     """Met à jour les informations d'un utilisateur existant."""
     conn = get_db_connection()
@@ -123,6 +128,7 @@ def mettre_a_jour_utilisateur_data(login: str, user_update: UtilisateurUpdate) -
         conn.close()
 
 
+@handle_db_locks
 def supprimer_utilisateur_data(login: str) -> Tuple[bool, str]:
     """Supprime un utilisateur de la base de données."""
     conn = get_db_connection()
