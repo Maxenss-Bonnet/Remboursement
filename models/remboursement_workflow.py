@@ -9,7 +9,7 @@ from config.settings import (
 from .schemas import HistoriqueStatut, Remboursement
 
 
-def accepter_constat_trop_percu_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+def accepter_constat_trop_percu_action(demande: Remboursement, utilisateur: str, commentaire: str, **kwargs) -> tuple[
     bool, str]:
     if demande.statut != STATUT_CREEE:
         return False, f"La demande n'est pas au statut '{STATUT_CREEE}'."
@@ -35,7 +35,7 @@ def accepter_constat_trop_percu_action(demande: Remboursement, commentaire: str,
     return False, f"Erreur lors de l'acceptation du constat: {msg}"
 
 
-def refuser_constat_trop_percu_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+def refuser_constat_trop_percu_action(demande: Remboursement, utilisateur: str, commentaire: str, **kwargs) -> tuple[
     bool, str]:
     if demande.statut != STATUT_CREEE:
         return False, f"La demande n'est pas au statut '{STATUT_CREEE}' pour un refus."
@@ -57,7 +57,7 @@ def refuser_constat_trop_percu_action(demande: Remboursement, commentaire: str, 
     return False, f"Erreur lors du refus du constat: {msg}"
 
 
-def annuler_demande_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[bool, str]:
+def annuler_demande_action(demande: Remboursement, utilisateur: str, commentaire: str, **kwargs) -> tuple[bool, str]:
     if demande.statut == STATUT_ANNULEE:
         return False, "Demande déjà annulée."
 
@@ -78,7 +78,7 @@ def annuler_demande_action(demande: Remboursement, commentaire: str, utilisateur
     return False, f"Erreur lors de l'annulation: {msg}"
 
 
-def valider_demande_par_validateur_action(demande: Remboursement, commentaire: str | None, utilisateur: str,
+def valider_demande_par_validateur_action(demande: Remboursement, utilisateur: str, commentaire: str | None,
                                           **kwargs) -> tuple[bool, str]:
     if demande.statut != STATUT_TROP_PERCU_CONSTATE:
         return False, f"La demande n'est pas au statut '{STATUT_TROP_PERCU_CONSTATE}'."
@@ -100,7 +100,7 @@ def valider_demande_par_validateur_action(demande: Remboursement, commentaire: s
     return False, f"Erreur lors de la validation: {msg}"
 
 
-def refuser_demande_par_validateur_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+def refuser_demande_par_validateur_action(demande: Remboursement, utilisateur: str, commentaire: str, **kwargs) -> tuple[
     bool, str]:
     if demande.statut != STATUT_TROP_PERCU_CONSTATE:
         return False, f"La demande n'est pas au statut '{STATUT_TROP_PERCU_CONSTATE}'."
@@ -146,7 +146,7 @@ def confirmer_paiement_action(demande: Remboursement, utilisateur: str, commenta
     return False, f"Erreur lors de la confirmation du paiement: {msg}"
 
 
-def pneri_resoumettre_demande_action(demande: Remboursement, nouveau_commentaire: str, utilisateur: str,
+def pneri_resoumettre_demande_action(demande: Remboursement, utilisateur: str, nouveau_commentaire: str,
                                      **kwargs) -> tuple[
     bool, str]:
     if demande.statut != STATUT_REFUSEE_CONSTAT_TP:
@@ -169,7 +169,7 @@ def pneri_resoumettre_demande_action(demande: Remboursement, nouveau_commentaire
     return False, f"Erreur lors de la resoumission : {msg}"
 
 
-def mlupo_resoumettre_constat_action(demande: Remboursement, nouveau_commentaire: str, utilisateur: str,
+def mlupo_resoumettre_constat_action(demande: Remboursement, utilisateur: str, nouveau_commentaire: str,
                                       **kwargs) -> tuple[
     bool, str]:
     if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
@@ -196,7 +196,7 @@ def mlupo_resoumettre_constat_action(demande: Remboursement, nouveau_commentaire
     return False, f"Erreur lors de la resoumission: {msg}"
 
 
-def mlupo_refuser_correction_action(demande: Remboursement, commentaire: str, utilisateur: str, **kwargs) -> tuple[
+def mlupo_refuser_correction_action(demande: Remboursement, utilisateur: str, commentaire: str, **kwargs) -> tuple[
     bool, str]:
     if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
         return False, f"L'action n'est pas possible depuis le statut '{demande.statut}'."
