@@ -316,17 +316,20 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _perform_workflow_action(self, action_func, loading_message="Mise à jour..."):
         def on_complete(result, error):
-            if self.content_frame:
-                self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
             if error:
                 self.app_controller.show_toast(f"Erreur: {error}", "error")
+                if self.content_frame:
+                    self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
                 return
+
             success, message = result
             if success:
                 self.app_controller.show_toast(message, "success")
                 self.refresh_list_callback(show_overlay=False)
             else:
                 self.app_controller.show_toast(message, "error")
+                if self.content_frame:
+                    self.content_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
         self.run_task(action_func, on_complete, loading_message)
 
