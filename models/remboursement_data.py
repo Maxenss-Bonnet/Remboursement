@@ -5,10 +5,10 @@ import datetime
 import stat
 import errno
 import time
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
-from models.schemas import Remboursement
+from models.schemas import Remboursement, HistoriqueStatut
 from utils.database_manager import get_db_connection
 from utils.archive_utils import create_archive_for_demande
 from utils.db_decorators import handle_db_locks
@@ -17,37 +17,22 @@ from utils.db_decorators import handle_db_locks
 @handle_db_locks
 def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     data = dict(row)
-    historique_list = []
-    if data.get('all_history'):
-        for item in data['all_history'].split(';'):
-            parts = item.split('|', 3)
-            if len(parts) == 4:
-                historique_list.append({
-                    "statut": parts[0], "date": parts[1],
-                    "par_utilisateur": parts[2] if parts[2] != 'None' else None,
-                    "commentaire": parts[3] if parts[3] != 'None' else None
-                })
-    data['historique_statuts'] = historique_list
+    # L'historique et les pièces jointes ne sont plus dans le SELECT initial,
+    # ils seront ajoutés après par la fonction appelante.
+    # On initialise avec des listes vides pour le constructeur du schéma.
+    data['historique_statuts'] = []
+    data['chemins_factures_stockees'] = []
+    data['chemins_rib_stockes'] = []
+    data['chemins_trop_percu_stockees'] = []
 
-    factures, ribs, trop_percus = [], [], []
-    if data.get('all_attachments'):
-        for item in data['all_attachments'].split(';'):
-            parts = item.split('|', 1)
-            if len(parts) == 2:
-                pj_type, pj_path = parts
-                if pj_type == 'facture':
-                    factures.append(pj_path)
-                elif pj_type == 'rib':
-                    ribs.append(pj_path)
-                elif pj_type == 'trop_percu':
-                    trop_percus.append(pj_path)
+    # S'assurer que les dates sont des objets datetime pour le schéma
+    if isinstance(data['date_creation'], str):
+        data['date_creation'] = datetime.datetime.fromisoformat(data['date_creation'])
+    if isinstance(data['date_derniere_modification'], str):
+        data['date_derniere_modification'] = datetime.datetime.fromisoformat(data['date_derniere_modification'])
+    if data['date_paiement_effectue'] and isinstance(data['date_paiement_effectue'], str):
+        data['date_paiement_effectue'] = datetime.datetime.fromisoformat(data['date_paiement_effectue'])
 
-    data['chemins_factures_stockees'] = factures
-    data['chemins_rib_stockes'] = ribs
-    data['chemins_trop_percu_stockees'] = trop_percus
-
-    data.pop('all_history', None)
-    data.pop('all_attachments', None)
     return Remboursement(**data)
 
 
@@ -64,17 +49,11 @@ def charger_demandes_data(
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # Requête principale pour les remboursements, sans les jointures lourdes
     base_query = """
-    SELECT r.*,
-           (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' ||
-                                IFNULL(h.commentaire, 'None'), ';')
-            FROM (SELECT * FROM historique WHERE id_demande = r.id_demande ORDER BY date) h
-           ) AS all_history,
-           (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
-            FROM (SELECT * FROM pieces_jointes WHERE id_demande = r.id_demande ORDER BY date_ajout) pj
-           ) AS all_attachments
-    FROM remboursements r
-    """
+                 SELECT r.*
+                 FROM remboursements r \
+                 """
 
     where_clauses = []
     params = []
@@ -107,31 +86,119 @@ def charger_demandes_data(
 
     cursor.execute(base_query, tuple(params))
     rows = cursor.fetchall()
+
+    demandes = [_construct_remboursement_from_row(row) for row in rows]
+
+    # Récupérer tous les IDs des demandes chargées pour les requêtes de détail
+    demande_ids = [d.id_demande for d in demandes]
+    if not demande_ids:
+        conn.close()
+        return []
+
+    # Requête pour récupérer tout l'historique nécessaire en une seule fois
+    historique_map: Dict[str, List[HistoriqueStatut]] = {id: [] for id in demande_ids}
+    placeholders = ', '.join('?' for _ in demande_ids)
+    cursor.execute(f"""
+        SELECT id_demande, statut, date, par_utilisateur, commentaire
+        FROM historique
+        WHERE id_demande IN ({placeholders})
+        ORDER BY id_demande, date
+    """, demande_ids)
+    for row in cursor.fetchall():
+        hist_data = dict(row)
+        hist_data['date'] = datetime.datetime.fromisoformat(hist_data['date'])
+        if hist_data['par_utilisateur'] == 'None':  # Ajustement si 'None' est stocké comme chaîne
+            hist_data['par_utilisateur'] = None
+        if hist_data['commentaire'] == 'None':  # Ajustement si 'None' est stocké comme chaîne
+            hist_data['commentaire'] = ""
+        historique_map[hist_data['id_demande']].append(HistoriqueStatut(**hist_data))
+
+    # Requête pour récupérer toutes les pièces jointes nécessaires en une seule fois
+    attachments_map: Dict[str, Dict[str, List[str]]] = {id: {"facture": [], "rib": [], "trop_percu": []} for id in
+                                                        demande_ids}
+    cursor.execute(f"""
+        SELECT id_demande, type_pj, chemin_relatif
+        FROM pieces_jointes
+        WHERE id_demande IN ({placeholders})
+        ORDER BY id_demande, date_ajout
+    """, demande_ids)
+    for row in cursor.fetchall():
+        pj_data = dict(row)
+        if pj_data['type_pj'] == 'facture':
+            attachments_map[pj_data['id_demande']]['facture'].append(pj_data['chemin_relatif'])
+        elif pj_data['type_pj'] == 'rib':
+            attachments_map[pj_data['id_demande']]['rib'].append(pj_data['chemin_relatif'])
+        elif pj_data['type_pj'] == 'trop_percu':
+            attachments_map[pj_data['id_demande']]['trop_percu'].append(pj_data['chemin_relatif'])
+
     conn.close()
 
-    return [_construct_remboursement_from_row(row) for row in rows]
+    # Assigner l'historique et les pièces jointes aux objets Remboursement
+    for demande in demandes:
+        demande.historique_statuts = historique_map[demande.id_demande]
+        demande.chemins_factures_stockees = attachments_map[demande.id_demande]['facture']
+        demande.chemins_rib_stockes = attachments_map[demande.id_demande]['rib']
+        demande.chemins_trop_percu_stockees = attachments_map[demande.id_demande]['trop_percu']
+
+    return demandes
 
 
 @handle_db_locks
 def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Requête principale pour la demande, sans les jointures lourdes
     query = """
-            SELECT r.*,
-                   (SELECT GROUP_CONCAT(h.statut || '|' || h.date || '|' || IFNULL(h.par_utilisateur, 'None') || '|' ||
-                                        IFNULL(h.commentaire, 'None'), ';')
-                    FROM (SELECT * FROM historique WHERE id_demande = r.id_demande ORDER BY date) h
-                   ) AS all_history,
-                   (SELECT GROUP_CONCAT(pj.type_pj || '|' || pj.chemin_relatif, ';')
-                    FROM (SELECT * FROM pieces_jointes WHERE id_demande = r.id_demande ORDER BY date_ajout) pj
-                   ) AS all_attachments
+            SELECT r.*
             FROM remboursements r
             WHERE r.id_demande = ?
             """
     cursor.execute(query, (id_demande,))
     row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return None
+
+    demande = _construct_remboursement_from_row(row)
+
+    # Récupérer l'historique
+    cursor.execute("""
+                   SELECT statut, date, par_utilisateur, commentaire
+                   FROM historique
+                   WHERE id_demande = ?
+                   ORDER BY date
+                   """, (id_demande,))
+    historique_list = []
+    for hist_row in cursor.fetchall():
+        hist_data = dict(hist_row)
+        hist_data['date'] = datetime.datetime.fromisoformat(hist_data['date'])
+        if hist_data['par_utilisateur'] == 'None':
+            hist_data['par_utilisateur'] = None
+        if hist_data['commentaire'] == 'None':
+            hist_data['commentaire'] = ""
+        historique_list.append(HistoriqueStatut(**hist_data))
+    demande.historique_statuts = historique_list
+
+    # Récupérer les pièces jointes
+    cursor.execute("""
+                   SELECT type_pj, chemin_relatif
+                   FROM pieces_jointes
+                   WHERE id_demande = ?
+                   ORDER BY date_ajout
+                   """, (id_demande,))
+    for pj_row in cursor.fetchall():
+        pj_data = dict(pj_row)
+        if pj_data['type_pj'] == 'facture':
+            demande.chemins_factures_stockees.append(pj_data['chemin_relatif'])
+        elif pj_data['type_pj'] == 'rib':
+            demande.chemins_rib_stockes.append(pj_data['chemin_relatif'])
+        elif pj_data['type_pj'] == 'trop_percu':
+            demande.chemins_trop_percu_stockees.append(pj_data['chemin_relatif'])
+
     conn.close()
-    return _construct_remboursement_from_row(row) if row else None
+    return demande
 
 
 @handle_db_locks
