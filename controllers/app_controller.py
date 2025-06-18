@@ -43,13 +43,12 @@ class AppController:
             sys.exit(1)
 
     def _cleanup_orphaned_temp_folders(self):
-        """Nettoie les dossiers temporaires de création de demande abandonnés."""
         try:
             base_dir = REMBOURSEMENTS_ATTACHMENTS_DIR
             if not os.path.isdir(base_dir):
                 return
 
-            cutoff = time.time() - (24 * 3600)  # 24 heures
+            cutoff = time.time() - (24 * 3600)
             for filename in os.listdir(base_dir):
                 if filename.startswith("temp_creation_"):
                     folder_path = os.path.join(base_dir, filename)
@@ -64,10 +63,8 @@ class AppController:
     def _run_startup_tasks(self):
         def task():
             print("Lancement des tâches de démarrage...")
-            # Tâche 1: Nettoyage des dossiers temporaires
             self._cleanup_orphaned_temp_folders()
 
-            # Tâche 2: Archivage des vieilles demandes
             rc_temp = RemboursementController(utilisateur_actuel="system")
             rc_temp.archive_old_requests()
             print("Tâches de démarrage terminées.")
@@ -103,7 +100,6 @@ class AppController:
         self.show_main_view()
 
     def _sync_user_cache(self):
-        """ Déclenche la synchronisation du cache pour l'utilisateur connecté en tâche de fond. """
         if self.remboursement_controller is None:
             self._remboursement_controller_factory(self.current_user)
         if not self.remboursement_controller or not self.current_user:
@@ -123,11 +119,19 @@ class AppController:
                 limit=None,
                 offset=0
             )
-            actionable_demandes = [
-                d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)
-            ]
-            self.cache_manager.sync_cache_for_user(actionable_demandes)
-            print(f"Cache synchronisé pour {self.current_user}. {len(actionable_demandes)} demande(s) active(s).")
+
+            actionable_demandes = [d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)]
+            top_10_demandes = all_demandes[:10]
+
+            combined_demands_dict = {d.id_demande: d for d in actionable_demandes}
+            for d in top_10_demandes:
+                if d.id_demande not in combined_demands_dict:
+                    combined_demands_dict[d.id_demande] = d
+
+            demandes_to_cache = list(combined_demands_dict.values())
+
+            self.cache_manager.sync_proactive_cache(demandes_to_cache)
+            print(f"Cache proactif synchronisé pour {self.current_user}. {len(demandes_to_cache)} demande(s) en cache.")
 
         cache_thread = threading.Thread(target=task, daemon=True)
         cache_thread.start()

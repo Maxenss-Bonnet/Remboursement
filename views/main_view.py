@@ -173,7 +173,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         if self.est_admin():
             admin_buttons_frame = ctk.CTkFrame(actions_bar_frame, fg_color="transparent")
             admin_buttons_frame.pack(side="left", padx=20)
-            ctk.CTkButton(admin_buttons_frame, text="Gérer Utilisateurs",
+            ctk.CTkButton(admin_buttons_frame, text="Gérer Utilisateurs et BDD",
                           command=self._open_admin_user_management_view,
                           fg_color="#555555", hover_color="#444444").pack(side="left", padx=5)
             ctk.CTkButton(admin_buttons_frame, text="Purger les Archives", command=self._action_admin_purge_archives,
@@ -341,7 +341,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 self.load_more_button.grid_forget()
 
             self._update_notification_badge()
-            self._trigger_cache_sync(list(self.demandes_en_cache.values()))
+            if not append:
+                self._trigger_cache_sync(demandes_a_afficher)
 
         finally:
             self._is_refreshing = False
@@ -352,7 +353,15 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def _trigger_cache_sync(self, all_demandes):
         def task():
             actionable_demandes = [d for d in all_demandes if self._is_active_for_user(d)]
-            self.app_controller.cache_manager.sync_cache_for_user(actionable_demandes)
+            top_10_demandes = all_demandes[:10]
+
+            combined_demands_dict = {d.id_demande: d for d in actionable_demandes}
+            for d in top_10_demandes:
+                if d.id_demande not in combined_demands_dict:
+                    combined_demands_dict[d.id_demande] = d
+
+            demandes_to_cache = list(combined_demands_dict.values())
+            self.app_controller.cache_manager.sync_proactive_cache(demandes_to_cache)
 
         threading.Thread(target=task, daemon=True).start()
 

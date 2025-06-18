@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox, simpledialog
 from config.settings import ASSIGNABLE_ROLES
 from .admin_config_view import AdminConfigView
+from .admin_backup_view import AdminBackupView
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 
 
@@ -15,34 +16,39 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
         self.master = master
 
         self.title("Gestion des Utilisateurs (Admin)")
-        self.geometry("850x600")
+        self.geometry("950x600")
         self.transient(master)
         self.grab_set()
         self.resizable(True, True)
-        self.minsize(700, 400)
+        self.minsize(800, 400)
 
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
-        title_label = ctk.CTkLabel(main_frame, text="Gestion des Utilisateurs",
+        title_label = ctk.CTkLabel(main_frame, text="Gestion des Utilisateurs et Maintenance",
                                    font=ctk.CTkFont(size=18, weight="bold"))
         title_label.pack(pady=(10, 15))
 
         action_bar_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         action_bar_frame.pack(fill="x", pady=(0, 10))
 
-        btn_show_roles_info = ctk.CTkButton(action_bar_frame, text="Informations sur les Rôles",
-                                            command=self._show_role_descriptions)
-        btn_show_roles_info.pack(side="left", padx=5)
-
-        btn_config_smtp = ctk.CTkButton(action_bar_frame, text="Configuration Email Récupération",
-                                        command=self._open_smtp_config_dialog,
-                                        fg_color="#334155", hover_color="#475569")
-        btn_config_smtp.pack(side="left", padx=5)
-
         btn_create_user = ctk.CTkButton(action_bar_frame, text="Créer un Utilisateur",
                                         command=self._open_create_user_dialog)
         btn_create_user.pack(side="left", padx=5)
+
+        btn_show_roles_info = ctk.CTkButton(action_bar_frame, text="Infos sur les Rôles",
+                                            command=self._show_role_descriptions)
+        btn_show_roles_info.pack(side="left", padx=5)
+
+        btn_manage_backups = ctk.CTkButton(action_bar_frame, text="Gérer les Sauvegardes",
+                                           command=self._open_backup_management_view,
+                                           fg_color="#0B5345", hover_color="#0E6655")
+        btn_manage_backups.pack(side="left", padx=5)
+
+        btn_config_smtp = ctk.CTkButton(action_bar_frame, text="Configuration Email",
+                                        command=self._open_smtp_config_dialog,
+                                        fg_color="#334155", hover_color="#475569")
+        btn_config_smtp.pack(side="left", padx=5)
 
         self.scrollable_frame = ctk.CTkScrollableFrame(main_frame,
                                                        label_text="Utilisateurs enregistrés (sauf 'admin')")
@@ -53,6 +59,9 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
 
         close_button = ctk.CTkButton(self, text="Fermer", command=self.destroy, width=100)
         close_button.pack(pady=10)
+
+    def _open_backup_management_view(self):
+        AdminBackupView(self, self.auth_controller, self.app_controller)
 
     def _open_smtp_config_dialog(self):
         AdminConfigView(self, self.auth_controller)
@@ -241,7 +250,6 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
                 else:
                     self.app_controller.show_toast(message, 'error')
 
-            # Utilisation de la méthode de la classe mère (AdminUserManagementView)
             self.run_task(task, on_complete, "Sauvegarde en cours...")
             dialog.withdraw()
 

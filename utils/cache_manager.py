@@ -1,7 +1,7 @@
 import os
 import shutil
 import tempfile
-from typing import List
+from typing import List, Dict
 
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR
 from models.schemas import Remboursement
@@ -25,7 +25,6 @@ class CacheManager:
         return cached_file_path if os.path.exists(cached_file_path) else None
 
     def add_to_cache(self, source_path: str, rel_path: str):
-        """Ajoute manuellement un fichier au cache."""
         if not rel_path or not os.path.exists(source_path):
             return
 
@@ -40,13 +39,13 @@ class CacheManager:
         except Exception as e:
             print(f"Erreur lors de l'ajout du fichier au cache : {e}")
 
-    def sync_cache_for_user(self, actionable_demandes: List[Remboursement]):
+    def sync_proactive_cache(self, demands_to_cache: List[Remboursement]):
         try:
             active_files_on_disk = set(os.listdir(self.cache_dir))
             required_cached_files = set()
 
-            # Déterminer les fichiers qui DEVRAIENT être en cache
-            for demande in actionable_demandes:
+            all_attachments_map: Dict[str, str] = {}
+            for demande in demands_to_cache:
                 if demande.is_archived:
                     continue
 
@@ -57,27 +56,30 @@ class CacheManager:
                 for rel_path in all_attachments:
                     cached_filename = self._get_cached_filename(rel_path)
                     required_cached_files.add(cached_filename)
+                    if cached_filename not in all_attachments_map:
+                        all_attachments_map[cached_filename] = rel_path
 
-                    # Si le fichier requis n'est pas en cache, on le copie
-                    if cached_filename not in active_files_on_disk:
-                        source_path = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, rel_path)
-                        destination_path = os.path.join(self.cache_dir, cached_filename)
-                        if os.path.exists(source_path):
-                            shutil.copy2(source_path, destination_path)
+            files_to_add = required_cached_files - active_files_on_disk
+            for filename in files_to_add:
+                rel_path = all_attachments_map.get(filename)
+                if rel_path:
+                    source_path = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, rel_path)
+                    destination_path = os.path.join(self.cache_dir, filename)
+                    if os.path.exists(source_path):
+                        shutil.copy2(source_path, destination_path)
 
-            # Supprimer les fichiers en cache qui ne sont plus nécessaires
             files_to_delete = active_files_on_disk - required_cached_files
             for filename in files_to_delete:
                 try:
                     os.remove(os.path.join(self.cache_dir, filename))
                 except OSError:
-                    pass  # Le fichier a peut-être déjà été supprimé
+                    pass
         except Exception as e:
-            print(f"Erreur lors de la synchronisation du cache : {e}")
+            print(f"Erreur lors de la synchronisation du cache proactif : {e}")
 
     def clear_all_cache(self):
         try:
-            for filename in os.listdir(self.cache_dir):
-                os.remove(os.path.join(self.cache_dir, filename))
+            shutil.rmtree(self.cache_dir)
+            self.ensure_cache_dir()
         except Exception as e:
             print(f"Erreur lors du nettoyage complet du cache : {e}")
