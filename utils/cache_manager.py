@@ -24,6 +24,22 @@ class CacheManager:
         cached_file_path = os.path.join(self.cache_dir, self._get_cached_filename(rel_path))
         return cached_file_path if os.path.exists(cached_file_path) else None
 
+    def add_to_cache(self, source_path: str, rel_path: str):
+        """Ajoute manuellement un fichier au cache."""
+        if not rel_path or not os.path.exists(source_path):
+            return
+
+        cached_filename = self._get_cached_filename(rel_path)
+        destination_path = os.path.join(self.cache_dir, cached_filename)
+
+        if os.path.exists(destination_path):
+            return
+
+        try:
+            shutil.copy2(source_path, destination_path)
+        except Exception as e:
+            print(f"Erreur lors de l'ajout du fichier au cache : {e}")
+
     def sync_cache_for_user(self, actionable_demandes: List[Remboursement]):
         try:
             active_files_on_disk = set(os.listdir(self.cache_dir))

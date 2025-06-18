@@ -114,10 +114,15 @@ class AppController:
             if not user_data:
                 return
 
-            all_demandes = self.remboursement_controller.get_demandes_filtrees_triees(user_data.roles,
-                                                                                      "Toutes les demandes",
-                                                                                      "Date de création (récent)", "",
-                                                                                      False)
+            all_demandes = self.remboursement_controller.get_demandes_filtrees_triees(
+                user_roles=user_data.roles,
+                filter_choice="Toutes les demandes",
+                sort_choice="Date de création (récent)",
+                search_term="",
+                include_archives=False,
+                limit=None,
+                offset=0
+            )
             actionable_demandes = [
                 d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)
             ]

@@ -96,5 +96,18 @@ def create_tables():
         FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
     )""")
 
+    # Création des index pour l'optimisation des performances
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_statut ON remboursements (statut);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_nom ON remboursements (nom);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_is_archived ON remboursements (is_archived);")
+    # Index composite pour accélérer la recherche des demandes à archiver au démarrage
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_archivage ON remboursements (is_archived, statut, date_derniere_modification);")
+    # Index pour les recherches sur les tables de relations
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande ON historique (id_demande);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande ON pieces_jointes (id_demande);")
+
+
     conn.commit()
     conn.close()

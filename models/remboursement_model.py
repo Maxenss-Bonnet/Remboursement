@@ -59,16 +59,16 @@ def creer_nouvelle_demande(nom: str, prenom: str, reference_facture: str, montan
     return remboursement_data.creer_demande_data(demande_a_creer)
 
 
-def _generic_workflow_action(demande, commentaire: str | None, utilisateur: str, action_function, **kwargs) -> tuple[
+def _generic_workflow_action(demande, utilisateur: str, commentaire: str | None, action_function, **kwargs) -> tuple[
     bool, str]:
     if not demande: return False, "Demande non trouvée."
-    return action_function(demande, commentaire, utilisateur, **kwargs)
+    return action_function(demande, utilisateur, commentaire, **kwargs)
 
 
 def accepter_constat_trop_percu(id_demande: str, commentaire: str, utilisateur: str, chemin_pj_relatif: str) -> tuple[
     bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur,
+    return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.accepter_constat_trop_percu_action,
                                     nouveau_pj_relatif=chemin_pj_relatif, type_pj='trop_percu')
 
@@ -87,7 +87,7 @@ def pneri_resoumettre_demande_corrigee(id_demande: str, commentaire: str, chemin
         if not succes: return False, f"Erreur BDD (RIB): {msg}"
 
     demande_a_jour = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande_a_jour, commentaire, utilisateur,
+    return _generic_workflow_action(demande_a_jour, utilisateur, commentaire,
                                     remboursement_workflow.pneri_resoumettre_demande_action)
 
 
@@ -97,7 +97,7 @@ def mlupo_resoumettre_constat_corrige(id_demande: str, commentaire: str, chemin_
     if not demande: return False, "Demande non trouvée."
     if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO: return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO}'."
 
-    return _generic_workflow_action(demande, commentaire, utilisateur,
+    return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.mlupo_resoumettre_constat_action,
                                     nouveau_pj_relatif=chemin_pj_relatif, type_pj='trop_percu')
 
@@ -108,17 +108,17 @@ def obtenir_demande_par_id(
 
 
 def obtenir_demandes_filtrees_triees(statut_filter: list | None, search_term: str, sort_field: str, sort_order: str,
-                                     is_archived: bool) -> list[RemboursementSchema]:
+                                     is_archived: bool, limit: int | None, offset: int) -> list[RemboursementSchema]:
     return remboursement_data.charger_demandes_data(statut_filter=statut_filter, search_term=search_term,
                                                     sort_field=sort_field, sort_order=sort_order,
-                                                    is_archived=is_archived)
+                                                    is_archived=is_archived, limit=limit, offset=offset)
 
 
 def archiver_les_vieilles_demandes() -> int:
     count = 0
     douze_mois = datetime.timedelta(days=365)
     now = datetime.datetime.now()
-    demandes_actives = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", False)
+    demandes_actives = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", False, None, 0)
     for demande in demandes_actives:
         if demande.statut in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]:
             if demande.date_derniere_modification and (now - demande.date_derniere_modification) > douze_mois:
@@ -130,7 +130,7 @@ def archiver_les_vieilles_demandes() -> int:
 def admin_supprimer_archives_anciennes(age_en_annees: int) -> tuple[int, list[str]]:
     demandes_supprimees, erreurs = 0, []
     date_limite = datetime.datetime.now() - datetime.timedelta(days=age_en_annees * 365.25)
-    demandes_archivees = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", True)
+    demandes_archivees = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", True, None, 0)
     for demande in demandes_archivees:
         if demande.is_archived and demande.date_derniere_modification < date_limite:
             succes, msg = supprimer_demande_par_id(demande.id_demande)
@@ -143,35 +143,35 @@ def admin_supprimer_archives_anciennes(age_en_annees: int) -> tuple[int, list[st
 
 def annuler_demande(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur, remboursement_workflow.annuler_demande_action)
+    return _generic_workflow_action(demande, utilisateur, commentaire, remboursement_workflow.annuler_demande_action)
 
 
 def refuser_constat_trop_percu(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur,
+    return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.refuser_constat_trop_percu_action)
 
 
 def valider_demande_par_validateur(id_demande: str, commentaire: str | None, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur,
+    return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.valider_demande_par_validateur_action)
 
 
 def refuser_demande_par_validateur(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur,
+    return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.refuser_demande_par_validateur_action)
 
 
 def confirmer_paiement_effectue(id_demande: str, utilisateur: str, commentaire: str | None) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur, remboursement_workflow.confirmer_paiement_action)
+    return _generic_workflow_action(demande, utilisateur, commentaire, remboursement_workflow.confirmer_paiement_action)
 
 
 def mlupo_refuser_correction(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, commentaire, utilisateur,
+    return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.mlupo_refuser_correction_action)
 
 

@@ -9,6 +9,8 @@ from utils.image_utils import create_circular_image
 from utils.password_utils import check_password_strength
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 
+PFP_MAX_SIZE = (512, 512)
+
 
 class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
     def __init__(self, master, auth_controller, app_controller, user_data: dict, on_save_callback):
@@ -183,7 +185,11 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         destination_path = os.path.join(PROFILE_PICTURES_DIR, new_filename)
 
         try:
-            shutil.copy2(self.new_profile_pic_source_path, destination_path)
+            with Image.open(self.new_profile_pic_source_path) as img:
+                img.thumbnail(PFP_MAX_SIZE, Image.Resampling.LANCZOS)
+                # Convertir en RGB pour éviter les problèmes de palette (pour les GIF, etc.)
+                rgb_img = img.convert('RGB')
+                rgb_img.save(destination_path, quality=90, optimize=True)
             return new_filename
         except Exception as e:
             self.app_controller.show_toast(f"Impossible d'enregistrer la photo de profil : {e}", "error")

@@ -50,6 +50,15 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.no_demandes_label = None
         self._is_refreshing = False
 
+        # Attributs pour le debounce de la recherche
+        self._search_job = None
+
+        # Attributs pour le lazy loading
+        self.current_offset = 0
+        self.items_per_page = 50
+        self.all_items_loaded = False
+        self.load_more_button = None
+
         self._fetch_user_data_and_init_ui()
 
     def _create_placeholder_image(self, initial: str, size: int) -> ctk.CTkImage:
@@ -197,7 +206,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             side="left", padx=(0, 5))
         self.search_entry = ctk.CTkEntry(search_frame_parent, textvariable=self.search_var, width=300)
         self.search_entry.pack(side="left", padx=(0, 5), fill="x", expand=True)
-        self.search_var.trace_add("write", lambda name, index, mode: self.afficher_liste_demandes(show_overlay=False))
+        self.search_var.trace_add("write", self._debounce_search)
         ctk.CTkButton(search_frame_parent, text="X", width=30, command=self._clear_search).pack(side="left",
                                                                                                 padx=(5, 0))
         ctk.CTkCheckBox(search_frame_parent, text="Inclure les archives", variable=self.include_archives,
@@ -207,6 +216,9 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                                                                 label_text="Liste des Demandes de Remboursement")
         self.scrollable_frame_demandes.grid(row=3, column=0, pady=(5, 5), padx=10, sticky="nsew")
         self.scrollable_frame_demandes.grid_columnconfigure(0, weight=1)
+
+        self.load_more_button = ctk.CTkButton(main_content_frame, text="Charger plus de résultats...",
+                                              command=self._load_next_page)
 
         legende_frame = ctk.CTkFrame(main_content_frame, fg_color="transparent")
         legende_frame.grid(row=4, column=0, sticky="ew", padx=10, pady=(5, 10))
@@ -251,7 +263,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
         self.run_task(task, on_complete, "Mise à jour de l'affichage...", show_overlay=show_overlay)
 
-    def _render_demandes_list(self, result, error=None):
+    def _render_demandes_list(self, result, error=None, append=False):
         try:
             if error:
                 self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
@@ -259,59 +271,60 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
             demandes_a_afficher, modified_ids = result
 
-            if self.no_demandes_label:
-                self.no_demandes_label.destroy()
-                self.no_demandes_label = None
-
-            demandes_actuelles_ids = {d.id_demande for d in demandes_a_afficher}
-            widgets_actuels_ids = set(self.remboursement_widgets.keys())
-
-            ids_a_supprimer = widgets_actuels_ids - demandes_actuelles_ids
-            for demande_id in ids_a_supprimer:
-                if demande_id in self.remboursement_widgets:
-                    widget = self.remboursement_widgets.pop(demande_id)
+            if not append:
+                for widget in self.remboursement_widgets.values():
                     widget.destroy()
+                self.remboursement_widgets.clear()
+                if self.no_demandes_label:
+                    self.no_demandes_label.destroy()
+                    self.no_demandes_label = None
 
-            demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
-
-            for widget in self.remboursement_widgets.values():
-                widget.pack_forget()
-
-            for demande in demandes_a_afficher:
-                demande_id = demande.id_demande
-                if demande_id in self.remboursement_widgets:
-                    widget = self.remboursement_widgets[demande_id]
-                    if demande_id in modified_ids:
-                        widget.flash_update(demandes_dict[demande_id])
-                    else:
-                        widget.update_content(demandes_dict[demande_id])
-                else:
-                    widget = RemboursementItemView(
-                        master=self.scrollable_frame_demandes,
-                        main_view_instance=self,
-                        demande_data=demandes_dict[demande_id],
-                        current_user_name=self.nom_utilisateur,
-                        user_roles=self.user_roles,
-                        app_controller=self.app_controller,
-                        remboursement_controller=self.remboursement_controller,
-                        refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
-                            show_overlay=show_overlay),
-                        pfp_cache=self.pfp_cache
-                    )
-                    self.remboursement_widgets[demande_id] = widget
-
-                widget.pack(pady=5, padx=5, fill="x", expand=True)
-
-            if not self.remboursement_widgets:
+            if not demandes_a_afficher and not self.remboursement_widgets:
                 self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
                                                       text="Aucune demande à afficher.",
                                                       font=ctk.CTkFont(size=14, slant="italic"))
                 self.no_demandes_label.pack(pady=20)
+                self.load_more_button.grid_forget()
+            else:
+                demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
+                for demande in demandes_a_afficher:
+                    demande_id = demande.id_demande
+                    if demande_id in self.remboursement_widgets:
+                        widget = self.remboursement_widgets[demande_id]
+                        if demande_id in modified_ids:
+                            widget.flash_update(demandes_dict[demande_id])
+                        else:
+                            widget.update_content(demandes_dict[demande_id])
+                    else:
+                        widget = RemboursementItemView(
+                            master=self.scrollable_frame_demandes,
+                            main_view_instance=self,
+                            demande_data=demandes_dict[demande_id],
+                            current_user_name=self.nom_utilisateur,
+                            user_roles=self.user_roles,
+                            app_controller=self.app_controller,
+                            remboursement_controller=self.remboursement_controller,
+                            refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
+                                show_overlay=show_overlay),
+                            pfp_cache=self.pfp_cache
+                        )
+                        self.remboursement_widgets[demande_id] = widget
+                        widget.pack(pady=5, padx=5, fill="x", expand=True)
 
-            self._update_notification_badge(demandes_a_afficher)
-            self._trigger_cache_sync(demandes_a_afficher)
+            self.all_items_loaded = len(demandes_a_afficher) < self.items_per_page
+            if not self.all_items_loaded:
+                self.load_more_button.grid(row=5, column=0, pady=(5, 10), sticky="s")
+            else:
+                self.load_more_button.grid_forget()
+
+            self._update_notification_badge()
+            self._trigger_cache_sync(list(self.demandes_en_cache.values()))
+
         finally:
             self._is_refreshing = False
+            self.bouton_rafraichir.configure(state="normal")
+            if self.load_more_button.winfo_exists():
+                self.load_more_button.configure(state="normal")
 
     def _trigger_cache_sync(self, all_demandes):
         def task():
@@ -320,12 +333,22 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
         threading.Thread(target=task, daemon=True).start()
 
-    def afficher_liste_demandes(self, show_overlay=True):
+    def afficher_liste_demandes(self, show_overlay=True, append=False):
         if self._is_refreshing:
             return
-
         self._is_refreshing = True
-        loading_message = "Chargement des données..."
+
+        if not append:
+            self.current_offset = 0
+            self.all_items_loaded = False
+            # Temporarily hide button during full refresh
+            self.load_more_button.grid_forget()
+
+        self.bouton_rafraichir.configure(state="disabled")
+        if self.load_more_button.winfo_exists():
+            self.load_more_button.configure(state="disabled")
+
+        loading_message = "Chargement des données..." if show_overlay else ""
 
         def task():
             demandes_filtrees = self.remboursement_controller.get_demandes_filtrees_triees(
@@ -333,29 +356,38 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 filter_choice=self.current_filter,
                 sort_choice=self.current_sort,
                 search_term=self.search_var.get(),
-                include_archives=self.include_archives.get()
+                include_archives=self.include_archives.get(),
+                limit=self.items_per_page,
+                offset=self.current_offset
             )
 
             modified_ids = set()
-            new_cache = {}
+            newly_fetched_demandes = {}
             for d in demandes_filtrees:
-                new_cache[d.id_demande] = d
+                newly_fetched_demandes[d.id_demande] = d
                 if d.id_demande in self.demandes_en_cache:
                     if d.date_derniere_modification != self.demandes_en_cache[d.id_demande].date_derniere_modification:
                         modified_ids.add(d.id_demande)
 
-            self.demandes_en_cache = new_cache
+            if not append:
+                self.demandes_en_cache = newly_fetched_demandes
+            else:
+                self.demandes_en_cache.update(newly_fetched_demandes)
+
             return demandes_filtrees, modified_ids
 
-        self.run_task(
-            task_function=task,
-            on_complete=self._render_demandes_list,
-            loading_message=loading_message,
-            show_overlay=show_overlay
-        )
+        on_complete_lambda = lambda result, error: self._render_demandes_list(result, error, append=append)
+        self.run_task(task_function=task, on_complete=on_complete_lambda, loading_message=loading_message,
+                      show_overlay=show_overlay)
 
-    def _update_notification_badge(self, all_demandes):
-        count = sum(1 for d in all_demandes if self._is_active_for_user(d))
+    def _load_next_page(self):
+        if self.all_items_loaded or self._is_refreshing:
+            return
+        self.current_offset += self.items_per_page
+        self.afficher_liste_demandes(show_overlay=True, append=True)
+
+    def _update_notification_badge(self):
+        count = sum(1 for d in self.demandes_en_cache.values() if self._is_active_for_user(d))
         if count > 0:
             self.notification_badge.configure(text=str(count))
             self.notification_badge.place(in_=self.bouton_rafraichir, relx=1.0, rely=0.0, anchor="ne")
@@ -382,17 +414,25 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _set_sort(self, sort_choice):
         self.current_sort = sort_choice
-        self.afficher_liste_demandes(show_overlay=False)
+        self.afficher_liste_demandes(show_overlay=True)
 
     def _set_filter(self, filter_choice):
         self.current_filter = filter_choice
-        self.afficher_liste_demandes(show_overlay=False)
+        self.afficher_liste_demandes(show_overlay=True)
+
+    def _debounce_search(self, *args):
+        if self._search_job:
+            self.after_cancel(self._search_job)
+        self.search_job = self.after(400, lambda: self.afficher_liste_demandes(show_overlay=False))
 
     def _clear_search(self):
         self.search_var.set("")
+        # The trace will trigger the debounced search automatically
 
     def _on_archive_toggle(self):
-        self.afficher_liste_demandes()
+        is_checked = self.include_archives.get()
+        self.filter_menu.configure(state="disabled" if is_checked else "normal")
+        self.afficher_liste_demandes(show_overlay=True)
 
     def _open_help_view(self):
         HelpView(self, self.nom_utilisateur, self.user_roles)
@@ -431,7 +471,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def _on_profile_saved(self):
         def task():
             user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-            # Reconstruire le cache pfp si la photo a changé
             self._fetch_user_data_and_init_ui()
             return user_data
 
@@ -441,7 +480,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             self._update_user_display(show_overlay=False)
             self.current_filter = self.user_data.default_filter
             self.filter_menu.set(self.current_filter)
-            self.afficher_liste_demandes(show_overlay=False)
+            self.afficher_liste_demandes(show_overlay=True)
             new_theme = self.user_data.theme_color
             if new_theme != self.initial_theme:
                 self.app_controller.request_restart("Le changement de thème nécessite un redémarrage.")
@@ -472,6 +511,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
             chemin_pj, temp_dir = result
             if chemin_pj and os.path.exists(chemin_pj):
+                # Ajout au cache après téléchargement
+                self.app_controller.cache_manager.add_to_cache(chemin_pj, rel_path)
                 DocumentViewerWindow(self, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}",
                                      temp_dir_to_clean=temp_dir)
             else:

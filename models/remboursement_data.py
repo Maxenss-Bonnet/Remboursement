@@ -54,7 +54,9 @@ def charger_demandes_data(
         search_term: Optional[str] = None,
         sort_field: str = 'date_derniere_modification',
         sort_order: str = 'DESC',
-        is_archived: bool = False
+        is_archived: bool = False,
+        limit: Optional[int] = None,
+        offset: int = 0
 ) -> List[Remboursement]:
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -71,8 +73,15 @@ def charger_demandes_data(
     FROM remboursements r
     """
 
-    where_clauses = ["r.is_archived = ?"]
-    params = [1 if is_archived else 0]
+    where_clauses = []
+    params = []
+
+    # Correction de la logique d'archivage :
+    # Si la case n'est PAS cochée, on filtre pour n'afficher que les non-archivées.
+    # Si elle EST cochée, on n'ajoute aucun filtre sur ce critère, affichant ainsi tout.
+    if not is_archived:
+        where_clauses.append("r.is_archived = ?")
+        params.append(0)
 
     if search_term:
         where_clauses.append("(r.nom LIKE ? OR r.prenom LIKE ? OR r.reference_facture LIKE ?)")
@@ -91,6 +100,10 @@ def charger_demandes_data(
     if sort_field in valid_sort_fields:
         order = 'DESC' if sort_order.upper() == 'DESC' else 'ASC'
         base_query += f" ORDER BY r.{sort_field} {order}"
+
+    if limit is not None:
+        base_query += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
 
     cursor.execute(base_query, tuple(params))
     rows = cursor.fetchall()

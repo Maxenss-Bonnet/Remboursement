@@ -43,11 +43,22 @@ class Remboursement(BaseModel):
         """ Détermine si la demande requiert une action de la part de l'utilisateur donné. """
         is_admin = "admin" in user_roles
 
+        # Si l'utilisateur est admin, il peut agir sur toutes les étapes actives du workflow.
+        if is_admin:
+            active_statuses_for_admin = [
+                STATUT_CREEE,
+                STATUT_REFUSEE_CONSTAT_TP,
+                STATUT_TROP_PERCU_CONSTATE,
+                STATUT_VALIDEE,
+                STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO
+            ]
+            if self.statut in active_statuses_for_admin:
+                return True
+
         # Cas pour le comptable trésorerie (m.lupo)
-        if "comptable_tresorerie" in user_roles and self.statut == STATUT_CREEE:
-            return True
-        if "comptable_tresorerie" in user_roles and self.statut == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
-            return True
+        if "comptable_tresorerie" in user_roles:
+            if self.statut == STATUT_CREEE or self.statut == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
+                return True
 
         # Cas pour le demandeur (p.neri)
         if self.cree_par == user_name and self.statut == STATUT_REFUSEE_CONSTAT_TP:
@@ -60,11 +71,6 @@ class Remboursement(BaseModel):
         # Cas pour le comptable fournisseur (p.diop)
         if "comptable_fournisseur" in user_roles and self.statut == STATUT_VALIDEE:
             return True
-
-        # L'admin peut agir sur les demandes retournées au créateur ou au comptable trésorerie
-        if is_admin:
-            if self.statut == STATUT_REFUSEE_CONSTAT_TP: return True
-            if self.statut == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO: return True
 
         return False
 

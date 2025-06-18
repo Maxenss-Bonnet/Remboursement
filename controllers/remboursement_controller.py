@@ -145,27 +145,34 @@ class RemboursementController:
                                                                      self.utilisateur_actuel)
 
     def get_demandes_filtrees_triees(self, user_roles: list, filter_choice: str, sort_choice: str, search_term: str,
-                                     include_archives: bool):
+                                     include_archives: bool, limit: int | None = None, offset: int = 0):
         sort_map = {"Date de création (récent)": ("date_derniere_modification", "DESC"),
                     "Date de création (ancien)": ("date_derniere_modification", "ASC"),
                     "Montant (décroissant)": ("montant_demande", "DESC"),
                     "Montant (croissant)": ("montant_demande", "ASC"), "Nom du patient (A-Z)": ("nom", "ASC")}
         sort_field, sort_order = sort_map.get(sort_choice, ("date_derniere_modification", "DESC"))
+
         statut_filter = None
-        if filter_choice == "En cours":
-            statut_filter = [STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE, STATUT_REFUSEE_CONSTAT_TP,
-                             STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
-        elif filter_choice == "Terminées et annulées":
-            statut_filter = [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]
-        elif filter_choice == "En attente de mon action":
-            statut_filter = [STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
-                             STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
+        # Le filtre par statut ne s'applique que si on n'inclut PAS les archives.
+        if not include_archives:
+            if filter_choice == "En cours":
+                statut_filter = [STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE, STATUT_REFUSEE_CONSTAT_TP,
+                                 STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
+            elif filter_choice == "Terminées et annulées":
+                statut_filter = [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]
+            elif filter_choice == "En attente de mon action":
+                statut_filter = [STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
+                                 STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
+
         demandes = remboursement_model.obtenir_demandes_filtrees_triees(statut_filter=statut_filter,
                                                                         search_term=search_term, sort_field=sort_field,
                                                                         sort_order=sort_order,
-                                                                        is_archived=include_archives)
-        if filter_choice == "En attente de mon action": demandes = [d for d in demandes if d.is_active_for(user_roles,
-                                                                                                           self.utilisateur_actuel)]
+                                                                        is_archived=include_archives,
+                                                                        limit=limit, offset=offset)
+
+        if filter_choice == "En attente de mon action" and not include_archives:
+            demandes = [d for d in demandes if d.is_active_for(user_roles, self.utilisateur_actuel)]
+
         return demandes
 
     def get_demande(self, demande_id: str):
