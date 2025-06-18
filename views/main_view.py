@@ -50,10 +50,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.no_demandes_label = None
         self._is_refreshing = False
 
-        # Attributs pour le debounce de la recherche
         self._search_job = None
 
-        # Attributs pour le lazy loading
         self.current_offset = 0
         self.items_per_page = 50
         self.all_items_loaded = False
@@ -272,20 +270,45 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             demandes_a_afficher, modified_ids = result
 
             if not append:
+                new_widgets_map = {}
+                demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
+
+                for demande in demandes_a_afficher:
+                    widget = RemboursementItemView(
+                        master=self.scrollable_frame_demandes,
+                        main_view_instance=self,
+                        demande_data=demandes_dict[demande.id_demande],
+                        current_user_name=self.nom_utilisateur,
+                        user_roles=self.user_roles,
+                        app_controller=self.app_controller,
+                        remboursement_controller=self.remboursement_controller,
+                        refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
+                            show_overlay=show_overlay),
+                        pfp_cache=self.pfp_cache
+                    )
+                    new_widgets_map[demande.id_demande] = widget
+
                 for widget in self.remboursement_widgets.values():
                     widget.destroy()
-                self.remboursement_widgets.clear()
                 if self.no_demandes_label:
                     self.no_demandes_label.destroy()
                     self.no_demandes_label = None
 
-            if not demandes_a_afficher and not self.remboursement_widgets:
-                self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
-                                                      text="Aucune demande à afficher.",
-                                                      font=ctk.CTkFont(size=14, slant="italic"))
-                self.no_demandes_label.pack(pady=20)
-                self.load_more_button.grid_forget()
+                self.remboursement_widgets = new_widgets_map
+                if not self.remboursement_widgets:
+                    self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
+                                                          text="Aucune demande à afficher.",
+                                                          font=ctk.CTkFont(size=14, slant="italic"))
+                    self.no_demandes_label.pack(pady=20)
+                else:
+                    for widget in self.remboursement_widgets.values():
+                        widget.pack(pady=5, padx=5, fill="x", expand=True)
+
             else:
+                if self.no_demandes_label:
+                    self.no_demandes_label.destroy()
+                    self.no_demandes_label = None
+
                 demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
                 for demande in demandes_a_afficher:
                     demande_id = demande.id_demande
@@ -341,7 +364,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         if not append:
             self.current_offset = 0
             self.all_items_loaded = False
-            # Temporarily hide button during full refresh
             self.load_more_button.grid_forget()
 
         self.bouton_rafraichir.configure(state="disabled")
@@ -427,7 +449,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _clear_search(self):
         self.search_var.set("")
-        # The trace will trigger the debounced search automatically
 
     def _on_archive_toggle(self):
         is_checked = self.include_archives.get()
@@ -511,7 +532,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
             chemin_pj, temp_dir = result
             if chemin_pj and os.path.exists(chemin_pj):
-                # Ajout au cache après téléchargement
                 self.app_controller.cache_manager.add_to_cache(chemin_pj, rel_path)
                 DocumentViewerWindow(self, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}",
                                      temp_dir_to_clean=temp_dir)
