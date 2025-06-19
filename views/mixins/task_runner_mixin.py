@@ -2,6 +2,7 @@
 import threading
 import queue
 from utils.ui_utils import LoadingOverlay
+from utils import global_task_tracker
 
 
 class TaskRunnerMixin:
@@ -11,6 +12,7 @@ class TaskRunnerMixin:
         self._overlay_show_job = None
 
     def run_task(self, task_function, on_complete, loading_message="Chargement...", show_overlay=True):
+        global_task_tracker.increment_task_count()
         self._loading_task_count += 1
 
         if show_overlay and self._loading_task_count == 1:
@@ -29,6 +31,7 @@ class TaskRunnerMixin:
         def check_queue():
             try:
                 status, result = task_queue.get_nowait()
+                global_task_tracker.decrement_task_count()
                 self._loading_task_count -= 1
 
                 if self._loading_task_count == 0:

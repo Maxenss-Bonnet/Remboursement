@@ -7,13 +7,10 @@ import queue
 from tkinter import messagebox
 from controllers.app_controller import AppController
 from config.settings import SHARED_DATA_BASE_PATH, IS_DEPLOYMENT_MODE, get_application_base_path
+from utils.database_manager import stop_db_writer_thread
 
 
 def is_path_writable(path: str) -> bool:
-    """
-    Vérifie si un chemin non seulement existe, mais est aussi accessible en écriture.
-    C'est un test beaucoup plus fiable pour un lecteur réseau.
-    """
     try:
         if not os.path.isdir(path):
             return False
@@ -37,6 +34,8 @@ class MainApplication(ctk.CTk):
 
         self.title("Application de Gestion")
 
+        self.shutdown_window = None
+
         try:
             icon_path = os.path.join(get_application_base_path(), "assets", "app_icon.ico")
             if os.path.exists(icon_path):
@@ -53,8 +52,40 @@ class MainApplication(ctk.CTk):
         self.loading_window, self.loading_label = self._create_loading_splash_screen()
         self.after(50, self.run_startup_check)
 
+        self.protocol("WM_DELETE_WINDOW", self.on_attempt_close)
+
+    def on_attempt_close(self, is_restart: bool = False):
+        if self.app_controller and self.app_controller.is_application_busy():
+            if not self.shutdown_window or not self.shutdown_window.winfo_exists():
+                self.shutdown_window = ctk.CTkToplevel(self)
+                self.shutdown_window.title("Fermeture")
+                self.shutdown_window.geometry("350x120")
+                self.shutdown_window.transient(self)
+                self.shutdown_window.grab_set()
+                self.shutdown_window.protocol("WM_DELETE_WINDOW", lambda: None)  # Empêche de fermer cette fenêtre
+                label = ctk.CTkLabel(self.shutdown_window,
+                                     text="Finalisation des opérations en cours...\nVeuillez patienter.",
+                                     font=ctk.CTkFont(size=14))
+                label.pack(expand=True, padx=20, pady=20)
+                self.shutdown_window.update()
+
+            # On revérifie dans 500ms
+            self.after(500, lambda: self.on_attempt_close(is_restart))
+            return
+
+        # Si on arrive ici, l'application n'est plus occupée
+        if self.shutdown_window and self.shutdown_window.winfo_exists():
+            self.shutdown_window.destroy()
+            self.shutdown_window = None
+
+        stop_db_writer_thread()
+
+        if is_restart:
+            self._restart_app()
+        else:
+            self.destroy()
+
     def _create_loading_splash_screen(self) -> tuple[ctk.CTkToplevel, ctk.CTkLabel]:
-        """Crée une petite fenêtre de chargement centrée et retourne la fenêtre et son label."""
         loading_window = ctk.CTkToplevel(self)
         loading_window.overrideredirect(True)
         loading_window.transient(self)
@@ -84,11 +115,9 @@ class MainApplication(ctk.CTk):
         return loading_window, loading_label
 
     def run_startup_check(self):
-        """Lance la vérification du chemin réseau dans un thread séparé."""
         result_queue = queue.Queue()
 
         def checker_task():
-            """La tâche qui s'exécute en arrière-plan."""
             is_writable = is_path_writable(SHARED_DATA_BASE_PATH) if IS_DEPLOYMENT_MODE else True
             result_queue.put(is_writable)
 
@@ -96,7 +125,6 @@ class MainApplication(ctk.CTk):
         self._process_network_check_result(result_queue)
 
     def _process_network_check_result(self, result_queue: queue.Queue):
-        """Vérifie le résultat de la tâche réseau et lance l'initialisation de l'app."""
         try:
             is_writable = result_queue.get_nowait()
 
@@ -118,7 +146,6 @@ class MainApplication(ctk.CTk):
             self.after(100, self._process_network_check_result, result_queue)
 
     def _check_app_init_completion(self, init_thread: threading.Thread):
-        """Sondage pour vérifier si le thread d'initialisation de l'application est terminé."""
         if init_thread.is_alive():
             self.after(100, self._check_app_init_completion, init_thread)
         else:
@@ -128,7 +155,6 @@ class MainApplication(ctk.CTk):
             self.after(100, self.attempt_maximize)
 
     def _show_connection_error_window(self):
-        """Affiche la fenêtre d'erreur de connexion."""
         for widget in self.winfo_children():
             widget.destroy()
 
@@ -165,7 +191,6 @@ class MainApplication(ctk.CTk):
         ).pack(pady=(15, 20), padx=30)
 
     def center_window(self):
-        """Centre la fenêtre principale sur l'écran."""
         self.update_idletasks()
         width = self.winfo_width()
         height = self.winfo_height()
@@ -174,7 +199,6 @@ class MainApplication(ctk.CTk):
         self.geometry(f'{width}x{height}+{x}+{y}')
 
     def _restart_app(self):
-        """Redémarre l'application."""
         try:
             python = sys.executable
             os.execl(python, python, *sys.argv)
@@ -186,7 +210,6 @@ class MainApplication(ctk.CTk):
             self.destroy()
 
     def attempt_maximize(self):
-        """Tente d'agrandir la fenêtre principale."""
         try:
             self.state('zoomed')
         except ctk.TclError:

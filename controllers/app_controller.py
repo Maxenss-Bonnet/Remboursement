@@ -14,7 +14,8 @@ from controllers.remboursement_controller import RemboursementController
 from controllers.password_reset_controller import PasswordResetController
 from models import user_model
 from utils.ui_utils import ToastManager, LoadingOverlay
-from utils.database_manager import create_tables
+from utils.database_manager import create_tables, is_db_writer_busy
+from utils import global_task_tracker
 from utils.cache_manager import CacheManager
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, ensure_shared_dirs_exist, load_smtp_config, \
     PROFILE_PICTURES_DIR
@@ -97,6 +98,10 @@ class AppController:
 
     def hide_global_loading(self):
         self.global_loading_overlay.hide()
+
+    def is_application_busy(self) -> bool:
+        """Vérifie si des tâches critiques sont en cours."""
+        return global_task_tracker.is_busy() or is_db_writer_busy()
 
     def _preload_data(self):
         def _preloading_task():
@@ -244,15 +249,15 @@ class AppController:
     def on_logout(self, restart=False):
         if self.main_view:
             self.main_view.stop_polling()
+
         if restart:
-            try:
-                python = sys.executable
-                os.execl(python, python, *sys.argv)
-            except Exception as e:
-                print(f"Erreur lors de la tentative de redémarrage : {e}")
-                self.show_toast("Le redémarrage automatique a échoué. Veuillez relancer l'application.", "info")
+            self.root.on_attempt_close(is_restart=True)
         else:
-            self.show_login_view()
+            if self.is_application_busy():
+                self.show_toast("Veuillez attendre la fin des opérations en cours...", "warning")
+                # On pourrait aussi lancer la procédure de fermeture gracieuse sans quitter
+            else:
+                self.show_login_view()
 
     def show_admin_warning_popup(self):
         self.show_toast("Vous êtes connecté en tant qu'administrateur.\nCertaines actions sont irréversibles.", "warning")
