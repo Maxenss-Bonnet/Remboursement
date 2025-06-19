@@ -33,8 +33,8 @@ class LoginView(ctk.CTkFrame, TaskRunnerMixin):
         ctk.CTkCheckBox(main_frame, text="Afficher le mot de passe", variable=self.show_password_var_login,
                         command=self._toggle_login_password_visibility).pack(padx=20, pady=(0, 10), anchor="w")
 
-        bouton_connexion = ctk.CTkButton(main_frame, text="Se connecter", command=self._action_connexion, width=200)
-        bouton_connexion.pack(pady=10, padx=20)
+        self.bouton_connexion = ctk.CTkButton(main_frame, text="Se connecter", command=self._action_connexion, width=200)
+        self.bouton_connexion.pack(pady=10, padx=20)
 
         bouton_modifier_mdp = ctk.CTkButton(main_frame, text="Modifier mon mot de passe",
                                             command=self._ouvrir_fenetre_modifier_mdp, width=220, fg_color="gray")
@@ -58,27 +58,9 @@ class LoginView(ctk.CTkFrame, TaskRunnerMixin):
             self.app_controller.show_toast("Veuillez entrer un nom d'utilisateur et un mot de passe.", "error")
             return
 
-        def task():
-            return self.auth_controller.tenter_connexion(nom_utilisateur, mot_de_passe)
-
-        def on_complete(utilisateur_connecte, error):
-            if error:
-                self.app_controller.show_toast(f"Erreur de connexion: {error}", "error")
-                return
-
-            if utilisateur_connecte:
-                self.focus_set()
-                self.after(10, lambda: self.app_controller.on_login_success(utilisateur_connecte))
-            else:
-                self.app_controller.show_toast("Nom d'utilisateur ou mot de passe incorrect.", "error")
-                self.entry_mdp.delete(0, 'end')
-
-        self.run_task(task, on_complete, "Connexion...")
+        self.app_controller.perform_login_and_show_main_view(nom_utilisateur, mot_de_passe)
 
     def _ouvrir_fenetre_modifier_mdp(self):
-        # Cette sous-fenêtre peut aussi être adaptée pour utiliser le mixin si besoin,
-        # mais pour l'instant, nous corrigeons l'erreur principale.
-        # Pour la simplicité, on laisse cette partie telle quelle car elle n'était pas la source du plantage.
         dialog = ctk.CTkToplevel(self.master)
         dialog.title("Modifier le mot de passe")
         dialog.geometry("480x520")
@@ -145,8 +127,7 @@ class LoginView(ctk.CTkFrame, TaskRunnerMixin):
                 self.app_controller.show_toast("Tous les champs sont requis.", "error")
                 return
             if nouveau != confirm:
-                self.app_controller.show_toast("Le nouveau mot de passe et sa confirmation ne correspondent pas.",
-                                               "error")
+                self.app_controller.show_toast("Le nouveau mot de passe et sa confirmation ne correspondent pas.", "error")
                 return
             if len(nouveau) < 6:
                 self.app_controller.show_toast("Le nouveau mot de passe doit comporter au moins 6 caractères.", "error")
@@ -167,7 +148,6 @@ class LoginView(ctk.CTkFrame, TaskRunnerMixin):
                         "Échec de la modification. Vérifiez votre nom d'utilisateur et votre ancien mot de passe.",
                         "error")
 
-            # Ici, la sous-fenêtre utilise la méthode de la vue de connexion
             self.run_task(task, on_complete, "Modification en cours...")
 
         bouton_valider_modif = ctk.CTkButton(dialog, text="Valider la Modification", command=valider_modification,

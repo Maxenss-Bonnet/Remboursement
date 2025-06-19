@@ -29,7 +29,8 @@ COULEUR_DEMANDE_ANNULEE = "#6A040F"
 
 
 class MainView(ctk.CTkFrame, TaskRunnerMixin):
-    def __init__(self, master, nom_utilisateur, app_controller, remboursement_controller_factory):
+    def __init__(self, master, nom_utilisateur, app_controller, remboursement_controller_factory,
+                 preloaded_pfp_cache: dict):
         ctk.CTkFrame.__init__(self, master, corner_radius=0, fg_color="transparent")
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
 
@@ -42,22 +43,45 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.remboursement_controller = remboursement_controller_factory(self.nom_utilisateur)
 
         self.pfp_size = 80
-        self.pfp_cache = {}
+        self.pfp_cache = preloaded_pfp_cache if preloaded_pfp_cache is not None else {}
         self._polling_job_id = None
         self._last_known_db_mtime = 0
         self.demandes_en_cache = {}
         self.remboursement_widgets = {}
         self.no_demandes_label = None
         self._is_refreshing = False
-
         self._search_job = None
-
         self.current_offset = 0
         self.items_per_page = 50
         self.all_items_loaded = False
         self.load_more_button = None
 
-        self._fetch_user_data_and_init_ui()
+        self._initialize_ui()
+
+    def _initialize_ui(self):
+        self.user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
+        if not self.user_data:
+            self.app_controller.show_toast("Erreur critique au chargement des données utilisateur.", "error")
+            self.app_controller.on_logout()
+            return
+
+        self.user_roles = self.user_data.roles
+        is_admin = "admin" in self.user_roles
+        user_theme = self.user_data.theme_color or "blue"
+        ctk.set_default_color_theme(user_theme)
+
+        self.initial_theme = self.user_data.theme_color
+        self.current_sort = "Date de création (récent)"
+        self.current_filter = self.user_data.default_filter
+        self.include_archives = ctk.BooleanVar(value=False)
+        self.search_var = ctk.StringVar()
+
+        self._creer_widgets()
+        self.afficher_liste_demandes()
+        self.start_polling()
+
+        if is_admin:
+            self.app_controller.show_admin_warning_popup()
 
     def _create_placeholder_image(self, initial: str, size: int) -> ctk.CTkImage:
         placeholder = Image.new('RGBA', (size, size), (80, 80, 80, 255))
@@ -69,66 +93,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             font = ImageFont.load_default()
         draw.text((size / 2, size / 2), initial, font=font, anchor="mm", fill=(220, 220, 220))
         return ctk.CTkImage(light_image=placeholder, dark_image=placeholder, size=(size, size))
-
-    def _fetch_user_data_and_init_ui(self):
-        def task():
-            current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-            all_users = self.auth_controller.get_all_users()
-            pfp_cache = {}
-            pfp_size = 20
-
-            pfp_cache['default'] = self._create_placeholder_image("?", pfp_size)
-            pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size)
-            pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size)
-
-            for user in all_users:
-                full_path = None
-                if user.profile_picture_path and os.path.exists(
-                        os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
-                    full_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
-
-                pfp_image = get_or_create_circular_pfp(
-                    login=user.login,
-                    source_path=full_path,
-                    size=pfp_size,
-                    cache_manager=self.app_controller.cache_manager
-                )
-
-                if pfp_image:
-                    pfp_cache[user.login] = pfp_image
-                else:
-                    initial = user.login[0].upper() if user.login else "?"
-                    pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size)
-
-            return current_user_data, pfp_cache
-
-        def on_complete(result, error):
-            if error or not result[0]:
-                self.app_controller.show_toast("Erreur critique au chargement des données utilisateur.", "error")
-                self.app_controller.on_logout()
-                return
-
-            self.user_data, self.pfp_cache = result
-            self.user_roles = self.user_data.roles if self.user_data else []
-
-            is_admin = "admin" in self.user_roles
-            user_theme = self.user_data.theme_color or "blue"
-            ctk.set_default_color_theme(user_theme)
-
-            self.initial_theme = self.user_data.theme_color if self.user_data else "blue"
-            self.current_sort = "Date de création (récent)"
-            self.current_filter = self.user_data.default_filter if self.user_data else "Toutes les demandes"
-            self.include_archives = ctk.BooleanVar(value=False)
-            self.search_var = ctk.StringVar()
-
-            self._creer_widgets()
-            self.afficher_liste_demandes()
-            self.start_polling()
-
-            if is_admin:
-                self.app_controller.show_admin_warning_popup()
-
-        self.run_task(task, on_complete, "Chargement du profil utilisateur...")
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
@@ -240,7 +204,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             ctk.CTkFrame(item, width=15, height=15, fg_color=couleur, border_width=1).pack(side="left")
             ctk.CTkLabel(item, text=texte, font=ctk.CTkFont(size=11)).pack(side="left", padx=3)
 
-    def _update_user_display(self, show_overlay=True):
+    def _update_user_display(self):
         def task():
             if not self.user_data: return None
             pfp_path = self.user_data.profile_picture_path
@@ -266,7 +230,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
             self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
 
-        self.run_task(task, on_complete, "Mise à jour de l'affichage...", show_overlay=show_overlay)
+        self.run_task(task, on_complete, "Mise à jour de l'affichage...", show_overlay=False)
 
     def _render_demandes_list(self, result, error=None, append=False):
         try:
