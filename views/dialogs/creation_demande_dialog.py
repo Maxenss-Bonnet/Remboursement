@@ -102,7 +102,7 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
                 label_var.set(os.path.basename(chemin_local))
                 label_widget.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
 
-        self.run_task(task, on_complete, show_overlay=False)
+        self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 
     def _extraire_infos_pdf(self, chemin_local_pdf):
         if not chemin_local_pdf.lower().endswith(".pdf"): return
@@ -121,7 +121,7 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
                 if infos.get("reference"): self.entries_demande["reference_facture"].delete(0, "end");
                 self.entries_demande["reference_facture"].insert(0, infos.get("reference"))
 
-        self.run_task(task, on_complete, show_overlay=False)
+        self.run_task(task, on_complete, "Analyse du PDF...", show_overlay=False)
 
     def _soumettre_demande(self):
         self.btn_soumettre.configure(state="disabled")

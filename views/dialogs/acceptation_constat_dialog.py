@@ -68,7 +68,7 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
                 self.chemin_pj_var.set(os.path.basename(chemin_local))
                 self.label_pj.configure(text_color=original_text_color)
 
-        self.run_task(task, on_complete, show_overlay=False)
+        self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 
     def _submit(self):
         self.btn_submit.configure(state="disabled")

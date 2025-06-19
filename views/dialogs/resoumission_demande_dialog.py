@@ -115,6 +115,7 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
 
     def _sel_new_pj(self, type_pj: str):
         label_var = self.chemin_facture_var if type_pj == "facture" else self.chemin_rib_var
+        label_widget = self.lbl_facture_sel if type_pj == "facture" else self.lbl_rib_sel
         chemin_reseau_attr = "chemin_facture_reseau" if type_pj == "facture" else "chemin_rib_reseau"
 
         chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
@@ -128,6 +129,7 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
         setattr(self, chemin_reseau_attr, None)
 
         label_var.set("Copie en cours...")
+        label_widget.configure(text_color="orange")
 
         def task():
             return self.remboursement_controller.ajouter_pj_a_demande_existante(self.id_demande, chemin_local, type_pj)
@@ -135,11 +137,13 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
         def on_complete(result, error):
             if error:
                 label_var.set("Échec copie!")
+                label_widget.configure(text_color="red")
             else:
                 setattr(self, chemin_reseau_attr, result)
                 label_var.set(os.path.basename(chemin_local))
+                label_widget.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
 
-        self.run_task(task, on_complete, show_overlay=False)
+        self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 
     def _submit_correction(self):
         self.btn_submit.configure(state="disabled")

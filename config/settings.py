@@ -141,7 +141,3 @@ def ensure_shared_dirs_exist():
     ]
     for directory in dirs_to_create:
         os.makedirs(directory, exist_ok=True)
-
-# Initialisation
-load_smtp_config()
-ensure_shared_dirs_exist()

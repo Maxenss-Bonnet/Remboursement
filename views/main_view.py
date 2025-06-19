@@ -271,7 +271,14 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def _render_demandes_list(self, result, error=None, append=False):
         try:
             if error:
-                self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
+                error_str = str(error).lower()
+                if "unable to open database file" in error_str:
+                    self.app_controller.show_toast(
+                        "Connexion à la base de données impossible. Vérifiez votre connexion réseau (VPN, Wi-Fi).",
+                        "error"
+                    )
+                else:
+                    self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
                 return
 
             demandes_a_afficher, modified_ids = result
@@ -507,10 +514,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _on_profile_saved(self):
         def task():
-            # 1. Obtenir les données utilisateur fraîches
             current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
 
-            # 2. Reconstruire le cache PFP pour les petits avatars de l'historique
             all_users = self.auth_controller.get_all_users()
             new_pfp_cache = {}
             pfp_size_small = 20
@@ -535,7 +540,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                     initial = user.login[0].upper() if user.login else "?"
                     new_pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size_small)
 
-            # 3. Obtenir la grande PFP mise à jour pour l'utilisateur principal
             main_pfp_source_path = None
             if current_user_data and current_user_data.profile_picture_path:
                 path = os.path.join(PROFILE_PICTURES_DIR, current_user_data.profile_picture_path)
@@ -556,24 +560,20 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
             new_user_data, new_pfp_cache, main_pfp_image = result
 
-            # Mettre à jour les données et le cache en une seule fois
             self.user_data = new_user_data
             self.user_roles = self.user_data.roles if self.user_data else []
             self.pfp_cache = new_pfp_cache
 
-            # Mettre à jour l'affichage de l'utilisateur principal
             if not main_pfp_image:
                 main_pfp_image = self._create_placeholder_image(self.nom_utilisateur[0].upper(), self.pfp_size)
             self.pfp_label.configure(image=main_pfp_image)
             roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
             self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
 
-            # Mettre à jour les préférences et rafraîchir la liste
             self.current_filter = self.user_data.default_filter
             self.filter_menu.set(self.current_filter)
             self.afficher_liste_demandes(show_overlay=True)
 
-            # Gérer le changement de thème
             new_theme = self.user_data.theme_color
             if new_theme != self.initial_theme:
                 self.app_controller.request_restart("Le changement de thème nécessite un redémarrage.")

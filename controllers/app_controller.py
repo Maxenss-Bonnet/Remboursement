@@ -14,7 +14,7 @@ from models import user_model
 from utils.ui_utils import ToastManager
 from utils.database_manager import create_tables
 from utils.cache_manager import CacheManager
-from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR
+from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, ensure_shared_dirs_exist, load_smtp_config
 
 
 class AppController:
@@ -30,6 +30,8 @@ class AppController:
         self.toast_manager = ToastManager(self.root)
         self.cache_manager = CacheManager()
 
+        load_smtp_config()
+        ensure_shared_dirs_exist()
         self._ensure_database_is_ready()
         self._run_startup_tasks()
         self.show_login_view()

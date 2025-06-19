@@ -102,6 +102,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.chemin_pj_reseau = None
 
         self.chemin_pj_var.set("Copie en cours...")
+        self.lbl_pj_sel.configure(text_color="orange")
 
         def task():
             return self.remboursement_controller.ajouter_pj_a_demande_existante(self.id_demande, chemin_local,
@@ -110,11 +111,13 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         def on_complete(result, error):
             if error:
                 self.chemin_pj_var.set("Échec copie!")
+                self.lbl_pj_sel.configure(text_color="red")
             else:
                 self.chemin_pj_reseau = result
                 self.chemin_pj_var.set(os.path.basename(chemin_local))
+                self.lbl_pj_sel.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
 
-        self.run_task(task, on_complete, show_overlay=False)
+        self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 
     def _submit_correction_constat(self):
         self.btn_submit_corr.configure(state="disabled")
