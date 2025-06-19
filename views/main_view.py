@@ -1,6 +1,7 @@
 import os
 import customtkinter as ctk
 import threading
+import logging
 from tkinter import messagebox, simpledialog
 import datetime
 from PIL import Image, ImageDraw, ImageFont
@@ -26,6 +27,8 @@ POLLING_INTERVAL_MS = 5000
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
 COULEUR_DEMANDE_TERMINEE = "#2E4374"
 COULEUR_DEMANDE_ANNULEE = "#6A040F"
+
+_log = logging.getLogger(__name__)
 
 
 class MainView(ctk.CTkFrame, TaskRunnerMixin):
@@ -237,83 +240,39 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             if error:
                 error_str = str(error).lower()
                 if "unable to open database file" in error_str:
-                    self.app_controller.show_toast(
-                        "Connexion à la base de données impossible. Vérifiez votre connexion réseau (VPN, Wi-Fi).",
-                        "error"
-                    )
+                    msg = "Connexion à la base de données impossible. Vérifiez votre connexion réseau (VPN, Wi-Fi)."
+                    _log.critical(msg, exc_info=True)
+                    self.app_controller.show_toast(msg, "error")
                 else:
+                    _log.error("Erreur lors du rafraîchissement de la liste.", exc_info=True)
                     self.app_controller.show_toast(f"Erreur lors du rafraîchissement: {error}", "error")
                 return
 
             demandes_a_afficher, modified_ids = result
 
             if not append:
-                new_widgets_map = {}
-                demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
-
-                for demande in demandes_a_afficher:
-                    widget = RemboursementItemView(
-                        master=self.scrollable_frame_demandes,
-                        main_view_instance=self,
-                        demande_data=demandes_dict[demande.id_demande],
-                        current_user_name=self.nom_utilisateur,
-                        user_roles=self.user_roles,
-                        app_controller=self.app_controller,
-                        remboursement_controller=self.remboursement_controller,
-                        refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
-                            show_overlay=show_overlay),
-                        pfp_cache=self.pfp_cache
-                    )
-                    new_widgets_map[demande.id_demande] = widget
-
                 for widget in self.remboursement_widgets.values():
                     widget.destroy()
+                self.remboursement_widgets.clear()
                 if self.no_demandes_label:
                     self.no_demandes_label.destroy()
                     self.no_demandes_label = None
 
-                self.remboursement_widgets = new_widgets_map
-                if not self.remboursement_widgets:
+                if not demandes_a_afficher:
                     self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
                                                           text="Aucune demande à afficher.",
                                                           font=ctk.CTkFont(size=14, slant="italic"))
                     self.no_demandes_label.pack(pady=20)
                 else:
-                    for widget in self.remboursement_widgets.values():
-                        widget.pack(pady=5, padx=5, fill="x", expand=True)
-
+                    self.after(1, self._render_next_item, list(demandes_a_afficher), modified_ids)
             else:
                 if self.no_demandes_label:
                     self.no_demandes_label.destroy()
                     self.no_demandes_label = None
-
-                demandes_dict = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
-                for demande in demandes_a_afficher:
-                    demande_id = demande.id_demande
-                    if demande_id in self.remboursement_widgets:
-                        widget = self.remboursement_widgets[demande_id]
-                        if demande_id in modified_ids:
-                            widget.flash_update(demandes_dict[demande_id])
-                        else:
-                            widget.update_content(demandes_dict[demande_id])
-                    else:
-                        widget = RemboursementItemView(
-                            master=self.scrollable_frame_demandes,
-                            main_view_instance=self,
-                            demande_data=demandes_dict[demande_id],
-                            current_user_name=self.nom_utilisateur,
-                            user_roles=self.user_roles,
-                            app_controller=self.app_controller,
-                            remboursement_controller=self.remboursement_controller,
-                            refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(
-                                show_overlay=show_overlay),
-                            pfp_cache=self.pfp_cache
-                        )
-                        self.remboursement_widgets[demande_id] = widget
-                        widget.pack(pady=5, padx=5, fill="x", expand=True)
+                self.after(1, self._render_next_item, list(demandes_a_afficher), modified_ids, append=True)
 
             self.all_items_loaded = len(demandes_a_afficher) < self.items_per_page
-            if not self.all_items_loaded:
+            if not self.all_items_loaded and len(self.demandes_en_cache) > self.items_per_page:
                 self.load_more_button.grid(row=5, column=0, pady=(5, 10), sticky="s")
             else:
                 self.load_more_button.grid_forget()
@@ -328,20 +287,49 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             if self.load_more_button.winfo_exists():
                 self.load_more_button.configure(state="normal")
 
+    def _render_next_item(self, demandes_a_rendre, modified_ids, append=False):
+        if not self.winfo_exists() or not demandes_a_rendre:
+            return
+
+        demande = demandes_a_rendre.pop(0)
+        demande_data = demande.model_dump()
+        demande_id = demande.id_demande
+
+        if demande_id in self.remboursement_widgets:
+            widget = self.remboursement_widgets[demande_id]
+            if demande_id in modified_ids:
+                widget.flash_update(demande_data)
+            else:
+                widget.update_content(demande_data)
+        else:
+            widget = RemboursementItemView(
+                master=self.scrollable_frame_demandes,
+                main_view_instance=self,
+                demande_data=demande_data,
+                current_user_name=self.nom_utilisateur,
+                user_roles=self.user_roles,
+                app_controller=self.app_controller,
+                remboursement_controller=self.remboursement_controller,
+                refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(show_overlay=show_overlay),
+                pfp_cache=self.pfp_cache
+            )
+            self.remboursement_widgets[demande_id] = widget
+            widget.pack(pady=5, padx=5, fill="x", expand=True)
+
+        if demandes_a_rendre:
+            self.after(10, self._render_next_item, demandes_a_rendre, modified_ids, append)
+
     def _trigger_cache_sync(self, all_demandes):
         def task():
             actionable_demandes = [d for d in all_demandes if self._is_active_for_user(d)]
             top_10_demandes = all_demandes[:10]
-
             combined_demands_dict = {d.id_demande: d for d in actionable_demandes}
             for d in top_10_demandes:
                 if d.id_demande not in combined_demands_dict:
                     combined_demands_dict[d.id_demande] = d
-
             demandes_to_cache = list(combined_demands_dict.values())
             self.app_controller.cache_manager.sync_proactive_cache(demandes_to_cache)
-
-        threading.Thread(target=task, daemon=True).start()
+        threading.Thread(target=task, daemon=True, name="CacheSyncThread").start()
 
     def afficher_liste_demandes(self, show_overlay=True, append=False):
         if self._is_refreshing:
@@ -432,7 +420,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def _debounce_search(self, *args):
         if self._search_job:
             self.after_cancel(self._search_job)
-        self.search_job = self.after(400, lambda: self.afficher_liste_demandes(show_overlay=False))
+        self._search_job = self.after(400, lambda: self.afficher_liste_demandes(show_overlay=False))
 
     def _clear_search(self):
         self.search_var.set("")
@@ -463,10 +451,11 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             if self._last_known_db_mtime == 0:
                 self._last_known_db_mtime = current_mtime
             elif current_mtime != self._last_known_db_mtime:
+                _log.info("Changement détecté sur le fichier de BDD. Rafraîchissement de la liste.")
                 self._last_known_db_mtime = current_mtime
                 self.afficher_liste_demandes(show_overlay=False)
         except Exception as e:
-            print(f"Erreur lors du polling de la base de données : {e}")
+            _log.error(f"Erreur lors du polling de la base de données : {e}")
         finally:
             if self.winfo_exists():
                 self._polling_job_id = self.after(POLLING_INTERVAL_MS, self._check_for_data_updates)
@@ -479,21 +468,16 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def _on_profile_saved(self):
         def task():
             current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-
             all_users = self.auth_controller.get_all_users()
             new_pfp_cache = {}
             pfp_size_small = 20
-
             new_pfp_cache['default'] = self._create_placeholder_image("?", pfp_size_small)
             new_pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size_small)
             new_pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size_small)
-
             for user in all_users:
                 source_path = None
-                if user.profile_picture_path and os.path.exists(
-                        os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
+                if user.profile_picture_path and os.path.exists(os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
                     source_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
-
                 pfp_image = get_or_create_circular_pfp(
                     login=user.login, source_path=source_path, size=pfp_size_small,
                     cache_manager=self.app_controller.cache_manager
@@ -503,18 +487,15 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 else:
                     initial = user.login[0].upper() if user.login else "?"
                     new_pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size_small)
-
             main_pfp_source_path = None
             if current_user_data and current_user_data.profile_picture_path:
                 path = os.path.join(PROFILE_PICTURES_DIR, current_user_data.profile_picture_path)
                 if os.path.exists(path):
                     main_pfp_source_path = path
-
             main_pfp_image = get_or_create_circular_pfp(
                 login=self.nom_utilisateur, source_path=main_pfp_source_path, size=self.pfp_size,
                 cache_manager=self.app_controller.cache_manager
             )
-
             return current_user_data, new_pfp_cache, main_pfp_image
 
         def on_complete(result, error):
@@ -523,21 +504,17 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 return
 
             new_user_data, new_pfp_cache, main_pfp_image = result
-
             self.user_data = new_user_data
             self.user_roles = self.user_data.roles if self.user_data else []
             self.pfp_cache = new_pfp_cache
-
             if not main_pfp_image:
                 main_pfp_image = self._create_placeholder_image(self.nom_utilisateur[0].upper(), self.pfp_size)
             self.pfp_label.configure(image=main_pfp_image)
             roles_str = f" (Rôles: {', '.join(self.user_roles)})" if self.user_roles else ""
             self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
-
             self.current_filter = self.user_data.default_filter
             self.filter_menu.set(self.current_filter)
             self.afficher_liste_demandes(show_overlay=True)
-
             new_theme = self.user_data.theme_color
             if new_theme != self.initial_theme:
                 self.app_controller.request_restart("Le changement de thème nécessite un redémarrage.")
@@ -554,8 +531,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
     def _action_voir_pj(self, demande_id, rel_path):
         cached_path = self.app_controller.cache_manager.get_cached_path(rel_path)
         if cached_path:
-            DocumentViewerWindow(self, cached_path, f"Aperçu (Cache) - {os.path.basename(rel_path)}",
-                                 temp_dir_to_clean=None)
+            DocumentViewerWindow(self, cached_path, f"Aperçu (Cache) - {os.path.basename(rel_path)}", temp_dir_to_clean=None)
             return
 
         def task():
@@ -565,12 +541,10 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             if error:
                 self.app_controller.show_toast(f"Erreur à l'ouverture : {error}", "error")
                 return
-
             chemin_pj, temp_dir = result
             if chemin_pj and os.path.exists(chemin_pj):
                 self.app_controller.cache_manager.add_to_cache(chemin_pj, rel_path)
-                DocumentViewerWindow(self, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}",
-                                     temp_dir_to_clean=temp_dir)
+                DocumentViewerWindow(self, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}", temp_dir_to_clean=temp_dir)
             else:
                 self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error")
 
@@ -584,12 +558,10 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             if error:
                 self.app_controller.show_toast(f"Erreur : {error}", "error")
                 return
-
             chemin_pj, temp_dir = result
             if not chemin_pj:
                 self.app_controller.show_toast(f"Fichier non trouvé ou impossible à extraire : {rel_path}", "error")
                 return
-
             succes, message = self.remboursement_controller.telecharger_copie_piece_jointe(chemin_pj, temp_dir)
             if succes:
                 self.app_controller.show_toast(message, 'success')
@@ -615,28 +587,24 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 if messagebox.askyesno("Confirmation Purge",
                                        f"Êtes-vous sûr de vouloir purger les archives de plus de {age_en_annees} an(s) ?\nCette action est IRRÉVERSIBLE.",
                                        icon='warning', parent=self):
-                    def task():
-                        return self.remboursement_controller.admin_purge_archives(age_en_annees)
-
+                    def task(): return self.remboursement_controller.admin_purge_archives(age_en_annees)
                     def on_complete(result, error):
-                        if error:
-                            self.app_controller.show_toast(f"Erreur: {error}", "error")
-                            return
+                        if error: self.app_controller.show_toast(f"Erreur: {error}", "error"); return
                         nb_suppr, erreurs = result
                         msg = f"{nb_suppr} demande(s) ont été purgées."
                         if erreurs: msg += f"\nErreurs : {', '.join(erreurs)}"
                         self.app_controller.show_toast(msg, 'info')
                         self.afficher_liste_demandes()
-
                     self.run_task(task, on_complete, "Purge des archives...")
             except ValueError:
                 self.app_controller.show_toast("Veuillez entrer un nombre valide.", "error")
 
     def _action_admin_optimiser_bdd(self):
-        if messagebox.askyesno("Optimisation BDD",
-                               "Ceci va réorganiser la base de données pour réduire sa taille. "
-                               "L'opération peut prendre quelques instants.\n\nVoulez-vous continuer ?",
-                               icon='info', parent=self):
+        msg = ("Ceci va réorganiser la base de données pour réduire sa taille et améliorer les performances.\n\n"
+               "ATTENTION : Cette opération est bloquante et peut prendre du temps. "
+               "Veuillez vous assurer qu'aucun autre utilisateur n'est en train de travailler sur l'application.\n\n"
+               "Voulez-vous continuer ?")
+        if messagebox.askyesno("Optimisation BDD (VACUUM)", msg, icon='warning', parent=self):
             def task():
                 return self.remboursement_controller.admin_optimiser_bdd()
 

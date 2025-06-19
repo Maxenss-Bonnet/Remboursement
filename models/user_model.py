@@ -1,9 +1,11 @@
 import sqlite3
+import logging
 from typing import List, Optional, Tuple
 from models.schemas import Utilisateur, UtilisateurUpdate
-from utils.database_manager import get_db_connection
+from utils.database_manager import get_db_connection, execute_in_queue, handle_db_locks
 from utils.password_utils import generer_hachage_mdp
-from utils.db_decorators import handle_db_locks
+
+_log = logging.getLogger(__name__)
 
 
 @handle_db_locks
@@ -48,14 +50,13 @@ def obtenir_utilisateur_par_login_data(login: str) -> Optional[Utilisateur]:
     return None
 
 
-@handle_db_locks
+@execute_in_queue
 def ajouter_utilisateur_data(user_create: Utilisateur) -> Tuple[bool, str]:
     """Ajoute un nouvel utilisateur à la base de données."""
     conn = get_db_connection()
-    cursor = conn.cursor()
-
     try:
         with conn:
+            cursor = conn.cursor()
             cursor.execute("SELECT login FROM utilisateurs WHERE login = ?", (user_create.login,))
             if cursor.fetchone():
                 return False, "Le login de l'utilisateur existe déjà."
@@ -81,19 +82,17 @@ def ajouter_utilisateur_data(user_create: Utilisateur) -> Tuple[bool, str]:
                                (user_create.login, role_id))
 
         return True, "Utilisateur ajouté avec succès."
-    except sqlite3.IntegrityError as e:
-        return False, f"Erreur d'intégrité : {e}"
     except sqlite3.Error as e:
+        _log.error(f"Erreur lors de l'ajout de l'utilisateur {user_create.login}", exc_info=True)
         return False, f"Erreur de base de données : {e}"
     finally:
         conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def mettre_a_jour_utilisateur_data(login: str, user_update: UtilisateurUpdate) -> Tuple[bool, str]:
     """Met à jour les informations d'un utilisateur existant."""
     conn = get_db_connection()
-
     try:
         with conn:
             cursor = conn.cursor()
@@ -123,12 +122,13 @@ def mettre_a_jour_utilisateur_data(login: str, user_update: UtilisateurUpdate) -
 
         return True, "Utilisateur mis à jour avec succès."
     except sqlite3.Error as e:
+        _log.error(f"Erreur lors de la mise à jour de l'utilisateur {login}", exc_info=True)
         return False, f"Erreur de base de données : {e}"
     finally:
         conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def supprimer_utilisateur_data(login: str) -> Tuple[bool, str]:
     """Supprime un utilisateur de la base de données."""
     conn = get_db_connection()
@@ -140,6 +140,7 @@ def supprimer_utilisateur_data(login: str) -> Tuple[bool, str]:
                 return False, "Utilisateur non trouvé."
         return True, "Utilisateur supprimé avec succès."
     except sqlite3.Error as e:
+        _log.error(f"Erreur lors de la suppression de l'utilisateur {login}", exc_info=True)
         return False, f"Erreur de base de données : {e}"
     finally:
         conn.close()

@@ -5,27 +5,25 @@ import datetime
 import stat
 import errno
 import time
+import logging
 from typing import List, Tuple, Optional, Dict
 
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
 from models.schemas import Remboursement, HistoriqueStatut
-from utils.database_manager import get_db_connection
+from utils.database_manager import get_db_connection, execute_in_queue, handle_db_locks
 from utils.archive_utils import create_archive_for_demande
-from utils.db_decorators import handle_db_locks
+
+_log = logging.getLogger(__name__)
 
 
 @handle_db_locks
 def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     data = dict(row)
-    # L'historique et les pièces jointes ne sont plus dans le SELECT initial,
-    # ils seront ajoutés après par la fonction appelante.
-    # On initialise avec des listes vides pour le constructeur du schéma.
     data['historique_statuts'] = []
     data['chemins_factures_stockees'] = []
     data['chemins_rib_stockes'] = []
     data['chemins_trop_percu_stockees'] = []
 
-    # S'assurer que les dates sont des objets datetime pour le schéma
     if isinstance(data['date_creation'], str):
         data['date_creation'] = datetime.datetime.fromisoformat(data['date_creation'])
     if isinstance(data['date_derniere_modification'], str):
@@ -49,12 +47,7 @@ def charger_demandes_data(
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Requête principale pour les remboursements, sans les jointures lourdes
-    base_query = """
-                 SELECT r.*
-                 FROM remboursements r \
-                 """
-
+    base_query = "SELECT r.* FROM remboursements r"
     where_clauses = []
     params = []
 
@@ -88,57 +81,39 @@ def charger_demandes_data(
     rows = cursor.fetchall()
 
     demandes = [_construct_remboursement_from_row(row) for row in rows]
-
-    # Récupérer tous les IDs des demandes chargées pour les requêtes de détail
     demande_ids = [d.id_demande for d in demandes]
     if not demande_ids:
         conn.close()
         return []
 
-    # Requête pour récupérer tout l'historique nécessaire en une seule fois
-    historique_map: Dict[str, List[HistoriqueStatut]] = {id: [] for id in demande_ids}
+    historique_map: Dict[str, List[HistoriqueStatut]] = {id_demande: [] for id_demande in demande_ids}
     placeholders = ', '.join('?' for _ in demande_ids)
     cursor.execute(f"""
         SELECT id_demande, statut, date, par_utilisateur, commentaire
-        FROM historique
-        WHERE id_demande IN ({placeholders})
-        ORDER BY id_demande, date
+        FROM historique WHERE id_demande IN ({placeholders}) ORDER BY id_demande, date
     """, demande_ids)
     for row in cursor.fetchall():
         hist_data = dict(row)
         hist_data['date'] = datetime.datetime.fromisoformat(hist_data['date'])
-        if hist_data['par_utilisateur'] == 'None':  # Ajustement si 'None' est stocké comme chaîne
-            hist_data['par_utilisateur'] = None
-        if hist_data['commentaire'] == 'None':  # Ajustement si 'None' est stocké comme chaîne
-            hist_data['commentaire'] = ""
         historique_map[hist_data['id_demande']].append(HistoriqueStatut(**hist_data))
 
-    # Requête pour récupérer toutes les pièces jointes nécessaires en une seule fois
-    attachments_map: Dict[str, Dict[str, List[str]]] = {id: {"facture": [], "rib": [], "trop_percu": []} for id in
-                                                        demande_ids}
+    attachments_map: Dict[str, Dict[str, List[str]]] = {id_demande: {"facture": [], "rib": [], "trop_percu": []} for id_demande in demande_ids}
     cursor.execute(f"""
         SELECT id_demande, type_pj, chemin_relatif
-        FROM pieces_jointes
-        WHERE id_demande IN ({placeholders})
-        ORDER BY id_demande, date_ajout
+        FROM pieces_jointes WHERE id_demande IN ({placeholders}) ORDER BY id_demande, date_ajout
     """, demande_ids)
     for row in cursor.fetchall():
         pj_data = dict(row)
-        if pj_data['type_pj'] == 'facture':
-            attachments_map[pj_data['id_demande']]['facture'].append(pj_data['chemin_relatif'])
-        elif pj_data['type_pj'] == 'rib':
-            attachments_map[pj_data['id_demande']]['rib'].append(pj_data['chemin_relatif'])
-        elif pj_data['type_pj'] == 'trop_percu':
-            attachments_map[pj_data['id_demande']]['trop_percu'].append(pj_data['chemin_relatif'])
+        if pj_data['type_pj'] in attachments_map.get(pj_data['id_demande'], {}):
+            attachments_map[pj_data['id_demande']][pj_data['type_pj']].append(pj_data['chemin_relatif'])
 
     conn.close()
 
-    # Assigner l'historique et les pièces jointes aux objets Remboursement
     for demande in demandes:
-        demande.historique_statuts = historique_map[demande.id_demande]
-        demande.chemins_factures_stockees = attachments_map[demande.id_demande]['facture']
-        demande.chemins_rib_stockes = attachments_map[demande.id_demande]['rib']
-        demande.chemins_trop_percu_stockees = attachments_map[demande.id_demande]['trop_percu']
+        demande.historique_statuts = historique_map.get(demande.id_demande, [])
+        demande.chemins_factures_stockees = attachments_map.get(demande.id_demande, {}).get('facture', [])
+        demande.chemins_rib_stockes = attachments_map.get(demande.id_demande, {}).get('rib', [])
+        demande.chemins_trop_percu_stockees = attachments_map.get(demande.id_demande, {}).get('trop_percu', [])
 
     return demandes
 
@@ -148,12 +123,7 @@ def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Requête principale pour la demande, sans les jointures lourdes
-    query = """
-            SELECT r.*
-            FROM remboursements r
-            WHERE r.id_demande = ?
-            """
+    query = "SELECT r.* FROM remboursements r WHERE r.id_demande = ?"
     cursor.execute(query, (id_demande,))
     row = cursor.fetchone()
 
@@ -163,45 +133,23 @@ def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
 
     demande = _construct_remboursement_from_row(row)
 
-    # Récupérer l'historique
-    cursor.execute("""
-                   SELECT statut, date, par_utilisateur, commentaire
-                   FROM historique
-                   WHERE id_demande = ?
-                   ORDER BY date
-                   """, (id_demande,))
-    historique_list = []
-    for hist_row in cursor.fetchall():
-        hist_data = dict(hist_row)
-        hist_data['date'] = datetime.datetime.fromisoformat(hist_data['date'])
-        if hist_data['par_utilisateur'] == 'None':
-            hist_data['par_utilisateur'] = None
-        if hist_data['commentaire'] == 'None':
-            hist_data['commentaire'] = ""
-        historique_list.append(HistoriqueStatut(**hist_data))
-    demande.historique_statuts = historique_list
+    cursor.execute("SELECT statut, date, par_utilisateur, commentaire FROM historique WHERE id_demande = ? ORDER BY date", (id_demande,))
+    demande.historique_statuts = [HistoriqueStatut(date=datetime.datetime.fromisoformat(h['date']), **{k: v for k, v in dict(h).items() if k != 'date'}) for h in cursor.fetchall()]
 
-    # Récupérer les pièces jointes
-    cursor.execute("""
-                   SELECT type_pj, chemin_relatif
-                   FROM pieces_jointes
-                   WHERE id_demande = ?
-                   ORDER BY date_ajout
-                   """, (id_demande,))
+    cursor.execute("SELECT type_pj, chemin_relatif FROM pieces_jointes WHERE id_demande = ? ORDER BY date_ajout", (id_demande,))
     for pj_row in cursor.fetchall():
-        pj_data = dict(pj_row)
-        if pj_data['type_pj'] == 'facture':
-            demande.chemins_factures_stockees.append(pj_data['chemin_relatif'])
-        elif pj_data['type_pj'] == 'rib':
-            demande.chemins_rib_stockes.append(pj_data['chemin_relatif'])
-        elif pj_data['type_pj'] == 'trop_percu':
-            demande.chemins_trop_percu_stockees.append(pj_data['chemin_relatif'])
+        if pj_row['type_pj'] == 'facture':
+            demande.chemins_factures_stockees.append(pj_row['chemin_relatif'])
+        elif pj_row['type_pj'] == 'rib':
+            demande.chemins_rib_stockes.append(pj_row['chemin_relatif'])
+        elif pj_row['type_pj'] == 'trop_percu':
+            demande.chemins_trop_percu_stockees.append(pj_row['chemin_relatif'])
 
     conn.close()
     return demande
 
 
-@handle_db_locks
+@execute_in_queue
 def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
     conn = get_db_connection()
     try:
@@ -229,13 +177,14 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
                     (demande.id_demande, 'rib', path, demande.date_creation))
         return True, "Demande créée avec succès dans la BDD."
     except sqlite3.Error as e:
+        _log.error(f"Erreur de base de données lors de la création de la demande {demande.id_demande}", exc_info=True)
         return False, f"Erreur de base de données : {e}"
     finally:
         if conn:
             conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optional[str] = None,
                                type_pj: Optional[str] = None) -> Tuple[bool, str]:
     conn = get_db_connection()
@@ -243,15 +192,9 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
         with conn:
             cursor = conn.cursor()
             cursor.execute("""UPDATE remboursements
-                              SET nom                        = ?,
-                                  prenom                     = ?,
-                                  reference_facture          = ?,
-                                  description                = ?,
-                                  montant_demande            = ?,
-                                  statut                     = ?,
-                                  derniere_modification_par  = ?,
-                                  date_derniere_modification = ?,
-                                  date_paiement_effectue     = ?
+                              SET nom = ?, prenom = ?, reference_facture = ?, description = ?,
+                                  montant_demande = ?, statut = ?, derniere_modification_par = ?,
+                                  date_derniere_modification = ?, date_paiement_effectue = ?
                               WHERE id_demande = ?""",
                            (demande.nom, demande.prenom, demande.reference_facture, demande.description,
                             demande.montant_demande, demande.statut, demande.derniere_modification_par,
@@ -268,33 +211,36 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
                     (demande.id_demande, type_pj, nouveau_pj_relatif, demande.date_derniere_modification))
         return True, "Demande mise à jour avec succès."
     except sqlite3.Error as e:
+        _log.error(f"Erreur de base de données lors de la mise à jour de la demande {demande.id_demande}", exc_info=True)
         return False, f"Erreur de base de données : {e}"
     finally:
         conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def ajouter_piece_jointe_data(id_demande: str, chemin_relatif: str, type_pj: str) -> Tuple[bool, str]:
     conn = get_db_connection()
     try:
         with conn:
             cursor = conn.cursor()
+            now = datetime.datetime.now()
             cursor.execute(
                 "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
-                (id_demande, type_pj, chemin_relatif, datetime.datetime.now())
+                (id_demande, type_pj, chemin_relatif, now)
             )
             cursor.execute(
                 "UPDATE remboursements SET date_derniere_modification = ? WHERE id_demande = ?",
-                (datetime.datetime.now(), id_demande)
+                (now, id_demande)
             )
         return True, "Pièce jointe ajoutée."
     except sqlite3.Error as e:
-        return False, f"Erreur de BDD lors de l'ajout de la PJ: {e}"
+        _log.error(f"Erreur BDD lors de l'ajout de la PJ pour la demande {id_demande}", exc_info=True)
+        return False, f"Erreur BDD lors de l'ajout de la PJ: {e}"
     finally:
         conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande: return False, "Demande non trouvée."
@@ -314,15 +260,16 @@ def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
         with conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE remboursements SET is_archived = 1 WHERE id_demande = ?", (id_demande,))
-            if cursor.rowcount == 0: raise sqlite3.OperationalError("Aucune ligne mise à jour.")
+            if cursor.rowcount == 0: raise sqlite3.OperationalError("Aucune ligne mise à jour pour l'archivage.")
         return True, f"La demande {id_demande} a été archivée."
     except sqlite3.Error as e:
+        _log.error(f"Erreur de BDD lors de l'archivage de la demande {id_demande}", exc_info=True)
         return False, f"Erreur de BDD lors de l'archivage : {e}"
     finally:
         conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande:
@@ -352,31 +299,31 @@ def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
         else:
             dossier_a_supprimer = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
             if os.path.isdir(dossier_a_supprimer):
-                for i in range(3):
-                    try:
-                        shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
-                        break
-                    except OSError as e:
-                        if i < 2:
-                            time.sleep(0.1)
-                        else:
-                            return False, f"Erreur système persistante lors de la suppression du dossier {dossier_a_supprimer}: {e}"
+                try:
+                    shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
+                except OSError as e:
+                    _log.error(f"Erreur système lors de la suppression du dossier {dossier_a_supprimer}", exc_info=True)
+                    return False, f"Erreur système lors de la suppression du dossier {dossier_a_supprimer}: {e}"
 
         return True, f"La demande {id_demande} et ses fichiers ont été supprimés."
     except sqlite3.Error as e:
+        _log.error(f"Erreur de BDD lors de la suppression de la demande {id_demande}", exc_info=True)
         return False, f"Erreur de BDD lors de la suppression : {e}"
     finally:
         conn.close()
 
 
-@handle_db_locks
+@execute_in_queue
 def optimiser_base_de_donnees_data() -> Tuple[bool, str]:
     """Exécute la commande VACUUM pour réorganiser la BDD et récupérer l'espace disque."""
     conn = get_db_connection()
     try:
+        _log.info("Lancement de l'opération VACUUM sur la base de données...")
         conn.execute("VACUUM")
+        _log.info("Opération VACUUM terminée avec succès.")
         return True, "La base de données a été optimisée."
     except sqlite3.Error as e:
+        _log.error("Erreur lors de l'optimisation (VACUUM) de la base de données.", exc_info=True)
         return False, f"Erreur lors de l'optimisation de la base de données : {e}"
     finally:
         conn.close()

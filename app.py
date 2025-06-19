@@ -4,10 +4,12 @@ import sys
 import tkinter
 import threading
 import queue
+import logging
 from tkinter import messagebox
 from controllers.app_controller import AppController
 from config.settings import SHARED_DATA_BASE_PATH, IS_DEPLOYMENT_MODE, get_application_base_path
 from utils.database_manager import stop_db_writer_thread
+from utils.logging_config import setup_logging
 
 
 def is_path_writable(path: str) -> bool:
@@ -41,7 +43,7 @@ class MainApplication(ctk.CTk):
             if os.path.exists(icon_path):
                 self.iconbitmap(icon_path)
         except Exception as e:
-            print(f"Erreur lors du chargement de l'icône : {e}")
+            logging.warning(f"Erreur lors du chargement de l'icône : {e}")
 
         initial_width = 1024
         initial_height = 768
@@ -62,18 +64,16 @@ class MainApplication(ctk.CTk):
                 self.shutdown_window.geometry("350x120")
                 self.shutdown_window.transient(self)
                 self.shutdown_window.grab_set()
-                self.shutdown_window.protocol("WM_DELETE_WINDOW", lambda: None)  # Empêche de fermer cette fenêtre
+                self.shutdown_window.protocol("WM_DELETE_WINDOW", lambda: None)
                 label = ctk.CTkLabel(self.shutdown_window,
                                      text="Finalisation des opérations en cours...\nVeuillez patienter.",
                                      font=ctk.CTkFont(size=14))
                 label.pack(expand=True, padx=20, pady=20)
                 self.shutdown_window.update()
 
-            # On revérifie dans 500ms
             self.after(500, lambda: self.on_attempt_close(is_restart))
             return
 
-        # Si on arrive ici, l'application n'est plus occupée
         if self.shutdown_window and self.shutdown_window.winfo_exists():
             self.shutdown_window.destroy()
             self.shutdown_window = None
@@ -91,14 +91,11 @@ class MainApplication(ctk.CTk):
         loading_window.transient(self)
 
         width, height = 300, 150
-
         loading_window.update_idletasks()
         screen_width = loading_window.winfo_screenwidth()
         screen_height = loading_window.winfo_screenheight()
-
         x = (screen_width // 2) - (width // 2)
         y = (screen_height // 2) - (height // 2)
-
         loading_window.geometry(f"{width}x{height}+{x}+{y}")
 
         frame = ctk.CTkFrame(loading_window, corner_radius=10)
@@ -127,16 +124,12 @@ class MainApplication(ctk.CTk):
     def _process_network_check_result(self, result_queue: queue.Queue):
         try:
             is_writable = result_queue.get_nowait()
-
             if is_writable:
                 self.loading_label.configure(text="Démarrage de l'application...")
                 self.loading_window.update_idletasks()
-
                 self.app_controller = AppController(self)
-
                 init_thread = threading.Thread(target=self.app_controller.run_initialization, daemon=True)
                 init_thread.start()
-
                 self.after(100, self._check_app_init_completion, init_thread)
             else:
                 self.loading_window.destroy()
@@ -165,30 +158,11 @@ class MainApplication(ctk.CTk):
         error_frame = ctk.CTkFrame(self)
         error_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(
-            error_frame,
-            text="Erreur de Connexion Réseau",
-            font=ctk.CTkFont(size=20, weight="bold")
-        ).pack(pady=(20, 10), padx=30)
-
-        error_message = (
-            "Impossible d'accéder aux données partagées.\n\n"
-            "Veuillez vérifier votre connexion Wi-Fi ou votre connexion VPN si vous êtes hors site."
-        )
-        ctk.CTkLabel(
-            error_frame,
-            text=error_message,
-            font=ctk.CTkFont(size=14),
-            justify="center"
-        ).pack(pady=10, padx=30)
-
-        ctk.CTkButton(
-            error_frame,
-            text="Redémarrer l'application",
-            command=self._restart_app,
-            width=200,
-            height=40
-        ).pack(pady=(15, 20), padx=30)
+        ctk.CTkLabel(error_frame, text="Erreur de Connexion Réseau", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10), padx=30)
+        error_message = ("Impossible d'accéder aux données partagées.\n\n"
+                         "Veuillez vérifier votre connexion Wi-Fi ou votre connexion VPN si vous êtes hors site.")
+        ctk.CTkLabel(error_frame, text=error_message, font=ctk.CTkFont(size=14), justify="center").pack(pady=10, padx=30)
+        ctk.CTkButton(error_frame, text="Redémarrer l'application", command=self._restart_app, width=200, height=40).pack(pady=(15, 20), padx=30)
 
     def center_window(self):
         self.update_idletasks()
@@ -203,6 +177,7 @@ class MainApplication(ctk.CTk):
             python = sys.executable
             os.execl(python, python, *sys.argv)
         except Exception as e:
+            logging.critical("Le redémarrage automatique a échoué.", exc_info=True)
             messagebox.showerror(
                 "Erreur de redémarrage",
                 f"Le redémarrage automatique a échoué. Veuillez relancer l'application manuellement.\n\nErreur: {e}"
@@ -216,14 +191,10 @@ class MainApplication(ctk.CTk):
             try:
                 self.attributes('-zoomed', True)
             except ctk.TclError:
-                try:
-                    screen_width = self.winfo_screenwidth()
-                    screen_height = self.winfo_screenheight()
-                    self.geometry(f"{screen_width}x{screen_height}+0+0")
-                except ctk.TclError:
-                    pass
+                pass
 
 
 if __name__ == "__main__":
+    setup_logging()
     app = MainApplication()
     app.mainloop()

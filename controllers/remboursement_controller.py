@@ -5,6 +5,7 @@ import tempfile
 import zipfile
 import uuid
 import re
+import logging
 from tkinter import filedialog
 
 from models import remboursement_model
@@ -15,6 +16,8 @@ from config.settings import (
     STATUT_REFUSEE_CONSTAT_TP, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
     STATUT_VALIDEE, STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE
 )
+
+_log = logging.getLogger(__name__)
 
 
 class RemboursementController:
@@ -27,9 +30,13 @@ class RemboursementController:
         return subfolder_map.get(type_pj, "Autres"), prefix_map.get(type_pj, "PJ")
 
     def archive_old_requests(self):
-        count = remboursement_model.archiver_les_vieilles_demandes()
-        if count > 0:
-            print(f"{count} demande(s) ont été archivée(s).")
+        try:
+            count = remboursement_model.archiver_les_vieilles_demandes()
+            if count > 0:
+                _log.info(f"{count} demande(s) ont été automatiquement archivée(s).")
+        except Exception as e:
+            _log.error("Erreur lors de l'archivage automatique des vieilles demandes.", exc_info=True)
+
 
     def extraire_info_facture_pdf(self, chemin_pdf: str) -> dict:
         if not chemin_pdf or not os.path.exists(chemin_pdf):
@@ -54,8 +61,7 @@ class RemboursementController:
             try:
                 shutil.rmtree(dossier_temporaire, ignore_errors=True)
             except Exception as e:
-                print(
-                    f"Avertissement : impossible de supprimer le dossier temporaire {dossier_temporaire}. Erreur: {e}")
+                _log.warning(f"Impossible de supprimer le dossier temporaire {dossier_temporaire}.", exc_info=True)
 
     def supprimer_piece_jointe_reseau(self, chemin_fichier_reseau: str):
         if not chemin_fichier_reseau or not os.path.exists(chemin_fichier_reseau): return
@@ -64,7 +70,7 @@ class RemboursementController:
                     [chemin_fichier_reseau, REMBOURSEMENTS_ATTACHMENTS_DIR]) == REMBOURSEMENTS_ATTACHMENTS_DIR:
                 os.remove(chemin_fichier_reseau)
         except Exception as e:
-            print(f"Avertissement : impossible de supprimer la pièce jointe {chemin_fichier_reseau}. Erreur: {e}")
+            _log.warning(f"Impossible de supprimer la pièce jointe {chemin_fichier_reseau}.", exc_info=True)
 
     def copier_pj_vers_dossier_demande(self, chemin_local_source: str, dossier_parent_demande: str,
                                        type_pj: str) -> str:
@@ -153,7 +159,6 @@ class RemboursementController:
         sort_field, sort_order = sort_map.get(sort_choice, ("date_derniere_modification", "DESC"))
 
         statut_filter = None
-        # Le filtre par statut ne s'applique que si on n'inclut PAS les archives.
         if not include_archives:
             if filter_choice == "En cours":
                 statut_filter = [STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE, STATUT_REFUSEE_CONSTAT_TP,
@@ -187,6 +192,9 @@ class RemboursementController:
     def admin_manual_archive(self, demande_id: str):
         return remboursement_model.archiver_demande_par_id(demande_id)
 
+    def admin_optimiser_bdd(self):
+        return remboursement_model.optimiser_base_de_donnees_data()
+
     def get_viewable_attachment_path(self, demande_id: str, relative_path: str) -> tuple[str | None, str | None]:
         demande = self.get_demande(demande_id)
         if not demande: return None, None
@@ -208,7 +216,7 @@ class RemboursementController:
                         shutil.rmtree(temp_dir)
                         return None, None
             except Exception as e:
-                print(f"Erreur lors de l'extraction de l'archive : {e}")
+                _log.error(f"Erreur lors de l'extraction de l'archive : {e}", exc_info=True)
                 return None, None
 
     def telecharger_copie_piece_jointe(self, chemin_source_pj, temp_dir_a_nettoyer=None):

@@ -6,17 +6,19 @@ import random
 from functools import wraps
 import threading
 import queue
+import logging
 
 from config.settings import SHARED_DATA_BASE_PATH
 
 DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 
 _write_queue = queue.Queue()
-_queue_lock = threading.Lock()
 _stop_queue_processor = threading.Event()
+_log = logging.getLogger(__name__)
 
 
 def _db_writer_thread():
+    """Thread qui traite les opérations d'écriture sur la BDD de manière séquentielle."""
     while not _stop_queue_processor.is_set():
         try:
             task_func, task_args, task_kwargs, result_queue = _write_queue.get(timeout=0.5)
@@ -24,25 +26,30 @@ def _db_writer_thread():
                 result = task_func(*task_args, **task_kwargs)
                 result_queue.put((True, result))
             except Exception as e:
+                _log.exception("Erreur dans le thread d'écriture de la BDD lors de l'exécution de la tâche.")
                 result_queue.put((False, e))
             finally:
                 _write_queue.task_done()
         except queue.Empty:
             pass
         except Exception as e:
-            print(f"Erreur inattendue dans le thread d'écriture BDD : {e}")
+            _log.critical(f"Erreur inattendue dans le thread d'écriture BDD : {e}")
 
 
-_writer_thread_instance = threading.Thread(target=_db_writer_thread, daemon=True)
+_writer_thread_instance = threading.Thread(target=_db_writer_thread, name="DBWriterThread", daemon=True)
 _writer_thread_instance.start()
 
 
 def stop_db_writer_thread():
+    """Arrête proprement le thread d'écriture de la BDD."""
+    _log.info("Tentative d'arrêt du thread d'écriture de la BDD...")
     _stop_queue_processor.set()
     _write_queue.join()
     _writer_thread_instance.join(timeout=2)
     if _writer_thread_instance.is_alive():
-        print("Avertissement: Le thread d'écriture de la BDD n'a pas pu être arrêté proprement.")
+        _log.warning("Le thread d'écriture de la BDD n'a pas pu être arrêté proprement.")
+    else:
+        _log.info("Thread d'écriture de la BDD arrêté.")
 
 
 def is_db_writer_busy() -> bool:
@@ -50,7 +57,11 @@ def is_db_writer_busy() -> bool:
     return not _write_queue.empty()
 
 
-def _execute_in_queue(func):
+def execute_in_queue(func):
+    """
+    Décorateur pour exécuter une fonction dans la file d'attente d'écriture séquentielle.
+    Cela garantit qu'une seule écriture se produit à la fois sur la BDD.
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
         result_queue = queue.Queue(1)
@@ -64,6 +75,9 @@ def _execute_in_queue(func):
 
 
 def handle_db_locks(func):
+    """
+    Décorateur pour gérer les erreurs de verrouillage SQLite, principalement pour les lectures.
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
         retries = 5
@@ -74,11 +88,11 @@ def handle_db_locks(func):
                 if "locked" in str(e) or "busy" in str(e):
                     if i < retries - 1:
                         wait_time = random.uniform(0.2, 0.5)
-                        print(f"Avertissement: Base de données verrouillée. Tentative {i + 1}/{retries} dans {wait_time:.2f}s...")
+                        _log.warning(f"Base de données verrouillée. Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour la fonction {func.__name__}...")
                         time.sleep(wait_time)
                         continue
                     else:
-                        print("Erreur: La base de données est restée verrouillée après plusieurs tentatives.")
+                        _log.error(f"La base de données est restée verrouillée après plusieurs tentatives pour {func.__name__}.")
                         raise e
                 else:
                     raise e
