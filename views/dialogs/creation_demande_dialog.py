@@ -14,6 +14,7 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.remboursement_controller = remboursement_controller
         self.app_controller = app_controller
         self.submitted = False
+        self.copy_operations_in_progress = 0
 
         self.title("Nouvelle Demande de Remboursement")
         self.geometry("650x650")
@@ -74,7 +75,11 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
     def _selectionner_pj(self, type_pj: str):
         chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
             f"Sélectionner {type_pj.title()}")
-        if not chemin_local: return
+        if not chemin_local:
+            return
+
+        self.copy_operations_in_progress += 1
+        self.btn_soumettre.configure(state="disabled", text="Copie de fichier en cours...")
 
         label_var = self.chemin_facture_var if type_pj == "facture" else self.chemin_rib_var
         label_widget = self.label_facture if type_pj == "facture" else self.label_rib
@@ -95,12 +100,17 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
                                                                                 type_pj)
 
         def on_complete(result, error):
-            if error:
-                label_var.set(f"Échec copie !")
-                label_widget.configure(text_color="red")
-            else:
-                label_var.set(os.path.basename(chemin_local))
-                label_widget.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+            try:
+                if error:
+                    label_var.set("Échec copie !")
+                    label_widget.configure(text_color="red")
+                else:
+                    label_var.set(os.path.basename(chemin_local))
+                    label_widget.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+            finally:
+                self.copy_operations_in_progress -= 1
+                if self.copy_operations_in_progress == 0:
+                    self.btn_soumettre.configure(state="normal", text="Enregistrer la Demande")
 
         self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 

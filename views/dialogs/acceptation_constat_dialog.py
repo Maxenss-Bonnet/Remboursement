@@ -15,6 +15,7 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.app_controller = app_controller
         self.chemin_pj_reseau = None
         self.submitted = False
+        self.copy_operations_in_progress = 0
 
         self.title(f"Accepter Constat TP - Demande {id_demande[:8]}")
         self.geometry("500x450")
@@ -44,6 +45,9 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
             "Sélectionner Preuve Trop-Perçu")
         if not chemin_local: return
 
+        self.copy_operations_in_progress += 1
+        self.btn_submit.configure(state="disabled", text="Copie en cours...")
+
         if self.chemin_pj_reseau:
             self.run_task(
                 lambda p=self.chemin_pj_reseau: self.remboursement_controller.supprimer_piece_jointe_reseau(p), None,
@@ -59,14 +63,19 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
                                                                                 "trop_percu")
 
         def on_complete(result, error):
-            if error:
-                self.app_controller.show_toast(f"Erreur de copie: {error}", "error")
-                self.chemin_pj_var.set("Échec de la copie !")
-                self.label_pj.configure(text_color="red")
-            else:
-                self.chemin_pj_reseau = result
-                self.chemin_pj_var.set(os.path.basename(chemin_local))
-                self.label_pj.configure(text_color=original_text_color)
+            try:
+                if error:
+                    self.app_controller.show_toast(f"Erreur de copie: {error}", "error")
+                    self.chemin_pj_var.set("Échec de la copie !")
+                    self.label_pj.configure(text_color="red")
+                else:
+                    self.chemin_pj_reseau = result
+                    self.chemin_pj_var.set(os.path.basename(chemin_local))
+                    self.label_pj.configure(text_color=original_text_color)
+            finally:
+                self.copy_operations_in_progress -= 1
+                if self.copy_operations_in_progress == 0:
+                    self.btn_submit.configure(state="normal", text="Valider et Soumettre à J. Durousset")
 
         self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 

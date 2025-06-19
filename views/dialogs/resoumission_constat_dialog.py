@@ -15,6 +15,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.id_demande = id_demande
         self.app_controller = app_controller
         self.submitted = False
+        self.copy_operations_in_progress = 0
 
         self.title(f"Corriger Constat TP {id_demande[:8]}")
         self.geometry("550x450")
@@ -53,8 +54,9 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.btn_submit_corr = ctk.CTkButton(center_buttons_frame, text="Resoumettre le Constat",
                                              command=self._submit_correction_constat)
         self.btn_submit_corr.pack(side="left", padx=10)
-        ctk.CTkButton(center_buttons_frame, text="Renvoyer au Demandeur", command=self._reject_and_return_to_demandeur,
-                      fg_color="#D35400", hover_color="#A84300").pack(side="left", padx=10)
+        self.btn_renvoyer = ctk.CTkButton(center_buttons_frame, text="Renvoyer au Demandeur", command=self._reject_and_return_to_demandeur,
+                      fg_color="#D35400", hover_color="#A84300")
+        self.btn_renvoyer.pack(side="left", padx=10)
 
         ctk.CTkLabel(self.main_frame, text="Veuillez fournir une nouvelle preuve et un commentaire.").pack(pady=(0, 15),
                                                                                                            side="top",
@@ -95,6 +97,10 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
             "Nouvelle Preuve Trop-Perçu")
         if not chemin_local: return
 
+        self.copy_operations_in_progress += 1
+        self.btn_submit_corr.configure(state="disabled", text="Copie en cours...")
+        self.btn_renvoyer.configure(state="disabled")
+
         if self.chemin_pj_reseau:
             self.run_task(
                 lambda p=self.chemin_pj_reseau: self.remboursement_controller.supprimer_piece_jointe_reseau(p), None,
@@ -109,13 +115,19 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin):
                                                                                 "trop_percu")
 
         def on_complete(result, error):
-            if error:
-                self.chemin_pj_var.set("Échec copie!")
-                self.lbl_pj_sel.configure(text_color="red")
-            else:
-                self.chemin_pj_reseau = result
-                self.chemin_pj_var.set(os.path.basename(chemin_local))
-                self.lbl_pj_sel.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+            try:
+                if error:
+                    self.chemin_pj_var.set("Échec copie!")
+                    self.lbl_pj_sel.configure(text_color="red")
+                else:
+                    self.chemin_pj_reseau = result
+                    self.chemin_pj_var.set(os.path.basename(chemin_local))
+                    self.lbl_pj_sel.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+            finally:
+                self.copy_operations_in_progress -= 1
+                if self.copy_operations_in_progress == 0:
+                    self.btn_submit_corr.configure(state="normal", text="Resoumettre le Constat")
+                    self.btn_renvoyer.configure(state="normal")
 
         self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 

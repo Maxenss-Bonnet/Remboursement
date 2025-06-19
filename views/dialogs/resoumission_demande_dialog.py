@@ -14,6 +14,7 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
         self.id_demande = id_demande
         self.app_controller = app_controller
         self.submitted = False
+        self.copy_operations_in_progress = 0
 
         self.title(f"Corriger Demande {id_demande[:8]}")
         self.geometry("600x550")
@@ -122,6 +123,9 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
             f"Nouvelle {type_pj.title()}")
         if not chemin_local: return
 
+        self.copy_operations_in_progress += 1
+        self.btn_submit.configure(state="disabled", text="Copie de fichier en cours...")
+
         if getattr(self, chemin_reseau_attr):
             self.run_task(
                 lambda p=getattr(self, chemin_reseau_attr): self.remboursement_controller.supprimer_piece_jointe_reseau(
@@ -135,13 +139,18 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin):
             return self.remboursement_controller.ajouter_pj_a_demande_existante(self.id_demande, chemin_local, type_pj)
 
         def on_complete(result, error):
-            if error:
-                label_var.set("Échec copie!")
-                label_widget.configure(text_color="red")
-            else:
-                setattr(self, chemin_reseau_attr, result)
-                label_var.set(os.path.basename(chemin_local))
-                label_widget.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+            try:
+                if error:
+                    label_var.set("Échec copie!")
+                    label_widget.configure(text_color="red")
+                else:
+                    setattr(self, chemin_reseau_attr, result)
+                    label_var.set(os.path.basename(chemin_local))
+                    label_widget.configure(text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"])
+            finally:
+                self.copy_operations_in_progress -= 1
+                if self.copy_operations_in_progress == 0:
+                    self.btn_submit.configure(state="normal", text="Resoumettre la Demande")
 
         self.run_task(task, on_complete, "Copie du fichier...", show_overlay=False)
 
