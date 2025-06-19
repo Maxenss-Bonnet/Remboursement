@@ -43,14 +43,14 @@ def charger_demandes_data(
         is_archived: bool = False,
         limit: Optional[int] = None,
         offset: int = 0
-) -> List[Remboursement]:
+) -> Tuple[List[Remboursement], int]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    base_query = "SELECT r.* FROM remboursements r"
     where_clauses = []
     params = []
 
+    # Construire la clause WHERE
     if not is_archived:
         where_clauses.append("r.is_archived = ?")
         params.append(0)
@@ -65,27 +65,38 @@ def charger_demandes_data(
         where_clauses.append(f"r.statut IN ({placeholders})")
         params.extend(statut_filter)
 
-    if where_clauses:
-        base_query += " WHERE " + " AND ".join(where_clauses)
+    where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
+    # Requête pour le nombre total de résultats
+    count_query = f"SELECT COUNT(*) FROM remboursements r{where_sql}"
+    cursor.execute(count_query, tuple(params))
+    total_count = cursor.fetchone()[0]
+
+    if total_count == 0:
+        conn.close()
+        return [], 0
+
+    # Requête pour récupérer les données de la page actuelle
+    data_query = f"SELECT r.* FROM remboursements r{where_sql}"
     valid_sort_fields = ['nom', 'montant_demande', 'date_derniere_modification', 'date_creation']
     if sort_field in valid_sort_fields:
         order = 'DESC' if sort_order.upper() == 'DESC' else 'ASC'
-        base_query += f" ORDER BY r.{sort_field} {order}"
+        data_query += f" ORDER BY r.{sort_field} {order}"
 
     if limit is not None:
-        base_query += " LIMIT ? OFFSET ?"
+        data_query += " LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-    cursor.execute(base_query, tuple(params))
+    cursor.execute(data_query, tuple(params))
     rows = cursor.fetchall()
 
     demandes = [_construct_remboursement_from_row(row) for row in rows]
     demande_ids = [d.id_demande for d in demandes]
     if not demande_ids:
         conn.close()
-        return []
+        return [], total_count
 
+    # Récupérer l'historique et les pièces jointes pour les demandes de la page
     historique_map: Dict[str, List[HistoriqueStatut]] = {id_demande: [] for id_demande in demande_ids}
     placeholders = ', '.join('?' for _ in demande_ids)
     cursor.execute(f"""
@@ -115,7 +126,7 @@ def charger_demandes_data(
         demande.chemins_rib_stockes = attachments_map.get(demande.id_demande, {}).get('rib', [])
         demande.chemins_trop_percu_stockees = attachments_map.get(demande.id_demande, {}).get('trop_percu', [])
 
-    return demandes
+    return demandes, total_count
 
 
 @handle_db_locks

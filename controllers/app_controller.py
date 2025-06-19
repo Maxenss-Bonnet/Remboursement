@@ -182,6 +182,7 @@ class AppController:
             rc_temp = RemboursementController(utilisateur_actuel="system")
             rc_temp.archive_old_requests()
             print("Tâches de démarrage terminées.")
+
         startup_thread = threading.Thread(target=task, daemon=True)
         startup_thread.start()
 
@@ -211,23 +212,30 @@ class AppController:
             self._remboursement_controller_factory(self.current_user)
         if not self.remboursement_controller or not self.current_user:
             return
+
         def task():
             user_data = self.auth_controller.get_user_data(self.current_user)
             if not user_data:
                 return
-            all_demandes = self.remboursement_controller.get_demandes_filtrees_triees(
-                user_roles=user_data.roles, filter_choice="Toutes les demandes", sort_choice="Date de création (récent)",
+
+            all_demandes, _ = self.remboursement_controller.get_demandes_filtrees_triees(
+                user_roles=user_data.roles, filter_choice="Toutes les demandes",
+                sort_choice="Date de création (récent)",
                 search_term="", include_archives=False, limit=None, offset=0
             )
+
             actionable_demandes = [d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)]
             top_10_demandes = all_demandes[:10]
+
             combined_demands_dict = {d.id_demande: d for d in actionable_demandes}
             for d in top_10_demandes:
                 if d.id_demande not in combined_demands_dict:
                     combined_demands_dict[d.id_demande] = d
+
             demandes_to_cache = list(combined_demands_dict.values())
             self.cache_manager.sync_proactive_cache(demandes_to_cache)
             print(f"Cache proactif synchronisé pour {self.current_user}. {len(demandes_to_cache)} demande(s) en cache.")
+
         cache_thread = threading.Thread(target=task, daemon=True)
         cache_thread.start()
 
@@ -255,9 +263,9 @@ class AppController:
         else:
             if self.is_application_busy():
                 self.show_toast("Veuillez attendre la fin des opérations en cours...", "warning")
-                # On pourrait aussi lancer la procédure de fermeture gracieuse sans quitter
             else:
                 self.show_login_view()
 
     def show_admin_warning_popup(self):
-        self.show_toast("Vous êtes connecté en tant qu'administrateur.\nCertaines actions sont irréversibles.", "warning")
+        self.show_toast("Vous êtes connecté en tant qu'administrateur.\nCertaines actions sont irréversibles.",
+                        "warning")

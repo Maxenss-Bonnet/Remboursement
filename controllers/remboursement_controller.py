@@ -7,6 +7,7 @@ import uuid
 import re
 import logging
 from tkinter import filedialog
+from typing import Tuple, List
 
 from models import remboursement_model
 from utils import pdf_utils
@@ -16,6 +17,7 @@ from config.settings import (
     STATUT_REFUSEE_CONSTAT_TP, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
     STATUT_VALIDEE, STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE
 )
+from models.schemas import Remboursement
 
 _log = logging.getLogger(__name__)
 
@@ -36,7 +38,6 @@ class RemboursementController:
                 _log.info(f"{count} demande(s) ont été automatiquement archivée(s).")
         except Exception as e:
             _log.error("Erreur lors de l'archivage automatique des vieilles demandes.", exc_info=True)
-
 
     def extraire_info_facture_pdf(self, chemin_pdf: str) -> dict:
         if not chemin_pdf or not os.path.exists(chemin_pdf):
@@ -151,7 +152,8 @@ class RemboursementController:
                                                                      self.utilisateur_actuel)
 
     def get_demandes_filtrees_triees(self, user_roles: list, filter_choice: str, sort_choice: str, search_term: str,
-                                     include_archives: bool, limit: int | None = None, offset: int = 0):
+                                     include_archives: bool, limit: int | None = None, offset: int = 0) -> Tuple[
+        List[Remboursement], int]:
         sort_map = {"Date de création (récent)": ("date_derniere_modification", "DESC"),
                     "Date de création (ancien)": ("date_derniere_modification", "ASC"),
                     "Montant (décroissant)": ("montant_demande", "DESC"),
@@ -169,16 +171,34 @@ class RemboursementController:
                 statut_filter = [STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
                                  STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
 
-        demandes = remboursement_model.obtenir_demandes_filtrees_triees(statut_filter=statut_filter,
-                                                                        search_term=search_term, sort_field=sort_field,
-                                                                        sort_order=sort_order,
-                                                                        is_archived=include_archives,
-                                                                        limit=limit, offset=offset)
-
         if filter_choice == "En attente de mon action" and not include_archives:
-            demandes = [d for d in demandes if d.is_active_for(user_roles, self.utilisateur_actuel)]
+            all_potential_demands, _ = remboursement_model.obtenir_demandes_filtrees_triees(
+                statut_filter=statut_filter,
+                search_term=search_term,
+                sort_field=sort_field,
+                sort_order=sort_order,
+                is_archived=include_archives,
+                limit=None,
+                offset=0
+            )
+            demandes_actives = [d for d in all_potential_demands if
+                                d.is_active_for(user_roles, self.utilisateur_actuel)]
+            total_count = len(demandes_actives)
 
-        return demandes
+            start_index = offset
+            end_index = offset + limit if limit is not None else total_count
+            paginated_demands = demandes_actives[start_index:end_index]
+
+            return paginated_demands, total_count
+
+        demandes, total_count = remboursement_model.obtenir_demandes_filtrees_triees(statut_filter=statut_filter,
+                                                                                     search_term=search_term,
+                                                                                     sort_field=sort_field,
+                                                                                     sort_order=sort_order,
+                                                                                     is_archived=include_archives,
+                                                                                     limit=limit, offset=offset)
+
+        return demandes, total_count
 
     def get_demande(self, demande_id: str):
         return remboursement_model.obtenir_demande_par_id(demande_id)

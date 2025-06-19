@@ -108,7 +108,7 @@ def obtenir_demande_par_id(
 
 
 def obtenir_demandes_filtrees_triees(statut_filter: list | None, search_term: str, sort_field: str, sort_order: str,
-                                     is_archived: bool, limit: int | None, offset: int) -> list[RemboursementSchema]:
+                                     is_archived: bool, limit: int | None, offset: int):
     return remboursement_data.charger_demandes_data(statut_filter=statut_filter, search_term=search_term,
                                                     sort_field=sort_field, sort_order=sort_order,
                                                     is_archived=is_archived, limit=limit, offset=offset)
@@ -118,7 +118,7 @@ def archiver_les_vieilles_demandes() -> int:
     count = 0
     douze_mois = datetime.timedelta(days=365)
     now = datetime.datetime.now()
-    demandes_actives = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", False, None, 0)
+    demandes_actives, _ = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", False, None, 0)
     for demande in demandes_actives:
         if demande.statut in [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]:
             if demande.date_derniere_modification and (now - demande.date_derniere_modification) > douze_mois:
@@ -130,7 +130,7 @@ def archiver_les_vieilles_demandes() -> int:
 def admin_supprimer_archives_anciennes(age_en_annees: int) -> tuple[int, list[str]]:
     demandes_supprimees, erreurs = 0, []
     date_limite = datetime.datetime.now() - datetime.timedelta(days=age_en_annees * 365.25)
-    demandes_archivees = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", True, None, 0)
+    demandes_archivees, _ = obtenir_demandes_filtrees_triees(None, "", "date_derniere_modification", "ASC", True, None, 0)
     for demande in demandes_archivees:
         if demande.is_archived and demande.date_derniere_modification < date_limite:
             succes, msg = supprimer_demande_par_id(demande.id_demande)
