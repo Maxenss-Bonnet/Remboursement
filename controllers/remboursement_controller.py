@@ -7,7 +7,7 @@ import uuid
 import re
 import logging
 from tkinter import filedialog
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 from models import remboursement_model
 from utils import pdf_utils
@@ -152,8 +152,9 @@ class RemboursementController:
                                                                      self.utilisateur_actuel)
 
     def get_demandes_filtrees_triees(self, user_roles: list, filter_choice: str, sort_choice: str, search_term: str,
-                                     include_archives: bool, limit: int | None = None, offset: int = 0) -> Tuple[
-        List[Remboursement], int]:
+                                     is_archive_mode: bool,
+                                     archive_date_range: Optional[Tuple[int, int]],
+                                     limit: int | None = None, offset: int = 0) -> Tuple[List[Remboursement], int]:
         sort_map = {"Date de création (récent)": ("date_derniere_modification", "DESC"),
                     "Date de création (ancien)": ("date_derniere_modification", "ASC"),
                     "Montant (décroissant)": ("montant_demande", "DESC"),
@@ -161,7 +162,18 @@ class RemboursementController:
         sort_field, sort_order = sort_map.get(sort_choice, ("date_derniere_modification", "DESC"))
 
         statut_filter = None
-        if not include_archives:
+        is_archived_query = None
+        date_range_query = None
+
+        if is_archive_mode:
+            is_archived_query = True
+            if archive_date_range:
+                start_year, end_year = archive_date_range
+                start_date = datetime.datetime(start_year, 1, 1, 0, 0, 0)
+                end_date = datetime.datetime(end_year, 12, 31, 23, 59, 59)
+                date_range_query = (start_date, end_date)
+        else:
+            is_archived_query = False
             if filter_choice == "En cours":
                 statut_filter = [STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE, STATUT_REFUSEE_CONSTAT_TP,
                                  STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
@@ -171,15 +183,10 @@ class RemboursementController:
                 statut_filter = [STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
                                  STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
 
-        if filter_choice == "En attente de mon action" and not include_archives:
+        if filter_choice == "En attente de mon action" and not is_archive_mode:
             all_potential_demands, _ = remboursement_model.obtenir_demandes_filtrees_triees(
-                statut_filter=statut_filter,
-                search_term=search_term,
-                sort_field=sort_field,
-                sort_order=sort_order,
-                is_archived=include_archives,
-                limit=None,
-                offset=0
+                statut_filter=statut_filter, search_term=search_term, sort_field=sort_field,
+                sort_order=sort_order, is_archived=is_archived_query, limit=None, offset=0
             )
             demandes_actives = [d for d in all_potential_demands if
                                 d.is_active_for(user_roles, self.utilisateur_actuel)]
@@ -191,14 +198,11 @@ class RemboursementController:
 
             return paginated_demands, total_count
 
-        demandes, total_count = remboursement_model.obtenir_demandes_filtrees_triees(statut_filter=statut_filter,
-                                                                                     search_term=search_term,
-                                                                                     sort_field=sort_field,
-                                                                                     sort_order=sort_order,
-                                                                                     is_archived=include_archives,
-                                                                                     limit=limit, offset=offset)
-
-        return demandes, total_count
+        return remboursement_model.obtenir_demandes_filtrees_triees(
+            statut_filter=statut_filter, search_term=search_term, sort_field=sort_field,
+            sort_order=sort_order, is_archived=is_archived_query, date_range=date_range_query,
+            limit=limit, offset=offset
+        )
 
     def get_demande(self, demande_id: str):
         return remboursement_model.obtenir_demande_par_id(demande_id)

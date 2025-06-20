@@ -20,6 +20,7 @@ from views.document_history_viewer import DocumentHistoryViewer
 from views.admin_user_management_view import AdminUserManagementView
 from views.help_view import HelpView
 from views.profile_view import ProfileView
+from views.dialogs.archive_date_range_dialog import ArchiveDateRangeDialog
 from utils.image_utils import get_or_create_circular_pfp
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 
@@ -54,12 +55,15 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.no_demandes_label = None
         self._is_refreshing = False
 
-        # --- Pagination Attributes ---
         self.items_per_page = 20
         self.current_page = 1
         self.total_items = 0
         self.total_pages = 1
         self.pagination_frame = None
+
+        self.is_archive_mode = False
+        self.archive_date_range = None
+        self.archive_mode_widgets = {}
 
         self._initialize_ui()
 
@@ -78,7 +82,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.initial_theme = self.user_data.theme_color
         self.current_sort = "Date de création (récent)"
         self.current_filter = self.user_data.default_filter
-        self.include_archives = ctk.BooleanVar(value=False)
         self.search_var = ctk.StringVar()
 
         self._creer_widgets()
@@ -148,6 +151,9 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                                                width=18, height=18, font=("Arial", 11, "bold"))
         self.winfo_toplevel().bind("<F5>", lambda event: self.afficher_liste_demandes())
 
+        ctk.CTkButton(actions_bar_frame, text="Consulter les Archives", fg_color="gray50",
+                      command=self._open_archive_dialog).pack(side="left", pady=5, padx=10)
+
         if self.est_admin():
             admin_buttons_frame = ctk.CTkFrame(actions_bar_frame, fg_color="transparent")
             admin_buttons_frame.pack(side="left", padx=20)
@@ -177,17 +183,23 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
         search_frame_parent = ctk.CTkFrame(main_content_frame, fg_color="transparent")
         search_frame_parent.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
-        ctk.CTkLabel(search_frame_parent, text="Rechercher (Nom, Prénom, Réf.):",
-                     font=ctk.CTkFont(size=12)).pack(
-            side="left", padx=(0, 5))
-        self.search_entry = ctk.CTkEntry(search_frame_parent, textvariable=self.search_var, width=300)
-        self.search_entry.pack(side="left", padx=(0, 5), fill="x", expand=True)
-        self.search_entry.bind("<Return>", self._trigger_search_from_event)
+        search_frame_parent.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(search_frame_parent, text="X", width=30, command=self._clear_search).pack(side="left",
-                                                                                                padx=(5, 0))
-        ctk.CTkCheckBox(search_frame_parent, text="Inclure les archives", variable=self.include_archives,
-                        command=self._on_archive_toggle).pack(side="left", padx=20)
+        ctk.CTkLabel(search_frame_parent, text="Rechercher (Nom, Prénom, Réf.):",
+                     font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w", padx=(0, 5))
+        self.search_entry = ctk.CTkEntry(search_frame_parent, textvariable=self.search_var)
+        self.search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 5))
+        self.search_entry.bind("<Return>", self._trigger_search_from_event)
+        ctk.CTkButton(search_frame_parent, text="X", width=30, command=self._clear_search).grid(row=0, column=2,
+                                                                                                sticky="w",
+                                                                                                padx=(0, 20))
+
+        self.archive_mode_widgets["label"] = ctk.CTkLabel(search_frame_parent, text="",
+                                                          font=ctk.CTkFont(size=12, weight="bold"))
+        self.archive_mode_widgets["button"] = ctk.CTkButton(search_frame_parent,
+                                                            text="Quitter le mode Archive", text_color="white",
+                                                            fg_color="#E53935", hover_color="#C62828",
+                                                            command=self._quit_archive_mode)
 
         self.scrollable_frame_demandes = ctk.CTkScrollableFrame(main_content_frame,
                                                                 label_text="Liste des Demandes de Remboursement")
@@ -208,6 +220,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             item.pack(side="left", padx=5)
             ctk.CTkFrame(item, width=15, height=15, fg_color=couleur, border_width=1).pack(side="left")
             ctk.CTkLabel(item, text=texte, font=ctk.CTkFont(size=11)).pack(side="left", padx=3)
+
+        self._update_ui_for_archive_mode()
 
     def _update_user_display(self):
         def task():
@@ -273,7 +287,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
             if not demandes_a_afficher:
                 self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
-                                                      text="Aucune demande à afficher.",
+                                                      text="Aucune demande à afficher pour les critères sélectionnés.",
                                                       font=ctk.CTkFont(size=14, slant="italic"))
                 self.no_demandes_label.pack(pady=20)
             else:
@@ -341,7 +355,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                 filter_choice=self.current_filter,
                 sort_choice=self.current_sort,
                 search_term=self.search_var.get(),
-                include_archives=self.include_archives.get(),
+                is_archive_mode=self.is_archive_mode,
+                archive_date_range=self.archive_date_range,
                 limit=self.items_per_page,
                 offset=offset
             )
@@ -359,16 +374,13 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.pagination_frame.grid_columnconfigure((0, 2), weight=1)
         self.pagination_frame.grid_columnconfigure(1, weight=0)
 
-        # Frame for buttons (Previous, Next, etc.)
         buttons_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
         buttons_frame.grid(row=0, column=1, pady=5)
 
-        # Label for page info
         info_label_text = f"Page {self.current_page} sur {self.total_pages} ({self.total_items} résultats)"
         info_label = ctk.CTkLabel(self.pagination_frame, text=info_label_text, font=ctk.CTkFont(size=12))
         info_label.grid(row=0, column=0, sticky="e", padx=20)
 
-        # --- Pagination Buttons ---
         btn_first = ctk.CTkButton(buttons_frame, text="<<", width=40, command=lambda: self._go_to_page(1))
         btn_first.pack(side="left", padx=2)
         if self.current_page <= 1: btn_first.configure(state="disabled")
@@ -378,8 +390,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         btn_prev.pack(side="left", padx=2)
         if self.current_page <= 1: btn_prev.configure(state="disabled")
 
-        # Page number buttons logic
-        # Show up to 5 page numbers, with ellipses if needed
         start_page = max(1, self.current_page - 2)
         end_page = min(self.total_pages, start_page + 4)
         if end_page - start_page < 4:
@@ -459,10 +469,38 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.current_page = 1
         self.afficher_liste_demandes(show_overlay=False)
 
-    def _on_archive_toggle(self):
-        is_checked = self.include_archives.get()
-        self.filter_menu.configure(state="disabled" if is_checked else "normal")
+    def _update_ui_for_archive_mode(self):
+        in_archive_mode = self.is_archive_mode
+        self.filter_menu.configure(state="disabled" if in_archive_mode else "normal")
+        self.sort_menu.configure(state="normal")
+
+        if in_archive_mode:
+            start, end = self.archive_date_range
+            mode_text = f"Mode Archive ({start} - {end})"
+            self.archive_mode_widgets["label"].configure(text=mode_text)
+            self.archive_mode_widgets["label"].grid(row=0, column=3, sticky="w", padx=(20, 5))
+            self.archive_mode_widgets["button"].grid(row=0, column=4, sticky="w")
+        else:
+            self.archive_mode_widgets["label"].grid_remove()
+            self.archive_mode_widgets["button"].grid_remove()
+
+    def _open_archive_dialog(self):
+        dialog = ArchiveDateRangeDialog(self)
+        date_range = dialog.get_range()
+
+        if date_range:
+            self.is_archive_mode = True
+            self.archive_date_range = date_range
+            self.current_page = 1
+            self.search_var.set("")
+            self._update_ui_for_archive_mode()
+            self.afficher_liste_demandes(show_overlay=True)
+
+    def _quit_archive_mode(self):
+        self.is_archive_mode = False
+        self.archive_date_range = None
         self.current_page = 1
+        self._update_ui_for_archive_mode()
         self.afficher_liste_demandes(show_overlay=True)
 
     def _open_help_view(self):

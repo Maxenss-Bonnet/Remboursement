@@ -40,7 +40,8 @@ def charger_demandes_data(
         search_term: Optional[str] = None,
         sort_field: str = 'date_derniere_modification',
         sort_order: str = 'DESC',
-        is_archived: bool = False,
+        is_archived: Optional[bool] = None,
+        date_range: Optional[Tuple[datetime.datetime, datetime.datetime]] = None,
         limit: Optional[int] = None,
         offset: int = 0
 ) -> Tuple[List[Remboursement], int]:
@@ -50,10 +51,9 @@ def charger_demandes_data(
     where_clauses = []
     params = []
 
-    # Construire la clause WHERE
-    if not is_archived:
+    if is_archived is not None:
         where_clauses.append("r.is_archived = ?")
-        params.append(0)
+        params.append(1 if is_archived else 0)
 
     if search_term:
         where_clauses.append("(r.nom LIKE ? OR r.prenom LIKE ? OR r.reference_facture LIKE ?)")
@@ -65,9 +65,13 @@ def charger_demandes_data(
         where_clauses.append(f"r.statut IN ({placeholders})")
         params.extend(statut_filter)
 
+    if date_range:
+        start_date, end_date = date_range
+        where_clauses.append("r.date_derniere_modification BETWEEN ? AND ?")
+        params.extend([start_date, end_date])
+
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
-    # Requête pour le nombre total de résultats
     count_query = f"SELECT COUNT(*) FROM remboursements r{where_sql}"
     cursor.execute(count_query, tuple(params))
     total_count = cursor.fetchone()[0]
@@ -76,7 +80,6 @@ def charger_demandes_data(
         conn.close()
         return [], 0
 
-    # Requête pour récupérer les données de la page actuelle
     data_query = f"SELECT r.* FROM remboursements r{where_sql}"
     valid_sort_fields = ['nom', 'montant_demande', 'date_derniere_modification', 'date_creation']
     if sort_field in valid_sort_fields:
@@ -96,7 +99,6 @@ def charger_demandes_data(
         conn.close()
         return [], total_count
 
-    # Récupérer l'historique et les pièces jointes pour les demandes de la page
     historique_map: Dict[str, List[HistoriqueStatut]] = {id_demande: [] for id_demande in demande_ids}
     placeholders = ', '.join('?' for _ in demande_ids)
     cursor.execute(f"""
@@ -108,7 +110,8 @@ def charger_demandes_data(
         hist_data['date'] = datetime.datetime.fromisoformat(hist_data['date'])
         historique_map[hist_data['id_demande']].append(HistoriqueStatut(**hist_data))
 
-    attachments_map: Dict[str, Dict[str, List[str]]] = {id_demande: {"facture": [], "rib": [], "trop_percu": []} for id_demande in demande_ids}
+    attachments_map: Dict[str, Dict[str, List[str]]] = {id_demande: {"facture": [], "rib": [], "trop_percu": []} for
+                                                        id_demande in demande_ids}
     cursor.execute(f"""
         SELECT id_demande, type_pj, chemin_relatif
         FROM pieces_jointes WHERE id_demande IN ({placeholders}) ORDER BY id_demande, date_ajout
@@ -144,10 +147,15 @@ def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
 
     demande = _construct_remboursement_from_row(row)
 
-    cursor.execute("SELECT statut, date, par_utilisateur, commentaire FROM historique WHERE id_demande = ? ORDER BY date", (id_demande,))
-    demande.historique_statuts = [HistoriqueStatut(date=datetime.datetime.fromisoformat(h['date']), **{k: v for k, v in dict(h).items() if k != 'date'}) for h in cursor.fetchall()]
+    cursor.execute(
+        "SELECT statut, date, par_utilisateur, commentaire FROM historique WHERE id_demande = ? ORDER BY date",
+        (id_demande,))
+    demande.historique_statuts = [HistoriqueStatut(date=datetime.datetime.fromisoformat(h['date']),
+                                                   **{k: v for k, v in dict(h).items() if k != 'date'}) for h in
+                                  cursor.fetchall()]
 
-    cursor.execute("SELECT type_pj, chemin_relatif FROM pieces_jointes WHERE id_demande = ? ORDER BY date_ajout", (id_demande,))
+    cursor.execute("SELECT type_pj, chemin_relatif FROM pieces_jointes WHERE id_demande = ? ORDER BY date_ajout",
+                   (id_demande,))
     for pj_row in cursor.fetchall():
         if pj_row['type_pj'] == 'facture':
             demande.chemins_factures_stockees.append(pj_row['chemin_relatif'])
@@ -171,7 +179,7 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
                 (demande.id_demande, demande.nom, demande.prenom, demande.reference_facture,
                  demande.reference_facture_dossier, demande.description, demande.montant_demande, demande.statut,
                  demande.cree_par, demande.date_creation, demande.derniere_modification_par,
-                 demande.date_derniere_modification, 0))
+                 demande.date_derniere_modification, 1 if demande.is_archived else 0))
 
             for hist in demande.historique_statuts:
                 cursor.execute(
@@ -203,9 +211,15 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
         with conn:
             cursor = conn.cursor()
             cursor.execute("""UPDATE remboursements
-                              SET nom = ?, prenom = ?, reference_facture = ?, description = ?,
-                                  montant_demande = ?, statut = ?, derniere_modification_par = ?,
-                                  date_derniere_modification = ?, date_paiement_effectue = ?
+                              SET nom                        = ?,
+                                  prenom                     = ?,
+                                  reference_facture          = ?,
+                                  description                = ?,
+                                  montant_demande            = ?,
+                                  statut                     = ?,
+                                  derniere_modification_par  = ?,
+                                  date_derniere_modification = ?,
+                                  date_paiement_effectue     = ?
                               WHERE id_demande = ?""",
                            (demande.nom, demande.prenom, demande.reference_facture, demande.description,
                             demande.montant_demande, demande.statut, demande.derniere_modification_par,
@@ -222,7 +236,8 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
                     (demande.id_demande, type_pj, nouveau_pj_relatif, demande.date_derniere_modification))
         return True, "Demande mise à jour avec succès."
     except sqlite3.Error as e:
-        _log.error(f"Erreur de base de données lors de la mise à jour de la demande {demande.id_demande}", exc_info=True)
+        _log.error(f"Erreur de base de données lors de la mise à jour de la demande {demande.id_demande}",
+                   exc_info=True)
         return False, f"Erreur de base de données : {e}"
     finally:
         conn.close()
@@ -284,7 +299,7 @@ def archiver_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
 def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
     demande = obtenir_demande_par_id_data(id_demande)
     if not demande:
-        demandes_archivees = charger_demandes_data(is_archived=True)
+        demandes_archivees, _ = charger_demandes_data(is_archived=True)
         demande = next((d for d in demandes_archivees if d.id_demande == id_demande), None)
         if not demande: return False, "Demande non trouvée."
 
