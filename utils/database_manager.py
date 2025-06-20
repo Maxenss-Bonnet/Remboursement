@@ -21,11 +21,16 @@ def _db_writer_thread():
     while not _stop_queue_processor.is_set():
         try:
             task_func, task_args, task_kwargs, result_queue = _write_queue.get(timeout=0.5)
+            func_name = task_func.__name__
+            _log.info(f"Début de l'opération d'écriture en file : {func_name}")
+            start_time = time.time()
             try:
                 result = task_func(*task_args, **task_kwargs)
+                duration = time.time() - start_time
+                _log.info(f"Opération d'écriture '{func_name}' terminée avec succès en {duration:.4f}s.")
                 result_queue.put((True, result))
             except Exception as e:
-                _log.exception("Erreur dans le thread d'écriture de la BDD lors de l'exécution de la tâche.")
+                _log.exception(f"Erreur dans le thread d'écriture de la BDD lors de l'exécution de la tâche '{func_name}'.")
                 result_queue.put((False, e))
             finally:
                 _write_queue.task_done()

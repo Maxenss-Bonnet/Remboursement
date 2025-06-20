@@ -269,29 +269,58 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             if self.total_pages == 0: self.total_pages = 1
             if self.current_page > self.total_pages: self.current_page = self.total_pages
 
-            modified_ids = set()
-            new_demandes_data = {d.id_demande: d for d in demandes_a_afficher}
-            for demande_id, new_data in new_demandes_data.items():
-                if demande_id in self.demandes_en_cache:
-                    if new_data.date_derniere_modification != self.demandes_en_cache[
-                        demande_id].date_derniere_modification:
-                        modified_ids.add(demande_id)
-
-            for widget in self.remboursement_widgets.values():
-                widget.destroy()
-            self.remboursement_widgets.clear()
-
             if self.no_demandes_label:
                 self.no_demandes_label.destroy()
                 self.no_demandes_label = None
 
-            if not demandes_a_afficher:
+            new_data_map = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
+            new_ids = set(new_data_map.keys())
+            current_ids = set(self.remboursement_widgets.keys())
+            ids_to_remove = current_ids - new_ids
+
+            for demande_id in ids_to_remove:
+                widget = self.remboursement_widgets.pop(demande_id, None)
+                if widget and widget.winfo_exists():
+                    widget.animate_out_and_destroy()
+
+            final_widget_order = []
+            for demande_model in demandes_a_afficher:
+                demande_id = demande_model.id_demande
+                new_demande_data = new_data_map[demande_id]
+                widget = self.remboursement_widgets.get(demande_id)
+
+                if widget:
+                    if widget.demande_data.get('date_derniere_modification') != new_demande_data.get('date_derniere_modification'):
+                        widget.update_content(new_demande_data)
+                else:
+                    widget = RemboursementItemView(
+                        master=self.scrollable_frame_demandes, main_view_instance=self,
+                        demande_data=new_demande_data, current_user_name=self.nom_utilisateur,
+                        user_roles=self.user_roles, app_controller=self.app_controller,
+                        remboursement_controller=self.remboursement_controller,
+                        refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(show_overlay=show_overlay)
+                    )
+                    widget._is_new = True
+                    self.remboursement_widgets[demande_id] = widget
+                final_widget_order.append(widget)
+
+            for w in self.remboursement_widgets.values():
+                w.pack_forget()
+
+            if not final_widget_order:
                 self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
                                                       text="Aucune demande à afficher pour les critères sélectionnés.",
                                                       font=ctk.CTkFont(size=14, slant="italic"))
                 self.no_demandes_label.pack(pady=20)
             else:
-                self.after(1, self._render_next_item, list(demandes_a_afficher), modified_ids)
+                parent_bg_color = self.scrollable_frame_demandes.cget("fg_color")
+                for widget in final_widget_order:
+                    widget.pack(pady=5, padx=5, fill="x", expand=True)
+                    if hasattr(widget, '_is_new') and widget._is_new:
+                        target_color = widget.cget("fg_color")
+                        widget.configure(fg_color=parent_bg_color)
+                        widget.animate_in(start_color=parent_bg_color, end_color=target_color)
+                        delattr(widget, '_is_new')
 
             self._update_pagination_controls()
             self._update_notification_badge()
@@ -301,30 +330,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         finally:
             self._is_refreshing = False
             self.bouton_rafraichir.configure(state="normal")
-
-    def _render_next_item(self, demandes_a_rendre, modified_ids):
-        if not self.winfo_exists() or not demandes_a_rendre:
-            return
-
-        demande = demandes_a_rendre.pop(0)
-        demande_data = demande.model_dump()
-        demande_id = demande.id_demande
-
-        widget = RemboursementItemView(
-            master=self.scrollable_frame_demandes,
-            main_view_instance=self,
-            demande_data=demande_data,
-            current_user_name=self.nom_utilisateur,
-            user_roles=self.user_roles,
-            app_controller=self.app_controller,
-            remboursement_controller=self.remboursement_controller,
-            refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(show_overlay=show_overlay)
-        )
-        self.remboursement_widgets[demande_id] = widget
-        widget.pack(pady=5, padx=5, fill="x", expand=True)
-
-        if demandes_a_rendre:
-            self.after(30, self._render_next_item, demandes_a_rendre, modified_ids)
 
     def _trigger_cache_sync(self, all_demandes):
         def task():

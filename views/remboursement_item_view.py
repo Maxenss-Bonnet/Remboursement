@@ -2,7 +2,7 @@ import os
 import re
 import customtkinter as ctk
 import datetime
-from tkinter import messagebox
+from tkinter import messagebox, TclError
 
 from config.settings import (
     STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
@@ -41,6 +41,62 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         self.original_border_color = COULEUR_BORDURE_DEFAUT
 
         self._setup_item_colors_and_ui()
+
+    def _resolve_color(self, color_val):
+        if isinstance(color_val, (list, tuple)):
+            return color_val[1] if ctk.get_appearance_mode() == "Dark" else color_val[0]
+        if isinstance(color_val, str) and " " in color_val:
+            parts = color_val.split(" ")
+            return parts[1] if ctk.get_appearance_mode() == "Dark" else parts[0]
+        return color_val
+
+    def _interpolate_color(self, color1: str, color2: str, factor: float) -> str:
+        try:
+            resolved_c1 = self._resolve_color(color1)
+            resolved_c2 = self._resolve_color(color2)
+
+            c1_rgb = self.winfo_rgb(resolved_c1)
+            c2_rgb = self.winfo_rgb(resolved_c2)
+
+            r = int(c1_rgb[0] + (c2_rgb[0] - c1_rgb[0]) * factor)
+            g = int(c1_rgb[1] + (c2_rgb[1] - c1_rgb[1]) * factor)
+            b = int(c1_rgb[2] + (c2_rgb[2] - c1_rgb[2]) * factor)
+
+            return f"#{r:04x}{g:04x}{b:04x}"
+        except (ValueError, TypeError, TclError):
+            return self._resolve_color(color2)
+
+    def animate_in(self, start_color: str, end_color: str, duration_ms: int = 250):
+        steps = max(1, int(duration_ms / 20))
+
+        def animation_step(current_step: int):
+            if not self.winfo_exists():
+                return
+            factor = current_step / steps
+            new_color = self._interpolate_color(start_color, end_color, factor)
+            self.configure(fg_color=new_color)
+            if current_step < steps:
+                self.after(20, lambda: animation_step(current_step + 1))
+
+        animation_step(0)
+
+    def animate_out_and_destroy(self, duration_ms: int = 250):
+        steps = max(1, int(duration_ms / 20))
+        start_color = self.cget("fg_color")
+        end_color = self.master.cget("fg_color")
+
+        def animation_step(current_step: int):
+            if not self.winfo_exists():
+                return
+            factor = current_step / steps
+            new_color = self._interpolate_color(start_color, end_color, factor)
+            self.configure(fg_color=new_color, border_color=new_color)
+            if current_step < steps:
+                self.after(20, lambda: animation_step(current_step + 1))
+            else:
+                self.destroy()
+
+        animation_step(0)
 
     def _on_history_scroll(self, event, scroll_frame):
         scroll_amount = 5
