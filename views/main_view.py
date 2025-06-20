@@ -47,7 +47,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.remboursement_controller = remboursement_controller_factory(self.nom_utilisateur)
 
         self.pfp_size = 80
-        self.pfp_cache = preloaded_pfp_cache if preloaded_pfp_cache is not None else {}
+        self.pfp_cache = preloaded_pfp_cache
         self._polling_job_id = None
         self._last_known_db_mtime = 0
         self.demandes_en_cache = {}
@@ -68,7 +68,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self._initialize_ui()
 
     def _initialize_ui(self):
-        self.user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
+        self.user_data = self.app_controller.get_user_from_cache(self.nom_utilisateur)
         if not self.user_data:
             self.app_controller.show_toast("Erreur critique au chargement des données utilisateur.", "error")
             self.app_controller.on_logout()
@@ -318,14 +318,13 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             user_roles=self.user_roles,
             app_controller=self.app_controller,
             remboursement_controller=self.remboursement_controller,
-            refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(show_overlay=show_overlay),
-            pfp_cache=self.pfp_cache
+            refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(show_overlay=show_overlay)
         )
         self.remboursement_widgets[demande_id] = widget
         widget.pack(pady=5, padx=5, fill="x", expand=True)
 
         if demandes_a_rendre:
-            self.after(10, self._render_next_item, demandes_a_rendre, modified_ids)
+            self.after(30, self._render_next_item, demandes_a_rendre, modified_ids)
 
     def _trigger_cache_sync(self, all_demandes):
         def task():
@@ -539,28 +538,14 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.wait_window(dialog)
 
     def _on_profile_saved(self):
+        self.app_controller._load_user_cache()
+        self.app_controller._preload_data()
+
         def task():
-            current_user_data = self.auth_controller.get_user_data(self.nom_utilisateur)
-            all_users = self.auth_controller.get_all_users()
-            new_pfp_cache = {}
-            pfp_size_small = 20
-            new_pfp_cache['default'] = self._create_placeholder_image("?", pfp_size_small)
-            new_pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size_small)
-            new_pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size_small)
-            for user in all_users:
-                source_path = None
-                if user.profile_picture_path and os.path.exists(
-                        os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
-                    source_path = os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)
-                pfp_image = get_or_create_circular_pfp(
-                    login=user.login, source_path=source_path, size=pfp_size_small,
-                    cache_manager=self.app_controller.cache_manager
-                )
-                if pfp_image:
-                    new_pfp_cache[user.login] = pfp_image
-                else:
-                    initial = user.login[0].upper() if user.login else "?"
-                    new_pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size_small)
+            current_user_data = self.app_controller.get_user_from_cache(self.nom_utilisateur)
+            with self.app_controller.pfp_cache_lock:
+                new_pfp_cache = self.app_controller.preloaded_pfp_cache
+
             main_pfp_source_path = None
             if current_user_data and current_user_data.profile_picture_path:
                 path = os.path.join(PROFILE_PICTURES_DIR, current_user_data.profile_picture_path)

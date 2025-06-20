@@ -24,7 +24,7 @@ COULEUR_BORDURE_FLASH = "#FFD700"
 
 class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
     def __init__(self, master, main_view_instance, demande_data: dict, current_user_name: str, user_roles: list,
-                 app_controller, remboursement_controller, refresh_list_callback, pfp_cache: dict):
+                 app_controller, remboursement_controller, refresh_list_callback):
         ctk.CTkFrame.__init__(self, master, border_width=1, corner_radius=5)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
 
@@ -35,13 +35,20 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         self.app_controller = app_controller
         self.remboursement_controller = remboursement_controller
         self.refresh_list_callback = refresh_list_callback
-        self.pfp_cache = pfp_cache
 
         self.id_demande = self.demande_data.get("id_demande")
         self.content_frame = None
         self.original_border_color = COULEUR_BORDURE_DEFAUT
 
         self._setup_item_colors_and_ui()
+
+    def _on_history_scroll(self, event, scroll_frame):
+        scroll_amount = 5
+        if event.num == 4 or event.delta > 0:
+            scroll_frame._parent_canvas.yview_scroll(-scroll_amount, "units")
+        elif event.num == 5 or event.delta < 0:
+            scroll_frame._parent_canvas.yview_scroll(scroll_amount, "units")
+        return "break"
 
     def flash_update(self, new_data):
         self.configure(border_color=COULEUR_BORDURE_FLASH, border_width=3)
@@ -175,47 +182,74 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         hist_scroll_frame = ctk.CTkScrollableFrame(hist_container, fg_color="gray20", border_width=1, label_text="")
         hist_scroll_frame.pack(fill="both", expand=True)
 
+        hist_widgets_to_bind = [hist_scroll_frame]
+
         historique = self.demande_data.get('historique_statuts', [])
         if not historique:
-            ctk.CTkLabel(hist_scroll_frame, text="Aucun historique.", font=value_font_info, text_color="gray60").pack(
-                pady=10)
+            no_hist_label = ctk.CTkLabel(hist_scroll_frame, text="Aucun historique.", font=value_font_info,
+                                         text_color="gray60")
+            no_hist_label.pack(pady=10)
+            hist_widgets_to_bind.append(no_hist_label)
         else:
-            for i, entree_hist in enumerate(reversed(historique)):
-                user_str = entree_hist.get('par_utilisateur') or 'Système'
-                pfp_image = self.pfp_cache.get(user_str, self.pfp_cache.get('default'))
+            with self.app_controller.pfp_cache_lock:
+                pfp_cache = self.app_controller.preloaded_pfp_cache or {}
+                default_pfp = pfp_cache.get('default')
 
-                entry_frame = ctk.CTkFrame(hist_scroll_frame, fg_color="transparent")
-                entry_frame.pack(fill="x", expand=True, pady=(0, 10))
-                entry_frame.grid_columnconfigure(1, weight=1)
+                for i, entree_hist in enumerate(reversed(historique)):
+                    user_str = entree_hist.get('par_utilisateur') or 'Système'
+                    pfp_image = pfp_cache.get(user_str, default_pfp)
 
-                pfp_label = ctk.CTkLabel(entry_frame, image=pfp_image, text="", width=20, height=20)
-                pfp_label.grid(row=0, column=0, rowspan=3, sticky="n", padx=(5, 8), pady=3)
+                    entry_frame = ctk.CTkFrame(hist_scroll_frame, fg_color="transparent")
+                    entry_frame.pack(fill="x", expand=True, pady=(0, 10))
+                    hist_widgets_to_bind.append(entry_frame)
 
-                try:
-                    date_obj = datetime.datetime.fromisoformat(str(entree_hist.get('date', 'N/A')).split('.')[0])
-                    formatted_date = date_obj.strftime('%d/%m/%y %H:%M')
-                except (ValueError, TypeError):
-                    formatted_date = entree_hist.get('date', 'N/A')
+                    pfp_label = ctk.CTkLabel(entry_frame, image=pfp_image, text="", width=20, height=20)
+                    pfp_label.pack(side="left", anchor="n", padx=(5, 8), pady=3)
+                    hist_widgets_to_bind.append(pfp_label)
 
-                header_text = f"{formatted_date} - {user_str}"
-                ctk.CTkLabel(entry_frame, text=header_text, font=ctk.CTkFont(size=11, weight="bold"),
-                             text_color="#C0C0C0", anchor="w").grid(row=0, column=1, sticky="w")
+                    details_frame = ctk.CTkFrame(entry_frame, fg_color="transparent")
+                    details_frame.pack(side="left", fill="x", expand=True)
+                    hist_widgets_to_bind.append(details_frame)
 
-                statut_text = entree_hist.get('statut')
-                if statut_text:
-                    ctk.CTkLabel(entry_frame, text=f"Statut: {statut_text}", font=ctk.CTkFont(size=12),
-                                 anchor="w").grid(row=1, column=1, sticky="w")
+                    try:
+                        date_obj = datetime.datetime.fromisoformat(str(entree_hist.get('date', 'N/A')).split('.')[0])
+                        formatted_date = date_obj.strftime('%d/%m/%y %H:%M')
+                    except (ValueError, TypeError):
+                        formatted_date = entree_hist.get('date', 'N/A')
 
-                comment_text = str(entree_hist.get('commentaire', '')).strip()
-                if comment_text:
-                    comment_text += "\u00A0"
-                    ctk.CTkLabel(entry_frame, text=comment_text, wraplength=400, justify="left",
-                                 font=ctk.CTkFont(size=12, slant="italic"), text_color="gray85", anchor="w").grid(row=2,
-                                                                                                                  column=1,
-                                                                                                                  sticky="w")
+                    header_text = f"{formatted_date} - {user_str}"
+                    header_label = ctk.CTkLabel(details_frame, text=header_text,
+                                                font=ctk.CTkFont(size=11, weight="bold"),
+                                                text_color="#C0C0C0", anchor="w")
+                    header_label.pack(fill="x")
+                    hist_widgets_to_bind.append(header_label)
 
-                if i < len(historique) - 1:
-                    ctk.CTkFrame(hist_scroll_frame, height=1, fg_color="gray40").pack(fill="x", padx=5, pady=5)
+                    statut_text = entree_hist.get('statut')
+                    if statut_text:
+                        statut_label = ctk.CTkLabel(details_frame, text=f"Statut: {statut_text}",
+                                                    font=ctk.CTkFont(size=12),
+                                                    anchor="w")
+                        statut_label.pack(fill="x")
+                        hist_widgets_to_bind.append(statut_label)
+
+                    comment_text = str(entree_hist.get('commentaire', '')).strip()
+                    if comment_text:
+                        comment_text += "\u00A0"
+                        comment_label = ctk.CTkLabel(details_frame, text=comment_text, wraplength=400, justify="left",
+                                                     font=ctk.CTkFont(size=12, slant="italic"), text_color="gray85",
+                                                     anchor="w")
+                        comment_label.pack(fill="x", pady=(2, 0))
+                        hist_widgets_to_bind.append(comment_label)
+
+                    if i < len(historique) - 1:
+                        separator = ctk.CTkFrame(hist_scroll_frame, height=1, fg_color="gray40")
+                        separator.pack(fill="x", padx=5, pady=5)
+                        hist_widgets_to_bind.append(separator)
+
+        for widget in hist_widgets_to_bind:
+            widget.bind("<MouseWheel>", lambda e, hsf=hist_scroll_frame: self._on_history_scroll(e, hsf), add="+")
+            widget.bind("<Button-4>", lambda e, hsf=hist_scroll_frame: self._on_history_scroll(e, hsf), add="+")
+            widget.bind("<Button-5>", lambda e, hsf=hist_scroll_frame: self._on_history_scroll(e, hsf), add="+")
 
         action_buttons_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         action_buttons_frame.grid(row=0, column=2, sticky="nsew", padx=(5, 8), pady=5)

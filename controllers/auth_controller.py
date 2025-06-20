@@ -4,6 +4,7 @@ import random
 import string
 import datetime
 import shutil
+import logging
 from models import user_model
 from utils import password_utils
 from config.settings import (
@@ -18,6 +19,9 @@ from config.settings import (
 )
 from models.schemas import Utilisateur, UtilisateurUpdate
 from utils.cache_manager import CacheManager
+from utils.database_manager import get_db_connection
+
+_log = logging.getLogger(__name__)
 
 
 class AuthController:
@@ -104,7 +108,7 @@ class AuthController:
                 if os.path.exists(full_old_path):
                     os.remove(full_old_path)
             except OSError as e:
-                print(f"Erreur lors de la suppression de l'ancienne photo de profil : {e}")
+                _log.error(f"Erreur lors de la suppression de l'ancienne photo de profil : {e}", exc_info=True)
 
         update_data = UtilisateurUpdate(
             email=new_email,
@@ -239,12 +243,55 @@ class AuthController:
         except Exception as e:
             return False, str(e)
 
-    def admin_backup_database(self) -> tuple[bool, str]:
+    def run_database_health_check(self) -> tuple[bool, str]:
+        """Exécute PRAGMA integrity_check sur la BDD."""
+        _log.info("Lancement du Health Check de la base de données...")
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check;")
+            result = cursor.fetchone()
+            conn.close()
+            if result[0] == "ok":
+                _log.info("Health Check de la base de données : OK.")
+                return True, "ok"
+            else:
+                _log.critical(f"Health Check de la base de données a échoué ! Résultat : {result[0]}")
+                return False, f"La base de données pourrait être corrompue. Résultat : {result[0]}"
+        except Exception as e:
+            _log.critical("Erreur critique pendant le Health Check de la BDD.", exc_info=True)
+            return False, str(e)
+
+    def run_automatic_backup(self) -> str:
+        """Crée une sauvegarde journalière si nécessaire et nettoie les anciennes."""
+        try:
+            backups, err = self.get_database_backups()
+            if err:
+                return f"Erreur lors de la récupération des sauvegardes : {err}"
+
+            today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+            if any(f"backup_{today_str}" in backup_file for backup_file in backups):
+                _log.info("Sauvegarde automatique déjà effectuée aujourd'hui.")
+                return "Sauvegarde automatique déjà effectuée aujourd'hui."
+
+            _log.info("Aucune sauvegarde automatique pour aujourd'hui. Création en cours...")
+            success, msg = self.admin_backup_database(is_auto=True)
+            if success:
+                self.admin_cleanup_old_backups()
+                return "Sauvegarde automatique créée."
+            else:
+                return f"Échec de la sauvegarde automatique : {msg}"
+        except Exception as e:
+            _log.error("Erreur dans le processus de sauvegarde automatique.", exc_info=True)
+            return f"Erreur lors de la sauvegarde auto : {e}"
+
+    def admin_backup_database(self, is_auto: bool = False) -> tuple[bool, str]:
         if not os.path.exists(DATABASE_FILE):
             return False, "Fichier de base de données introuvable."
         try:
+            prefix = "auto_backup" if is_auto else "manual_backup"
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
-            backup_filename = f"remboursements_backup_{timestamp}.db"
+            backup_filename = f"remboursements_{prefix}_{timestamp}.db"
             backup_filepath = os.path.join(SHARED_DATA_BASE_PATH, backup_filename)
             shutil.copy2(DATABASE_FILE, backup_filepath)
             return True, f"Sauvegarde créée avec succès : {backup_filename}"
@@ -254,7 +301,7 @@ class AuthController:
     def get_database_backups(self) -> tuple[list[str], str | None]:
         try:
             files = os.listdir(SHARED_DATA_BASE_PATH)
-            backup_files = [f for f in files if f.startswith("remboursements_backup_") and f.endswith(".db")]
+            backup_files = [f for f in files if f.startswith("remboursements_") and f.endswith(".db")]
             return sorted(backup_files, reverse=True), None
         except Exception as e:
             return [], f"Erreur lors de la lecture des sauvegardes : {e}"
@@ -285,6 +332,30 @@ class AuthController:
             return True, f"La sauvegarde '{backup_filename}' a été supprimée."
         except OSError as e:
             return False, f"Erreur système lors de la suppression du fichier : {e}"
+
+    def admin_cleanup_old_backups(self, keep_count: int = 7) -> str:
+        """Conserve les 'keep_count' sauvegardes automatiques les plus récentes et supprime les autres."""
+        try:
+            all_backups, err = self.get_database_backups()
+            if err:
+                return f"Erreur: {err}"
+
+            auto_backups = sorted([b for b in all_backups if b.startswith("remboursements_auto_backup_")], reverse=True)
+
+            if len(auto_backups) > keep_count:
+                to_delete = auto_backups[keep_count:]
+                deleted_count = 0
+                for backup_file in to_delete:
+                    success, msg = self.admin_delete_backup(backup_file)
+                    if success:
+                        deleted_count += 1
+                    else:
+                        _log.warning(f"Impossible de supprimer l'ancienne sauvegarde {backup_file}: {msg}")
+                return f"{deleted_count} ancienne(s) sauvegarde(s) automatique(s) supprimée(s)."
+            return "Aucune ancienne sauvegarde automatique à supprimer."
+        except Exception as e:
+            _log.error("Erreur lors du nettoyage des anciennes sauvegardes.", exc_info=True)
+            return f"Erreur lors du nettoyage: {e}"
 
     def admin_cleanup_restore_files(self) -> tuple[bool, str]:
         count = 0

@@ -158,6 +158,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
                 succes, message = result
                 if succes:
                     self.app_controller.show_toast(message, 'success')
+                    self.app_controller._load_user_cache()
                     self.populate_user_list()
                 else:
                     self.app_controller.show_toast(message, 'error')
@@ -245,6 +246,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
                 succes, message = result
                 if succes:
                     self.app_controller.show_toast(message, 'success')
+                    self.app_controller._load_user_cache()
                     self.populate_user_list()
                     dialog.destroy()
                 else:

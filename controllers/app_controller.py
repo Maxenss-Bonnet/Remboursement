@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 import shutil
+import logging
 from tkinter import messagebox
 from PIL import Image, ImageDraw, ImageFont
 
@@ -21,6 +22,8 @@ from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, ensure_shared_dirs_e
     PROFILE_PICTURES_DIR
 from utils.image_utils import get_or_create_circular_pfp
 
+_log = logging.getLogger(__name__)
+
 
 class AppController:
     def __init__(self, root_tk_app):
@@ -34,13 +37,16 @@ class AppController:
         self.toast_manager = ToastManager(self.root)
         self.cache_manager = CacheManager()
         self.preloaded_pfp_cache = None
+        self.user_cache = {}
         self.preloading_thread = None
         self.global_loading_overlay = LoadingOverlay(self.root)
+        self.pfp_cache_lock = threading.Lock()
 
     def run_initialization(self):
         load_smtp_config()
         ensure_shared_dirs_exist()
-        self._ensure_database_is_ready()
+        self._ensure_database_is_ready_and_healthy()
+        self._load_user_cache()
         self._run_startup_tasks()
 
     def show_initial_view(self):
@@ -60,7 +66,7 @@ class AppController:
                 else:
                     self.root.after(0, self.handle_login_failure)
             except Exception as e:
-                print(f"Erreur pendant la tâche de connexion : {e}")
+                _log.error(f"Erreur pendant la tâche de connexion : {e}", exc_info=True)
                 self.root.after(0, self.handle_login_failure)
 
         threading.Thread(target=task, daemon=True).start()
@@ -73,17 +79,16 @@ class AppController:
             self.login_view.bouton_connexion.configure(state="normal")
 
     def transition_to_main_view(self, username: str):
-        self.update_global_loading_text("Chargement du profil...")
-        self.root.update_idletasks()
-
         self.current_user = username
-
         if self.login_view:
             self.login_view.destroy()
             self.login_view = None
 
+        self.update_global_loading_text("Préparation de l'affichage...")
+        self.root.update_idletasks()
+
         if self.preloading_thread is not None:
-            self.preloading_thread.join(timeout=5)
+            self.preloading_thread.join()
 
         self.show_main_view()
         self._sync_user_cache()
@@ -100,14 +105,25 @@ class AppController:
         self.global_loading_overlay.hide()
 
     def is_application_busy(self) -> bool:
-        """Vérifie si des tâches critiques sont en cours."""
         return global_task_tracker.is_busy() or is_db_writer_busy()
+
+    def _load_user_cache(self):
+        _log.info("Chargement/Rafraîchissement du cache utilisateur.")
+        all_users = self.auth_controller.get_all_users()
+        self.user_cache = {user.login: user for user in all_users}
+        _log.info(f"{len(self.user_cache)} utilisateurs chargés dans le cache.")
+
+    def get_user_from_cache(self, login: str):
+        return self.user_cache.get(login)
+
+    def get_all_users_from_cache(self):
+        return list(self.user_cache.values())
 
     def _preload_data(self):
         def _preloading_task():
-            print("Pré-chargement des données en arrière-plan démarré...")
+            _log.info("Pré-chargement des données en arrière-plan démarré...")
             try:
-                all_users = self.auth_controller.get_all_users()
+                users_from_cache = self.get_all_users_from_cache()
                 pfp_cache = {}
                 pfp_size = 20
 
@@ -115,7 +131,7 @@ class AppController:
                 pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size)
                 pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size)
 
-                for user in all_users:
+                for user in users_from_cache:
                     full_path = None
                     if user.profile_picture_path and os.path.exists(
                             os.path.join(PROFILE_PICTURES_DIR, user.profile_picture_path)):
@@ -129,11 +145,14 @@ class AppController:
                     else:
                         initial = user.login[0].upper() if user.login else "?"
                         pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size)
-                self.preloaded_pfp_cache = pfp_cache
-                print("Pré-chargement des données terminé avec succès.")
+
+                with self.pfp_cache_lock:
+                    self.preloaded_pfp_cache = pfp_cache
+                _log.info("Pré-chargement des données terminé avec succès.")
             except Exception as e:
-                print(f"Erreur durant le pré-chargement des données : {e}")
-                self.preloaded_pfp_cache = {}
+                _log.error(f"Erreur durant le pré-chargement des données : {e}", exc_info=True)
+                with self.pfp_cache_lock:
+                    self.preloaded_pfp_cache = {}
 
         if self.preloading_thread is None or not self.preloading_thread.is_alive():
             self.preloading_thread = threading.Thread(target=_preloading_task, daemon=True)
@@ -150,12 +169,20 @@ class AppController:
         draw.text((size / 2, size / 2), initial, font=font, anchor="mm", fill=(220, 220, 220))
         return ctk.CTkImage(light_image=placeholder, dark_image=placeholder, size=(size, size))
 
-    def _ensure_database_is_ready(self):
+    def _ensure_database_is_ready_and_healthy(self):
         try:
             create_tables()
+            is_healthy, message = self.auth_controller.run_database_health_check()
+            if not is_healthy:
+                messagebox.showerror("Erreur Critique de Base de Données",
+                                     f"L'intégrité de la base de données est compromise.\n"
+                                     f"Raison : {message}\n\n"
+                                     "Veuillez contacter l'administrateur pour restaurer une sauvegarde.\n"
+                                     "L'application va se fermer.")
+                sys.exit(1)
         except Exception as e:
             messagebox.showerror("Erreur Critique de Base de Données",
-                                 f"Impossible d'initialiser la base de données.\nErreur: {e}\n\nL'application va se fermer.")
+                                 f"Impossible d'initialiser ou de vérifier la base de données.\nErreur: {e}\n\nL'application va se fermer.")
             sys.exit(1)
 
     def _cleanup_orphaned_temp_folders(self):
@@ -171,17 +198,19 @@ class AppController:
                         folder_mtime = os.path.getmtime(folder_path)
                         if folder_mtime < cutoff:
                             shutil.rmtree(folder_path, ignore_errors=True)
-                            print(f"Nettoyage du dossier temporaire orphelin : {folder_path}")
+                            _log.info(f"Nettoyage du dossier temporaire orphelin : {folder_path}")
         except Exception as e:
-            print(f"Erreur lors du nettoyage des dossiers temporaires orphelins : {e}")
+            _log.error(f"Erreur lors du nettoyage des dossiers temporaires orphelins : {e}", exc_info=True)
 
     def _run_startup_tasks(self):
         def task():
-            print("Lancement des tâches de démarrage...")
+            _log.info("Lancement des tâches de démarrage...")
             self._cleanup_orphaned_temp_folders()
             rc_temp = RemboursementController(utilisateur_actuel="system")
             rc_temp.archive_old_requests()
-            print("Tâches de démarrage terminées.")
+            backup_status = self.auth_controller.run_automatic_backup()
+            _log.info(f"Statut de la sauvegarde automatique : {backup_status}")
+            _log.info("Tâches de démarrage terminées.")
 
         startup_thread = threading.Thread(target=task, daemon=True)
         startup_thread.start()
@@ -214,7 +243,7 @@ class AppController:
             return
 
         def task():
-            user_data = self.auth_controller.get_user_data(self.current_user)
+            user_data = self.get_user_from_cache(self.current_user)
             if not user_data:
                 return
 
@@ -239,7 +268,8 @@ class AppController:
 
             demandes_to_cache = list(combined_demands_dict.values())
             self.cache_manager.sync_proactive_cache(demandes_to_cache)
-            print(f"Cache proactif synchronisé pour {self.current_user}. {len(demandes_to_cache)} demande(s) en cache.")
+            _log.info(
+                f"Cache proactif synchronisé pour {self.current_user}. {len(demandes_to_cache)} demande(s) en cache.")
 
         cache_thread = threading.Thread(target=task, daemon=True)
         cache_thread.start()
