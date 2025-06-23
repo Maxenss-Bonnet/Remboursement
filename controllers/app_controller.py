@@ -91,7 +91,6 @@ class AppController:
             self.preloading_thread.join()
 
         self.show_main_view()
-        self._sync_user_cache()
         self.hide_global_loading()
 
     def show_global_loading(self, message: str):
@@ -123,14 +122,13 @@ class AppController:
         def _preloading_task():
             _log.info("Pré-chargement des données en arrière-plan démarré...")
             try:
+                # Préchargement des photos de profil
                 users_from_cache = self.get_all_users_from_cache()
                 pfp_cache = {}
                 pfp_size = 20
-
                 pfp_cache['default'] = self._create_placeholder_image("?", pfp_size)
                 pfp_cache['Système'] = self._create_placeholder_image("S", pfp_size)
                 pfp_cache['Utilisateur supprimé'] = self._create_placeholder_image("?", pfp_size)
-
                 for user in users_from_cache:
                     full_path = None
                     if user.profile_picture_path and os.path.exists(
@@ -145,9 +143,27 @@ class AppController:
                     else:
                         initial = user.login[0].upper() if user.login else "?"
                         pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size)
-
                 with self.pfp_cache_lock:
                     self.preloaded_pfp_cache = pfp_cache
+
+                # Préchargement de la vue par défaut de l'utilisateur
+                if self.current_user:
+                    user_data = self.get_user_from_cache(self.current_user)
+                    if user_data:
+                        controller = self._remboursement_controller_factory(self.current_user)
+                        demandes, total = controller.get_demandes_filtrees_triees(
+                            user_roles=user_data.roles,
+                            filter_choice=user_data.default_filter,
+                            sort_choice="Date de création (récent)",
+                            search_term="",
+                            is_archive_mode=False,
+                            archive_date_range=None,
+                            limit=20, offset=0
+                        )
+                        cache_key = f"{self.current_user}_{user_data.default_filter}_default"
+                        self.cache_manager.set_demand_query_cache(cache_key, (demandes, total))
+                        _log.info(f"Vue par défaut préchargée pour {self.current_user} avec {len(demandes)} demandes.")
+
                 _log.info("Pré-chargement des données terminé avec succès.")
             except Exception as e:
                 _log.error(f"Erreur durant le pré-chargement des données : {e}", exc_info=True)
@@ -236,45 +252,9 @@ class AppController:
         self.root.title("Application de Remboursement - Connexion")
         self._preload_data()
 
-    def _sync_user_cache(self):
-        if self.remboursement_controller is None:
-            self._remboursement_controller_factory(self.current_user)
-        if not self.remboursement_controller or not self.current_user:
-            return
-
-        def task():
-            user_data = self.get_user_from_cache(self.current_user)
-            if not user_data:
-                return
-
-            all_demandes, _ = self.remboursement_controller.get_demandes_filtrees_triees(
-                user_roles=user_data.roles,
-                filter_choice="Toutes les demandes",
-                sort_choice="Date de création (récent)",
-                search_term="",
-                is_archive_mode=False,
-                archive_date_range=None,
-                limit=None,
-                offset=0
-            )
-
-            actionable_demandes = [d for d in all_demandes if d.is_active_for(user_data.roles, user_data.login)]
-            top_10_demandes = all_demandes[:10]
-
-            combined_demands_dict = {d.id_demande: d for d in actionable_demandes}
-            for d in top_10_demandes:
-                if d.id_demande not in combined_demands_dict:
-                    combined_demands_dict[d.id_demande] = d
-
-            demandes_to_cache = list(combined_demands_dict.values())
-            self.cache_manager.sync_proactive_cache(demandes_to_cache)
-            _log.info(
-                f"Cache proactif synchronisé pour {self.current_user}. {len(demandes_to_cache)} demande(s) en cache.")
-
-        cache_thread = threading.Thread(target=task, daemon=True)
-        cache_thread.start()
-
     def show_main_view(self):
+        # Le préchargement pour l'utilisateur est maintenant lancé à la connexion
+        # La vue principale peut donc être créée directement
         self.main_view = MainView(
             master=self.root,
             nom_utilisateur=self.current_user,
@@ -283,6 +263,7 @@ class AppController:
             preloaded_pfp_cache=self.preloaded_pfp_cache
         )
         self.root.title(f"Gestion Remboursements - {self.current_user}")
+        self._preload_data()  # Relancer pour la vue principale
 
     def request_restart(self, reason: str):
         if messagebox.askyesno("Redémarrage Requis",

@@ -6,6 +6,7 @@ from functools import wraps
 import threading
 import queue
 import logging
+from contextlib import contextmanager
 
 from config.settings import SHARED_DATA_BASE_PATH
 
@@ -104,110 +105,118 @@ def handle_db_locks(func):
 
 
 def get_db_connection():
+    """Établit et configure une nouvelle connexion à la base de données."""
     conn = sqlite3.connect(DATABASE_FILE, timeout=30)
     conn.row_factory = sqlite3.Row
-
     cursor = conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute("PRAGMA synchronous = NORMAL;")
     cursor.execute("PRAGMA cache_size = -4096;")
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.close()
-
     return conn
 
+
+@contextmanager
+def db_connection():
+    """
+    Un context manager pour gérer les connexions BDD.
+    Assure que la connexion est toujours fermée, même en cas d'erreur.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        yield conn
+    finally:
+        if conn:
+            conn.close()
+
+
 def create_tables():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with db_connection() as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS utilisateurs (
-        login TEXT PRIMARY KEY,
-        hashed_password TEXT NOT NULL,
-        email TEXT UNIQUE,
-        theme_color TEXT,
-        default_filter TEXT,
-        profile_picture_path TEXT
-    )""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS utilisateurs (
+            login TEXT PRIMARY KEY,
+            hashed_password TEXT NOT NULL,
+            email TEXT UNIQUE,
+            theme_color TEXT,
+            default_filter TEXT,
+            profile_picture_path TEXT
+        )""")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS roles (
-        role_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        role_name TEXT UNIQUE NOT NULL
-    )""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS roles (
+            role_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role_name TEXT UNIQUE NOT NULL
+        )""")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS utilisateur_roles (
-        login TEXT,
-        role_id INTEGER,
-        PRIMARY KEY (login, role_id),
-        FOREIGN KEY (login) REFERENCES utilisateurs (login) ON DELETE CASCADE,
-        FOREIGN KEY (role_id) REFERENCES roles (role_id) ON DELETE CASCADE
-    )""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS utilisateur_roles (
+            login TEXT,
+            role_id INTEGER,
+            PRIMARY KEY (login, role_id),
+            FOREIGN KEY (login) REFERENCES utilisateurs (login) ON DELETE CASCADE,
+            FOREIGN KEY (role_id) REFERENCES roles (role_id) ON DELETE CASCADE
+        )""")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS remboursements (
-        id_demande TEXT PRIMARY KEY,
-        nom TEXT,
-        prenom TEXT,
-        reference_facture TEXT NOT NULL,
-        reference_facture_dossier TEXT,
-        description TEXT,
-        montant_demande REAL NOT NULL,
-        statut TEXT NOT NULL,
-        cree_par TEXT,
-        date_creation TEXT NOT NULL,
-        derniere_modification_par TEXT,
-        date_derniere_modification TEXT NOT NULL,
-        date_paiement_effectue TEXT,
-        is_archived INTEGER NOT NULL DEFAULT 0,
-        FOREIGN KEY (cree_par) REFERENCES utilisateurs (login) ON DELETE SET NULL,
-        FOREIGN KEY (derniere_modification_par) REFERENCES utilisateurs (login) ON DELETE SET NULL
-    )""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS remboursements (
+            id_demande TEXT PRIMARY KEY,
+            nom TEXT,
+            prenom TEXT,
+            reference_facture TEXT NOT NULL,
+            reference_facture_dossier TEXT,
+            description TEXT,
+            montant_demande REAL NOT NULL,
+            statut TEXT NOT NULL,
+            cree_par TEXT,
+            date_creation TEXT NOT NULL,
+            derniere_modification_par TEXT,
+            date_derniere_modification TEXT NOT NULL,
+            date_paiement_effectue TEXT,
+            is_archived INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (cree_par) REFERENCES utilisateurs (login) ON DELETE SET NULL,
+            FOREIGN KEY (derniere_modification_par) REFERENCES utilisateurs (login) ON DELETE SET NULL
+        )""")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS historique (
-        historique_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_demande TEXT NOT NULL,
-        statut TEXT,
-        date TEXT NOT NULL,
-        par_utilisateur TEXT,
-        commentaire TEXT,
-        FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE,
-        FOREIGN KEY (par_utilisateur) REFERENCES utilisateurs (login) ON DELETE SET NULL
-    )""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS historique (
+            historique_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_demande TEXT NOT NULL,
+            statut TEXT,
+            date TEXT NOT NULL,
+            par_utilisateur TEXT,
+            commentaire TEXT,
+            FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE,
+            FOREIGN KEY (par_utilisateur) REFERENCES utilisateurs (login) ON DELETE SET NULL
+        )""")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS pieces_jointes (
-        pj_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_demande TEXT NOT NULL,
-        type_pj TEXT NOT NULL,
-        chemin_relatif TEXT NOT NULL,
-        date_ajout TEXT NOT NULL,
-        FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
-    )""")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pieces_jointes (
+            pj_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_demande TEXT NOT NULL,
+            type_pj TEXT NOT NULL,
+            chemin_relatif TEXT NOT NULL,
+            date_ajout TEXT NOT NULL,
+            FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
+        )""")
 
-    # --- Index existants et nouveaux index composites ---
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_statut ON remboursements (statut);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_nom ON remboursements (nom);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_is_archived ON remboursements (is_archived);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande ON historique (id_demande);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande ON pieces_jointes (id_demande);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_statut ON remboursements (statut);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_nom ON remboursements (nom);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_is_archived ON remboursements (is_archived);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande ON historique (id_demande);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande ON pieces_jointes (id_demande);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_general ON remboursements (is_archived, date_derniere_modification DESC);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_montant_demande ON remboursements (montant_demande);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_creation ON remboursements (date_creation);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande_date ON historique (id_demande, date);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande_date_ajout ON pieces_jointes (id_demande, date_ajout);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_cree_par ON remboursements (cree_par);")
 
-    # --- NOUVEAUX INDEX POUR L'OPTIMISATION ---
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_general ON remboursements (is_archived, date_derniere_modification DESC);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
-
-    # --- ANCIENS INDEXS CONSERVÉS ---
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_montant_demande ON remboursements (montant_demande);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_creation ON remboursements (date_creation);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande_date ON historique (id_demande, date);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande_date_ajout ON pieces_jointes (id_demande, date_ajout);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_cree_par ON remboursements (cree_par);")
-
-
-    conn.commit()
-    conn.close()
+        conn.commit()
