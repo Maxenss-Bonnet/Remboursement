@@ -11,6 +11,7 @@ from config.settings import (
 )
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.dialogs.comment_dialog import CommentDialog
+from utils import icon_renderer
 
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
 COULEUR_DEMANDE_TERMINEE = "#2E4374"
@@ -282,10 +283,19 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
 
                     statut_text = entree_hist.get('statut')
                     if statut_text:
-                        statut_label = ctk.CTkLabel(details_frame, text=f"Statut: {statut_text}",
-                                                    font=ctk.CTkFont(size=12),
-                                                    anchor="w")
-                        statut_label.pack(fill="x")
+                        statut_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
+                        statut_frame.pack(fill="x")
+                        hist_widgets_to_bind.append(statut_frame)
+
+                        icon = icon_renderer.get_icon_image(statut_text, 16)
+                        if icon:
+                            icon_label = ctk.CTkLabel(statut_frame, image=icon, text="")
+                            icon_label.pack(side="left", padx=(0, 5), pady=2)
+                            hist_widgets_to_bind.append(icon_label)
+
+                        statut_label = ctk.CTkLabel(statut_frame, text=f"{statut_text}",
+                                                    font=ctk.CTkFont(size=12), anchor="w")
+                        statut_label.pack(side="left", fill="x")
                         hist_widgets_to_bind.append(statut_label)
 
                     comment_text = str(entree_hist.get('commentaire', '')).strip()
