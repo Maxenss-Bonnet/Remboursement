@@ -96,7 +96,7 @@ ROLES_UTILISATEURS = {
                        "Actions possibles (en plus des autres rôles) :\n"
                        "  - Supprimer n'importe quelle demande de remboursement.\n"
                        "  - Gérer les comptes utilisateurs (créer, modifier, supprimer - sauf son propre compte 'admin').\n"
-                       "  - Assigner/Modifier les rôles des autres utilisateurs.",
+                       "  - Assigner/Modifier les rôles des autres utilisateurs. ",
         "utilisateurs_actuels": []
     }
 }
