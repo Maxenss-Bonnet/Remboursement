@@ -67,20 +67,6 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         except (ValueError, TypeError, TclError):
             return self._resolve_color(color2)
 
-    def animate_in(self, start_color: str, end_color: str, duration_ms: int = 250):
-        steps = max(1, int(duration_ms / 20))
-
-        def animation_step(current_step: int):
-            if not self.winfo_exists():
-                return
-            factor = current_step / steps
-            new_color = self._interpolate_color(start_color, end_color, factor)
-            self.configure(fg_color=new_color)
-            if current_step < steps:
-                self.after(20, lambda: animation_step(current_step + 1))
-
-        animation_step(0)
-
     def animate_out_and_destroy(self, duration_ms: int = 250):
         steps = max(1, int(duration_ms / 20))
         start_color = self.cget("fg_color")
@@ -425,7 +411,7 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
             success, message = result
             if success:
                 self.app_controller.show_toast(message, "success")
-                self.refresh_list_callback(show_overlay=False)
+                self.refresh_list_callback()
             else:
                 self.app_controller.show_toast(message, "error")
                 if self.content_frame:

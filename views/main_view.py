@@ -54,6 +54,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.remboursement_widgets = {}
         self.no_demandes_label = None
         self._is_refreshing = False
+        self.list_loading_indicator = None
 
         self.items_per_page = 20
         self.current_page = 1
@@ -85,7 +86,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         self.search_var = ctk.StringVar()
 
         self._creer_widgets()
-        self.afficher_liste_demandes()
+        self.afficher_liste_demandes(is_initial_load=True)
         self.start_polling()
 
         if is_admin:
@@ -144,12 +145,12 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                           command=self._ouvrir_fenetre_creation_demande).pack(side="left", pady=5, padx=(0, 10))
 
         self.bouton_rafraichir = ctk.CTkButton(actions_bar_frame, text="Rafraîchir (F5)",
-                                               command=lambda: self.afficher_liste_demandes(),
+                                               command=lambda: self.afficher_liste_demandes(show_overlay=False),
                                                width=120)
         self.bouton_rafraichir.pack(side="left", pady=5, padx=10)
         self.notification_badge = ctk.CTkLabel(self.bouton_rafraichir, text="", fg_color="red", corner_radius=8,
                                                width=18, height=18, font=("Arial", 11, "bold"))
-        self.winfo_toplevel().bind("<F5>", lambda event: self.afficher_liste_demandes())
+        self.winfo_toplevel().bind("<F5>", lambda event: self.afficher_liste_demandes(show_overlay=False))
 
         ctk.CTkButton(actions_bar_frame, text="Consulter les Archives", fg_color="gray50",
                       command=self._open_archive_dialog).pack(side="left", pady=5, padx=10)
@@ -253,6 +254,10 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _render_demandes_list(self, result, error=None):
         try:
+            if self.list_loading_indicator and self.list_loading_indicator.winfo_exists():
+                self.list_loading_indicator.destroy()
+                self.list_loading_indicator = None
+
             if error:
                 error_str = str(error).lower()
                 if "unable to open database file" in error_str:
@@ -277,35 +282,40 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
             new_ids = set(new_data_map.keys())
             current_ids = set(self.remboursement_widgets.keys())
             ids_to_remove = current_ids - new_ids
+            ids_to_add = new_ids - current_ids
+            ids_to_check = current_ids.intersection(new_ids)
 
             for demande_id in ids_to_remove:
                 widget = self.remboursement_widgets.pop(demande_id, None)
                 if widget and widget.winfo_exists():
                     widget.animate_out_and_destroy()
 
+            for demande_id in ids_to_check:
+                widget = self.remboursement_widgets.get(demande_id)
+                if widget:
+                    new_data = new_data_map[demande_id]
+                    old_data = widget.demande_data
+                    if new_data != old_data:
+                        widget.flash_update(new_data)
+
             final_widget_order = []
             for demande_model in demandes_a_afficher:
                 demande_id = demande_model.id_demande
-                new_demande_data = new_data_map[demande_id]
-                widget = self.remboursement_widgets.get(demande_id)
-
-                if widget:
-                    if widget.demande_data.get('date_derniere_modification') != new_demande_data.get('date_derniere_modification'):
-                        widget.update_content(new_demande_data)
-                else:
-                    widget = RemboursementItemView(
+                if demande_id in ids_to_add:
+                    new_widget = RemboursementItemView(
                         master=self.scrollable_frame_demandes, main_view_instance=self,
-                        demande_data=new_demande_data, current_user_name=self.nom_utilisateur,
+                        demande_data=new_data_map[demande_id], current_user_name=self.nom_utilisateur,
                         user_roles=self.user_roles, app_controller=self.app_controller,
                         remboursement_controller=self.remboursement_controller,
-                        refresh_list_callback=lambda show_overlay=False: self.afficher_liste_demandes(show_overlay=show_overlay)
+                        refresh_list_callback=lambda: self.afficher_liste_demandes(show_overlay=False)
                     )
-                    widget._is_new = True
-                    self.remboursement_widgets[demande_id] = widget
-                final_widget_order.append(widget)
+                    self.remboursement_widgets[demande_id] = new_widget
 
-            for w in self.remboursement_widgets.values():
-                w.pack_forget()
+            for demande_model in demandes_a_afficher:
+                final_widget_order.append(self.remboursement_widgets[demande_model.id_demande])
+
+            for widget in self.remboursement_widgets.values():
+                widget.pack_forget()
 
             if not final_widget_order:
                 self.no_demandes_label = ctk.CTkLabel(self.scrollable_frame_demandes,
@@ -313,14 +323,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
                                                       font=ctk.CTkFont(size=14, slant="italic"))
                 self.no_demandes_label.pack(pady=20)
             else:
-                parent_bg_color = self.scrollable_frame_demandes.cget("fg_color")
                 for widget in final_widget_order:
                     widget.pack(pady=5, padx=5, fill="x", expand=True)
-                    if hasattr(widget, '_is_new') and widget._is_new:
-                        target_color = widget.cget("fg_color")
-                        widget.configure(fg_color=parent_bg_color)
-                        widget.animate_in(start_color=parent_bg_color, end_color=target_color)
-                        delattr(widget, '_is_new')
 
             self._update_pagination_controls()
             self._update_notification_badge()
@@ -344,11 +348,24 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
 
         threading.Thread(target=task, daemon=True, name="CacheSyncThread").start()
 
-    def afficher_liste_demandes(self, show_overlay=True):
+    def afficher_liste_demandes(self, show_overlay=True, is_initial_load=False):
         if self._is_refreshing:
             return
         self._is_refreshing = True
         self.bouton_rafraichir.configure(state="disabled")
+
+        if is_initial_load:
+            for widget in self.scrollable_frame_demandes.winfo_children():
+                widget.destroy()
+            self.remboursement_widgets.clear()
+
+            loading_frame = ctk.CTkFrame(self.scrollable_frame_demandes, fg_color="transparent")
+            loading_frame.pack(expand=True, fill="both", padx=20, pady=20)
+            ctk.CTkLabel(loading_frame, text="Chargement des demandes...", font=ctk.CTkFont(size=16)).pack(pady=10)
+            progress_bar = ctk.CTkProgressBar(loading_frame, mode='indeterminate')
+            progress_bar.pack(fill="x", padx=50)
+            progress_bar.start()
+            self.list_loading_indicator = loading_frame
 
         loading_message = "Chargement des données..." if show_overlay else ""
         offset = (self.current_page - 1) * self.items_per_page
@@ -590,7 +607,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin):
         dialog = CreationDemandeDialog(self, self.remboursement_controller, self.app_controller)
         self.wait_window(dialog)
         if hasattr(dialog, 'submitted') and dialog.submitted:
-            self.afficher_liste_demandes()
+            self.afficher_liste_demandes(show_overlay=False)
 
     def _action_voir_pj(self, demande_id, rel_path):
         cached_path = self.app_controller.cache_manager.get_cached_path(rel_path)
