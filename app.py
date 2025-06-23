@@ -6,6 +6,7 @@ import threading
 import queue
 import logging
 from tkinter import messagebox
+from tkinterdnd2 import TkinterDnD
 from controllers.app_controller import AppController
 from config.settings import SHARED_DATA_BASE_PATH, IS_DEPLOYMENT_MODE, get_application_base_path
 from utils.database_manager import stop_db_writer_thread
@@ -26,13 +27,16 @@ def is_path_writable(path: str) -> bool:
         return False
 
 
-class MainApplication(ctk.CTk):
+class MainApplication(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
         self.withdraw()
 
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
+
+        # CORRECTION : Forcer la couleur de fond pour la fenêtre racine
+        self.configure(background="gray14")
 
         self.title("Application de Gestion")
 
@@ -158,11 +162,14 @@ class MainApplication(ctk.CTk):
         error_frame = ctk.CTkFrame(self)
         error_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(error_frame, text="Erreur de Connexion Réseau", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(20, 10), padx=30)
+        ctk.CTkLabel(error_frame, text="Erreur de Connexion Réseau", font=ctk.CTkFont(size=20, weight="bold")).pack(
+            pady=(20, 10), padx=30)
         error_message = ("Impossible d'accéder aux données partagées.\n\n"
                          "Veuillez vérifier votre connexion Wi-Fi ou votre connexion VPN si vous êtes hors site.")
-        ctk.CTkLabel(error_frame, text=error_message, font=ctk.CTkFont(size=14), justify="center").pack(pady=10, padx=30)
-        ctk.CTkButton(error_frame, text="Redémarrer l'application", command=self._restart_app, width=200, height=40).pack(pady=(15, 20), padx=30)
+        ctk.CTkLabel(error_frame, text=error_message, font=ctk.CTkFont(size=14), justify="center").pack(pady=10,
+                                                                                                        padx=30)
+        ctk.CTkButton(error_frame, text="Redémarrer l'application", command=self._restart_app, width=200,
+                      height=40).pack(pady=(15, 20), padx=30)
 
     def center_window(self):
         self.update_idletasks()

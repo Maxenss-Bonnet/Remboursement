@@ -4,6 +4,7 @@ import threading
 import queue
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
+from utils.ui_utils import DragDropFrame
 
 
 class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
@@ -21,7 +22,7 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
         self.copy_progress_queue = queue.Queue()
 
         self.title(f"Corriger Demande {id_demande[:8]}")
-        self.geometry("600x650")
+        self.geometry("650x750")
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.close_animated)
@@ -75,6 +76,12 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
         self.lbl_facture_sel = ctk.CTkLabel(facture_frame, textvariable=self.chemin_facture_var, text_color="gray",
                                             anchor="w")
         self.lbl_facture_sel.grid(row=0, column=1, sticky="ew")
+
+        drop_zone_facture = DragDropFrame(self.main_frame,
+                                          drop_callback=lambda path: self._sel_new_pj("facture", file_path=path),
+                                          text="Déposez la nouvelle facture ici")
+        drop_zone_facture.pack(fill="x", pady=5, padx=5)
+
         self.cb_keep_facture = ctk.CTkCheckBox(self.main_frame, variable=self.keep_facture_var,
                                                command=self._toggle_facture_ui)
         if demande.chemins_factures_stockees:
@@ -95,6 +102,12 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
         self.btn_sel_rib.grid(row=0, column=0, padx=(0, 10))
         self.lbl_rib_sel = ctk.CTkLabel(rib_frame, textvariable=self.chemin_rib_var, text_color="gray", anchor="w")
         self.lbl_rib_sel.grid(row=0, column=1, sticky="ew")
+
+        drop_zone_rib = DragDropFrame(self.main_frame,
+                                      drop_callback=lambda path: self._sel_new_pj("rib", file_path=path),
+                                      text="Déposez le nouveau RIB ici")
+        drop_zone_rib.pack(fill="x", pady=5, padx=5)
+
         self.cb_keep_rib = ctk.CTkCheckBox(self.main_frame, variable=self.keep_rib_var, command=self._toggle_rib_ui)
         if demande.chemins_rib_stockes:
             self.cb_keep_rib.configure(text=f"Conserver le RIB : {os.path.basename(demande.chemins_rib_stockes[-1])}")
@@ -141,10 +154,23 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
             self.chemin_rib_reseau); self.chemin_rib_reseau = None
         self.chemin_rib_var.set("Ancien RIB conservé" if is_kept else "Aucun fichier sélectionné")
 
-    def _sel_new_pj(self, type_pj: str):
-        chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
-            f"Nouvelle {type_pj.title()}")
+    def _sel_new_pj(self, type_pj: str, file_path: str = None):
+        # Si un fichier est déposé, on l'utilise, sinon on ouvre le dialogue
+        if file_path:
+            chemin_local = file_path
+        else:
+            chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
+                f"Nouvelle {type_pj.title()}")
+
         if not chemin_local: return
+
+        # Forcer le déverrouillage de la checkbox correspondante
+        if type_pj == "facture":
+            self.keep_facture_var.set(False)
+            self._toggle_facture_ui()
+        elif type_pj == "rib":
+            self.keep_rib_var.set(False)
+            self._toggle_rib_ui()
 
         self.copy_operations_in_progress += 1
         self.btn_submit.configure(state="disabled", text="Copie en cours...")
@@ -170,7 +196,6 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
 
         def copy_task():
             try:
-                # CORRECTION : Ajout du type de message "progress"
                 callback = lambda p: self.copy_progress_queue.put(("progress", type_pj, p))
                 new_path = self.remboursement_controller.ajouter_pj_a_demande_existante(
                     self.id_demande, chemin_local, type_pj, callback
@@ -186,7 +211,6 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
             while not self.copy_progress_queue.empty():
                 message = self.copy_progress_queue.get(block=False)
 
-                # Vérification de sécurité pour le dépaquetage
                 if not isinstance(message, tuple) or len(message) != 3:
                     continue
 

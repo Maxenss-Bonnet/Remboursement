@@ -4,6 +4,7 @@ import threading
 import queue
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
+from utils.ui_utils import DragDropFrame
 
 
 class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
@@ -21,26 +22,38 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
         self.copy_progress_queue = queue.Queue()
 
         self.title(f"Accepter Constat TP - Demande {id_demande[:8]}")
-        self.geometry("500x500")
+        self.geometry("500x550")
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self.chemin_pj_var = ctk.StringVar(value="Aucune PJ sélectionnée (Obligatoire)")
 
-        ctk.CTkLabel(self, text="Preuve de Trop-Perçu (Image/PDF/Doc...):", font=ctk.CTkFont(weight="bold")).pack(
-            pady=(15, 2))
-        ctk.CTkButton(self, text="Choisir Fichier...", command=self._select_pj).pack(pady=(0, 5))
-        self.label_pj = ctk.CTkLabel(self, textvariable=self.chemin_pj_var)
-        self.label_pj.pack()
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
-        self.progress_bar = ctk.CTkProgressBar(self)
+        ctk.CTkLabel(main_frame, text="Preuve de Trop-Perçu (Image/PDF/Doc...):", font=ctk.CTkFont(weight="bold")).pack(
+            pady=(15, 2))
+
+        file_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        file_frame.pack(pady=(0, 5), padx=10, fill="x")
+        file_frame.columnconfigure(1, weight=1)
+
+        ctk.CTkButton(file_frame, text="Choisir Fichier...", command=self._select_pj).grid(row=0, column=0,
+                                                                                           padx=(0, 10))
+        self.label_pj = ctk.CTkLabel(file_frame, textvariable=self.chemin_pj_var)
+        self.label_pj.grid(row=0, column=1, sticky="ew")
+
+        drop_zone = DragDropFrame(main_frame, drop_callback=self._select_pj, text="Déposez la preuve ici")
+        drop_zone.pack(pady=5, padx=10, fill="x")
+
+        self.progress_bar = ctk.CTkProgressBar(main_frame)
         self.progress_bar.pack(pady=(5, 10), padx=20, fill="x")
         self.progress_bar.set(0)
         self.progress_bar.pack_forget()
 
-        ctk.CTkLabel(self, text="Commentaire (Optionnel):", font=ctk.CTkFont(weight="bold")).pack(pady=(10, 2))
-        self.commentaire_box = ctk.CTkTextbox(self, height=100, width=450)
+        ctk.CTkLabel(main_frame, text="Commentaire (Optionnel):", font=ctk.CTkFont(weight="bold")).pack(pady=(10, 2))
+        self.commentaire_box = ctk.CTkTextbox(main_frame, height=100)
         self.commentaire_box.pack(pady=5, padx=10, fill="x", expand=True)
         self.commentaire_box.focus()
 
@@ -57,9 +70,13 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
                              args=(self.chemin_pj_reseau,), daemon=True).start()
         super().destroy()
 
-    def _select_pj(self):
-        chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
-            "Sélectionner Preuve Trop-Perçu")
+    def _select_pj(self, file_path: str = None):
+        if file_path:
+            chemin_local = file_path
+        else:
+            chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
+                "Sélectionner Preuve Trop-Perçu")
+
         if not chemin_local: return
 
         self.btn_submit.configure(state="disabled", text="Copie en cours...")

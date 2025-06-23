@@ -1,6 +1,43 @@
-# utils/ui_utils.py
 import customtkinter as ctk
 import tkinter
+from tkinterdnd2 import DND_FILES, TkinterDnD
+
+
+class DragDropFrame(ctk.CTkFrame):
+    def __init__(self, master, drop_callback, text="Déposez un fichier ici", **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.drop_callback = drop_callback
+        self.initial_text = text
+
+        self.configure(border_width=2, border_color="gray50", fg_color=("gray90", "gray25"))
+
+        self.label = ctk.CTkLabel(self, text=self.initial_text, text_color="gray60")
+        self.label.pack(padx=20, pady=20, expand=True)
+
+        self.drop_target_register(DND_FILES)
+        self.dnd_bind('<<Drop>>', self.on_drop)
+        self.dnd_bind('<<DragEnter>>', self.on_enter)
+        self.dnd_bind('<<DragLeave>>', self.on_leave)
+
+        self.border_color_default = "gray50"
+        self.border_color_hover = "#1E90FF"
+
+    def on_enter(self, event):
+        self.configure(border_color=self.border_color_hover)
+        return event.action
+
+    def on_leave(self, event):
+        self.configure(border_color=self.border_color_default)
+        return event.action
+
+    def on_drop(self, event):
+        self.on_leave(event)
+        # event.data peut contenir des chemins entre accolades {}
+        path = event.data.strip('{}')
+        if path:
+            self.drop_callback(path)
+        return event.action
 
 
 class LoadingCursor:

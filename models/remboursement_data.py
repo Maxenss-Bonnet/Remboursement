@@ -7,6 +7,7 @@ import errno
 import time
 import logging
 from typing import List, Tuple, Optional, Dict
+from collections import OrderedDict
 
 from config.settings import (
     REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
@@ -23,19 +24,38 @@ _log = logging.getLogger(__name__)
 @handle_db_locks
 def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
     data = dict(row)
-    data['historique_statuts'] = []
-    data['chemins_factures_stockees'] = []
-    data['chemins_rib_stockes'] = []
-    data['chemins_trop_percu_stockees'] = []
 
+    # Prépare la structure de l'objet Remboursement
+    remboursement_data = {
+        'id_demande': data['id_demande'],
+        'nom': data['nom'],
+        'prenom': data['prenom'],
+        'reference_facture': data['reference_facture'],
+        'reference_facture_dossier': data['reference_facture_dossier'],
+        'description': data['description'],
+        'montant_demande': data['montant_demande'],
+        'statut': data['statut'],
+        'cree_par': data['cree_par'],
+        'derniere_modification_par': data['derniere_modification_par'],
+        'is_archived': data['is_archived'],
+        'historique_statuts': [],
+        'chemins_factures_stockees': [],
+        'chemins_rib_stockes': [],
+        'chemins_trop_percu_stockees': []
+    }
+
+    # Conversion des dates
     if isinstance(data['date_creation'], str):
-        data['date_creation'] = datetime.datetime.fromisoformat(data['date_creation'])
+        remboursement_data['date_creation'] = datetime.datetime.fromisoformat(data['date_creation'])
     if isinstance(data['date_derniere_modification'], str):
-        data['date_derniere_modification'] = datetime.datetime.fromisoformat(data['date_derniere_modification'])
+        remboursement_data['date_derniere_modification'] = datetime.datetime.fromisoformat(
+            data['date_derniere_modification'])
     if data['date_paiement_effectue'] and isinstance(data['date_paiement_effectue'], str):
-        data['date_paiement_effectue'] = datetime.datetime.fromisoformat(data['date_paiement_effectue'])
+        remboursement_data['date_paiement_effectue'] = datetime.datetime.fromisoformat(data['date_paiement_effectue'])
+    else:
+        remboursement_data['date_paiement_effectue'] = None
 
-    return Remboursement(**data)
+    return Remboursement(**remboursement_data)
 
 
 @handle_db_locks
@@ -69,27 +89,22 @@ def charger_demandes_data(
         user_roles, user_login = active_for_user
         action_conditions = []
 
-        # Condition pour le comptable trésorerie
         if 'comptable_tresorerie' in user_roles:
             action_conditions.append("r.statut IN (?, ?)")
             params.extend([STATUT_CREEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO])
 
-        # Condition pour le demandeur
         if 'demandeur' in user_roles:
             action_conditions.append("(r.statut = ? AND r.cree_par = ?)")
             params.extend([STATUT_REFUSEE_CONSTAT_TP, user_login])
 
-        # Condition pour le validateur chef
         if 'validateur_chef' in user_roles:
             action_conditions.append("r.statut = ?")
             params.append(STATUT_TROP_PERCU_CONSTATE)
 
-        # Condition pour le comptable fournisseur
         if 'comptable_fournisseur' in user_roles:
             action_conditions.append("r.statut = ?")
             params.append(STATUT_VALIDEE)
 
-        # L'admin voit toutes les actions actives
         if 'admin' in user_roles:
             admin_statuses = [
                 STATUT_CREEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
@@ -114,7 +129,7 @@ def charger_demandes_data(
 
     where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
-    count_query = f"SELECT COUNT(*) FROM remboursements r{where_sql}"
+    count_query = f"SELECT COUNT(DISTINCT r.id_demande) FROM remboursements r{where_sql}"
     cursor.execute(count_query, tuple(params))
     total_count = cursor.fetchone()[0]
 
@@ -122,56 +137,84 @@ def charger_demandes_data(
         conn.close()
         return [], 0
 
-    data_query = f"SELECT r.* FROM remboursements r{where_sql}"
+    order_clause = ""
     valid_sort_fields = ['nom', 'montant_demande', 'date_derniere_modification', 'date_creation']
     if sort_field in valid_sort_fields:
         order = 'DESC' if sort_order.upper() == 'DESC' else 'ASC'
-        data_query += f" ORDER BY r.{sort_field} {order}"
+        order_clause = f" ORDER BY r.{sort_field} {order}"
 
+    limit_offset_clause = ""
     if limit is not None:
-        data_query += " LIMIT ? OFFSET ?"
+        limit_offset_clause = " LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-    cursor.execute(data_query, tuple(params))
-    rows = cursor.fetchall()
+    # Requête pour obtenir les IDs des demandes paginées
+    id_query = f"SELECT r.id_demande FROM remboursements r {where_sql} {order_clause} {limit_offset_clause}"
+    cursor.execute(id_query, tuple(params))
+    paginated_ids = [row['id_demande'] for row in cursor.fetchall()]
 
-    demandes = [_construct_remboursement_from_row(row) for row in rows]
-    demande_ids = [d.id_demande for d in demandes]
-    if not demande_ids:
+    if not paginated_ids:
         conn.close()
         return [], total_count
 
-    historique_map: Dict[str, List[HistoriqueStatut]] = {id_demande: [] for id_demande in demande_ids}
-    placeholders = ', '.join('?' for _ in demande_ids)
-    cursor.execute(f"""
-        SELECT id_demande, statut, date, par_utilisateur, commentaire
-        FROM historique WHERE id_demande IN ({placeholders}) ORDER BY id_demande, date
-    """, demande_ids)
-    for row in cursor.fetchall():
-        hist_data = dict(row)
-        hist_data['date'] = datetime.datetime.fromisoformat(hist_data['date'])
-        historique_map[hist_data['id_demande']].append(HistoriqueStatut(**hist_data))
+    # Requête principale pour récupérer toutes les données liées aux IDs paginés
+    id_placeholders = ', '.join('?' for _ in paginated_ids)
+    main_query = f"""
+        SELECT
+            r.*,
+            h.historique_id, h.statut as hist_statut, h.date as hist_date, h.par_utilisateur as hist_user, h.commentaire as hist_comment,
+            pj.pj_id, pj.type_pj, pj.chemin_relatif
+        FROM remboursements r
+        LEFT JOIN historique h ON r.id_demande = h.id_demande
+        LEFT JOIN pieces_jointes pj ON r.id_demande = pj.id_demande
+        WHERE r.id_demande IN ({id_placeholders})
+    """
 
-    attachments_map: Dict[str, Dict[str, List[str]]] = {id_demande: {"facture": [], "rib": [], "trop_percu": []} for
-                                                        id_demande in demande_ids}
-    cursor.execute(f"""
-        SELECT id_demande, type_pj, chemin_relatif
-        FROM pieces_jointes WHERE id_demande IN ({placeholders}) ORDER BY id_demande, date_ajout
-    """, demande_ids)
-    for row in cursor.fetchall():
-        pj_data = dict(row)
-        if pj_data['type_pj'] in attachments_map.get(pj_data['id_demande'], {}):
-            attachments_map[pj_data['id_demande']][pj_data['type_pj']].append(pj_data['chemin_relatif'])
-
+    cursor.execute(main_query, tuple(paginated_ids))
+    rows = cursor.fetchall()
     conn.close()
 
-    for demande in demandes:
-        demande.historique_statuts = historique_map.get(demande.id_demande, [])
-        demande.chemins_factures_stockees = attachments_map.get(demande.id_demande, {}).get('facture', [])
-        demande.chemins_rib_stockes = attachments_map.get(demande.id_demande, {}).get('rib', [])
-        demande.chemins_trop_percu_stockees = attachments_map.get(demande.id_demande, {}).get('trop_percu', [])
+    # Traitement en Python pour reconstruire les objets
+    demandes_map = OrderedDict()
 
-    return demandes, total_count
+    for row in rows:
+        demande_id = row['id_demande']
+        if demande_id not in demandes_map:
+            demandes_map[demande_id] = _construct_remboursement_from_row(row)
+
+        demande_obj = demandes_map[demande_id]
+
+        # Ajouter l'historique (éviter les doublons)
+        if row['historique_id'] and not any(
+                h.date.isoformat() == row['hist_date'] and h.statut == row['hist_statut'] for h in
+                demande_obj.historique_statuts):
+            demande_obj.historique_statuts.append(HistoriqueStatut(
+                statut=row['hist_statut'],
+                date=datetime.datetime.fromisoformat(row['hist_date']),
+                par_utilisateur=row['hist_user'],
+                commentaire=row['hist_comment']
+            ))
+
+        # Ajouter les pièces jointes (éviter les doublons)
+        if row['pj_id']:
+            type_pj = row['type_pj']
+            chemin = row['chemin_relatif']
+            if type_pj == 'facture' and chemin not in demande_obj.chemins_factures_stockees:
+                demande_obj.chemins_factures_stockees.append(chemin)
+            elif type_pj == 'rib' and chemin not in demande_obj.chemins_rib_stockes:
+                demande_obj.chemins_rib_stockes.append(chemin)
+            elif type_pj == 'trop_percu' and chemin not in demande_obj.chemins_trop_percu_stockees:
+                demande_obj.chemins_trop_percu_stockees.append(chemin)
+
+    final_list = list(demandes_map.values())
+
+    # Trier la liste finale selon le critère de tri, car la requête principale ne garantit pas l'ordre
+    final_list.sort(
+        key=lambda d: getattr(d, sort_field) if hasattr(d, sort_field) else d.date_derniere_modification,
+        reverse=(sort_order.upper() == 'DESC')
+    )
+
+    return final_list, total_count
 
 
 @handle_db_locks

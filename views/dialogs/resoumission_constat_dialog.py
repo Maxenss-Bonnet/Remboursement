@@ -5,6 +5,7 @@ import queue
 from .comment_dialog import CommentDialog
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
+from utils.ui_utils import DragDropFrame
 
 
 class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
@@ -21,7 +22,7 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
         self.copy_progress_queue = queue.Queue()
 
         self.title(f"Corriger Constat TP {id_demande[:8]}")
-        self.geometry("550x500")
+        self.geometry("550x550")
         self.transient(master)
         self.grab_set()
         self.minsize(500, 450)
@@ -82,6 +83,10 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
         self.lbl_pj_sel = ctk.CTkLabel(pj_frame, textvariable=self.chemin_pj_var, text_color="gray", anchor="w")
         self.lbl_pj_sel.grid(row=0, column=1, sticky="ew")
 
+        drop_zone = DragDropFrame(self.main_frame, drop_callback=self._sel_new_pj_tp,
+                                  text="Déposez la nouvelle preuve ici")
+        drop_zone.pack(pady=5, padx=10, fill="x")
+
         self.progress_bar = ctk.CTkProgressBar(self.main_frame)
         self.progress_bar.pack(pady=5, padx=20, fill="x")
         self.progress_bar.set(0)
@@ -110,10 +115,18 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
             self.chemin_pj_reseau); self.chemin_pj_reseau = None
         self.chemin_pj_var.set("Ancienne preuve conservée" if is_kept else "Aucun fichier sélectionné")
 
-    def _sel_new_pj_tp(self):
-        chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
-            "Nouvelle Preuve Trop-Perçu")
+    def _sel_new_pj_tp(self, file_path: str = None):
+        if file_path:
+            chemin_local = file_path
+        else:
+            chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
+                "Nouvelle Preuve Trop-Perçu")
+
         if not chemin_local: return
+
+        # Forcer le déverrouillage de la checkbox
+        self.keep_pj_var.set(False)
+        self._toggle_pj_ui()
 
         self.btn_submit_corr.configure(state="disabled", text="Copie en cours...")
         self.btn_renvoyer.configure(state="disabled")
