@@ -10,12 +10,14 @@ import queue
 import io
 from utils import archive_utils
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class DocumentViewerWindow(ctk.CTkToplevel, TaskRunnerMixin):
+class DocumentViewerWindow(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, file_path: str, title: str, temp_dir_to_clean: str | None = None):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.title(title)
         self.geometry("800x600")
@@ -33,7 +35,7 @@ class DocumentViewerWindow(ctk.CTkToplevel, TaskRunnerMixin):
         self.after_job_id = None
         self.page_labels = {}
 
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self.scrollable_frame = ctk.CTkScrollableFrame(self)
         self.scrollable_frame.pack(expand=True, fill="both", padx=10, pady=10)
@@ -42,6 +44,10 @@ class DocumentViewerWindow(ctk.CTkToplevel, TaskRunnerMixin):
         self.content_container.pack(expand=True, fill="both")
 
         self.load_and_display_document()
+        self.fade_in()
+
+    def close_animated(self):
+        self.on_close()
 
     def load_and_display_document(self):
         file_ext = self.file_path.lower().split('.')[-1] if self.file_path else ''
@@ -209,4 +215,5 @@ class DocumentViewerWindow(ctk.CTkToplevel, TaskRunnerMixin):
             self.pdf_doc = None
         if self.temp_dir_to_clean:
             archive_utils.cleanup_temp_dir(self.temp_dir_to_clean)
-        self.destroy()
+
+        self.fade_out_and_destroy()

@@ -4,12 +4,14 @@ from config.settings import ASSIGNABLE_ROLES
 from .admin_config_view import AdminConfigView
 from .admin_backup_view import AdminBackupView
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
+class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, auth_controller, app_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.auth_controller = auth_controller
         self.app_controller = app_controller
@@ -21,6 +23,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
         self.grab_set()
         self.resizable(True, True)
         self.minsize(800, 400)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(expand=True, fill="both", padx=10, pady=10)
@@ -57,8 +60,9 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
 
         self.populate_user_list()
 
-        close_button = ctk.CTkButton(self, text="Fermer", command=self.destroy, width=100)
+        close_button = ctk.CTkButton(self, text="Fermer", command=self.close_animated, width=100)
         close_button.pack(pady=10)
+        self.fade_in()
 
     def _open_backup_management_view(self):
         AdminBackupView(self, self.auth_controller, self.app_controller)
@@ -184,6 +188,9 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
         dialog.transient(self)
         dialog.grab_set()
 
+        # Application de l'animation à la sous-fenêtre
+        dialog.attributes('-alpha', 0)
+
         form_frame = ctk.CTkFrame(dialog)
         form_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
@@ -258,6 +265,20 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin):
         submit_button_text = "Créer Utilisateur" if mode == "create" else "Enregistrer Modifications"
         submit_button = ctk.CTkButton(form_frame, text=submit_button_text, command=_submit_user_form)
         submit_button.grid(row=4, column=0, columnspan=2, pady=20)
+
+        # Animation fade-in pour la sous-fenêtre
+        alpha = 0
+
+        def fade_in_dialog():
+            nonlocal alpha
+            alpha += 0.1
+            if alpha < 1:
+                dialog.attributes('-alpha', alpha)
+                dialog.after(20, fade_in_dialog)
+            else:
+                dialog.attributes('-alpha', 1)
+
+        fade_in_dialog()
 
         dialog.after(100,
                      lambda: login_entry.focus_set() if mode == "create" else email_entry.focus_set())

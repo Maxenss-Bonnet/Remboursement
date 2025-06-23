@@ -1,14 +1,18 @@
 import customtkinter as ctk
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class CommentDialog(ctk.CTkToplevel):
+class CommentDialog(ctk.CTkToplevel, AnimationMixin):
     def __init__(self, master, title: str, prompt: str, is_mandatory: bool = False):
         super().__init__(master)
+        AnimationMixin.__init__(self, master)
+
         self.transient(master)
         self.grab_set()
         self.title(title)
         self.geometry("450x300")
         self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self._comment = None
         self._is_mandatory = is_mandatory
@@ -31,6 +35,8 @@ class CommentDialog(ctk.CTkToplevel):
         ctk.CTkButton(button_frame, text="Valider", command=self._on_validate).pack(side="left", padx=10)
         ctk.CTkButton(button_frame, text="Annuler", command=self._on_cancel, fg_color="gray").pack(side="left", padx=10)
 
+        self.fade_in()
+
     def _on_validate(self):
         comment_text = self.comment_textbox.get("1.0", "end-1c").strip()
         if self._is_mandatory and not comment_text:
@@ -38,11 +44,11 @@ class CommentDialog(ctk.CTkToplevel):
             return
 
         self._comment = comment_text
-        self.destroy()
+        self.close_animated()
 
     def _on_cancel(self):
         self._comment = None
-        self.destroy()
+        self.close_animated()
 
     def get_comment(self):
         self.master.wait_window(self)

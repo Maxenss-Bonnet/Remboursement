@@ -1,12 +1,14 @@
 import customtkinter as ctk
 from tkinter import messagebox
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin):
+class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, auth_controller, app_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.auth_controller = auth_controller
         self.app_controller = app_controller
@@ -17,6 +19,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin):
         self.grab_set()
         self.resizable(True, True)
         self.minsize(500, 300)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(expand=True, fill="both", padx=10, pady=10)
@@ -33,6 +36,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin):
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
 
         self.populate_backup_list()
+        self.fade_in()
 
     def populate_backup_list(self):
         for widget in self.scrollable_frame.winfo_children():

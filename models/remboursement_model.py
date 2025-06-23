@@ -110,11 +110,12 @@ def obtenir_demande_par_id(
 
 def obtenir_demandes_filtrees_triees(statut_filter: Optional[List[str]], search_term: str, sort_field: str,
                                      sort_order: str, is_archived: Optional[bool], limit: int | None, offset: int,
-                                     date_range: Optional[Tuple[datetime.datetime, datetime.datetime]] = None):
+                                     date_range: Optional[Tuple[datetime.datetime, datetime.datetime]] = None,
+                                     active_for_user: Optional[Tuple[list, str]] = None):
     return remboursement_data.charger_demandes_data(statut_filter=statut_filter, search_term=search_term,
                                                     sort_field=sort_field, sort_order=sort_order,
                                                     is_archived=is_archived, date_range=date_range,
-                                                    limit=limit, offset=offset)
+                                                    limit=limit, offset=offset, active_for_user=active_for_user)
 
 
 def archiver_les_vieilles_demandes() -> int:

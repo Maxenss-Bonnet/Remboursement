@@ -1,11 +1,13 @@
 import customtkinter as ctk
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class PasswordResetView(ctk.CTkToplevel, TaskRunnerMixin):
+class PasswordResetView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, controller, app_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.controller = controller
         self.app_controller = app_controller
@@ -15,6 +17,7 @@ class PasswordResetView(ctk.CTkToplevel, TaskRunnerMixin):
         self.geometry("450x550")
         self.transient(master)
         self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.pack(expand=True, fill="both", padx=20, pady=20)
@@ -22,6 +25,7 @@ class PasswordResetView(ctk.CTkToplevel, TaskRunnerMixin):
         self.current_step = 1
         self.username_to_reset = ""
         self._setup_step1()
+        self.fade_in()
 
     def _clear_frame(self):
         for widget in self.main_frame.winfo_children():
@@ -123,7 +127,7 @@ class PasswordResetView(ctk.CTkToplevel, TaskRunnerMixin):
             success, message = result
             if success:
                 self.app_controller.show_toast(message, 'success')
-                self.destroy()
+                self.close_animated()
             else:
                 self.app_controller.show_toast(message, 'error')
 

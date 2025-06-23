@@ -1,13 +1,15 @@
 import os
 import customtkinter as ctk
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 from views.document_viewer import DocumentViewerWindow
 
 
-class DocumentHistoryViewer(ctk.CTkToplevel, TaskRunnerMixin):
+class DocumentHistoryViewer(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, demande_data: dict, remboursement_controller, app_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.demande_data = demande_data
         self.remboursement_controller = remboursement_controller
@@ -19,6 +21,7 @@ class DocumentHistoryViewer(ctk.CTkToplevel, TaskRunnerMixin):
         self.transient(master)
         self.grab_set()
         self.resizable(True, True)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         main_frame = ctk.CTkScrollableFrame(self)
         main_frame.pack(expand=True, fill="both", padx=10, pady=10)
@@ -47,8 +50,9 @@ class DocumentHistoryViewer(ctk.CTkToplevel, TaskRunnerMixin):
         if not chemins_factures_rel and not chemins_ribs_rel and not chemins_trop_percu_rel:
             ctk.CTkLabel(main_frame, text="Aucun document historisé pour cette demande.").pack(pady=20)
 
-        close_button = ctk.CTkButton(self, text="Fermer", command=self.destroy)
+        close_button = ctk.CTkButton(self, text="Fermer", command=self.close_animated)
         close_button.pack(pady=10)
+        self.fade_in()
 
     def _creer_ligne_document(self, parent, version_text, rel_path):
         item_frame = ctk.CTkFrame(parent, fg_color="transparent")

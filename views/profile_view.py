@@ -1,21 +1,26 @@
 import os
 import shutil
 import customtkinter as ctk
+import queue
+import threading
 from tkinter import messagebox, filedialog
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from config.settings import PROFILE_PICTURES_DIR
 from utils.image_utils import get_or_create_circular_pfp
 from utils.password_utils import check_password_strength
+from utils.file_utils import copy_with_progress
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 
 PFP_MAX_SIZE = (512, 512)
 
 
-class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
+class ProfileView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, auth_controller, app_controller, user_data: dict, on_save_callback):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.transient(master)
         self.grab_set()
@@ -28,8 +33,9 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         self.current_user = user_data.get("login")
 
         self.title(f"Profil de {self.current_user}")
-        self.geometry("500x750")
+        self.geometry("500x800")
         self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self.new_profile_pic_source_path = None
         self.profile_pic_rel_path = user_data.get("profile_picture_path")
@@ -49,7 +55,12 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         ctk.CTkButton(pfp_buttons_frame, text="Supprimer Photo", command=self._remove_profile_picture,
                       fg_color="#D32F2F", hover_color="#B71C1C").pack(side="left", padx=5)
 
-        ctk.CTkLabel(main_frame, text="Adresse e-mail:", anchor="w").pack(fill="x", padx=20, pady=(15, 2))
+        self.pfp_progress_bar = ctk.CTkProgressBar(main_frame)
+        self.pfp_progress_bar.pack(fill='x', padx=20, pady=5)
+        self.pfp_progress_bar.set(0)
+        self.pfp_progress_bar.pack_forget()
+
+        ctk.CTkLabel(main_frame, text="Adresse e-mail:", anchor="w").pack(fill="x", padx=20, pady=(10, 2))
         self.email_entry = ctk.CTkEntry(main_frame)
         self.email_entry.insert(0, user_data.get("email", ""))
         self.email_entry.pack(fill="x", padx=20)
@@ -90,10 +101,11 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
 
         button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         button_frame.pack(pady=30)
-        ctk.CTkButton(button_frame, text="Enregistrer", command=self._save_profile, width=150).pack(side="left",
-                                                                                                    padx=10)
-        ctk.CTkButton(button_frame, text="Annuler", command=self.destroy, fg_color="gray").pack(side="left",
-                                                                                                padx=10)
+        self.save_button = ctk.CTkButton(button_frame, text="Enregistrer", command=self._save_profile, width=150)
+        self.save_button.pack(side="left", padx=10)
+        ctk.CTkButton(button_frame, text="Annuler", command=self.close_animated, fg_color="gray").pack(side="left",
+                                                                                                       padx=10)
+        self.fade_in()
 
     def _toggle_password_visibility(self):
         show_char = "" if self.show_password_var.get() else "*"
@@ -155,7 +167,6 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
         )
         if filepath:
             self.new_profile_pic_source_path = filepath
-            # On affiche un aperçu temporaire sans passer par le cache, en utilisant 'with'
             try:
                 with Image.open(filepath) as img_source:
                     img = ImageOps.fit(img_source, (self.pfp_size, self.pfp_size), Image.Resampling.LANCZOS)
@@ -167,7 +178,6 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
                     self.pfp_label.configure(image=pfp_image)
             except Exception as e:
                 self.app_controller.show_toast(f"Impossible de prévisualiser l'image: {e}", "error")
-
 
     def _remove_profile_picture(self):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir supprimer votre photo de profil ?",
@@ -195,40 +205,87 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
 
             self.run_task(task, on_complete, "Suppression de la photo...")
 
-    def _handle_picture_save(self) -> str | None:
+    def _handle_picture_save(self, progress_callback) -> str | None:
         if not self.new_profile_pic_source_path:
             return self.profile_pic_rel_path
 
         _, extension = os.path.splitext(self.new_profile_pic_source_path)
         new_filename = f"pfp_{self.current_user.lower().replace('.', '_')}{extension}"
-        destination_path = os.path.join(PROFILE_PICTURES_DIR, new_filename)
+        temp_dest_path = os.path.join(PROFILE_PICTURES_DIR, f"temp_{new_filename}")
 
         try:
             with Image.open(self.new_profile_pic_source_path) as img:
                 img.thumbnail(PFP_MAX_SIZE, Image.Resampling.LANCZOS)
                 rgb_img = img.convert('RGB')
-                rgb_img.save(destination_path, quality=90, optimize=True)
+                rgb_img.save(temp_dest_path, quality=90, optimize=True)
+
+            final_dest_path = os.path.join(PROFILE_PICTURES_DIR, new_filename)
+            copy_with_progress(temp_dest_path, final_dest_path, progress_callback)
+            os.remove(temp_dest_path)
             return new_filename
         except Exception as e:
+            if os.path.exists(temp_dest_path):
+                os.remove(temp_dest_path)
             self.app_controller.show_toast(f"Impossible d'enregistrer la photo de profil : {e}", "error")
             return self.profile_pic_rel_path
 
     def _save_profile(self):
+        self.save_button.configure(state="disabled")
+
+        if self.new_profile_pic_source_path:
+            self.pfp_progress_bar.pack()
+            progress_queue = queue.Queue()
+
+            def pfp_copy_task():
+                try:
+                    callback = lambda p: progress_queue.put(p)
+                    new_rel_path = self._handle_picture_save(callback)
+                    progress_queue.put(("done", new_rel_path))
+                except Exception as e:
+                    progress_queue.put(("error", str(e)))
+
+            threading.Thread(target=pfp_copy_task, daemon=True).start()
+            self._process_pfp_save(progress_queue)
+        else:
+            self._save_other_data(self.profile_pic_rel_path)
+
+    def _process_pfp_save(self, q):
+        try:
+            message = q.get_nowait()
+            if isinstance(message, float):
+                self.pfp_progress_bar.set(message)
+            elif isinstance(message, tuple):
+                status, value = message
+                if status == "done":
+                    self.pfp_progress_bar.pack_forget()
+                    self._save_other_data(value)  # value is the new_rel_path
+                else:  # error
+                    self.app_controller.show_toast(f"Erreur photo: {value}", "error")
+                    self.save_button.configure(state="normal")
+
+            if self.winfo_exists():
+                self.after(100, lambda: self._process_pfp_save(q))
+        except queue.Empty:
+            if self.winfo_exists():
+                self.after(100, lambda: self._process_pfp_save(q))
+
+    def _save_other_data(self, pfp_rel_path: str | None):
         new_email = self.email_entry.get().strip()
         old_password = self.old_password_entry.get()
         new_password = self.new_password_entry.get()
 
         if new_password and not old_password:
             self.app_controller.show_toast("Veuillez entrer votre ancien mot de passe pour le modifier.", "error")
+            self.save_button.configure(state="normal")
             return
 
+        updated_prefs = {
+            "theme_color": self.theme_menu.get(),
+            "default_filter": self.filter_menu.get(),
+            "profile_picture_path": pfp_rel_path
+        }
+
         def task():
-            new_pfp_rel_path = self._handle_picture_save()
-            updated_prefs = {
-                "theme_color": self.theme_menu.get(),
-                "default_filter": self.filter_menu.get(),
-                "profile_picture_path": new_pfp_rel_path
-            }
             return self.auth_controller.update_user_profile(
                 login=self.current_user,
                 new_email=new_email,
@@ -239,6 +296,7 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
             )
 
         def on_complete(result, error):
+            self.save_button.configure(state="normal")
             if error:
                 self.app_controller.show_toast(f"Erreur: {error}", 'error')
                 return
@@ -247,7 +305,7 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin):
                 if self.on_save_callback:
                     self.on_save_callback()
                 self.app_controller.show_toast("Profil enregistré avec succès.", 'success')
-                self.destroy()
+                self.close_animated()
             else:
                 self.app_controller.show_toast(message, 'error')
 

@@ -7,10 +7,11 @@ import uuid
 import re
 import logging
 from tkinter import filedialog
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Callable
 
 from models import remboursement_model
 from utils import pdf_utils
+from utils import file_utils
 from config.settings import (
     REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR, REMBOURSEMENTS_ATTACHMENTS_DIR,
     STATUT_CREEE, STATUT_TROP_PERCU_CONSTATE,
@@ -74,7 +75,7 @@ class RemboursementController:
             _log.warning(f"Impossible de supprimer la pièce jointe {chemin_fichier_reseau}.", exc_info=True)
 
     def copier_pj_vers_dossier_demande(self, chemin_local_source: str, dossier_parent_demande: str,
-                                       type_pj: str) -> str:
+                                       type_pj: str, progress_callback: Callable[[float], None] | None = None) -> str:
         subfolder, file_prefix = self._get_attachment_subfolder_and_prefix(type_pj)
         destination_subfolder = os.path.join(dossier_parent_demande, subfolder)
         os.makedirs(destination_subfolder, exist_ok=True)
@@ -95,15 +96,17 @@ class RemboursementController:
         new_filename = f"{file_prefix}_v{new_version}{extension}"
         destination_path = os.path.join(destination_subfolder, new_filename)
 
-        shutil.copy2(chemin_local_source, destination_path)
+        file_utils.copy_with_progress(chemin_local_source, destination_path, progress_callback)
         return destination_path
 
-    def ajouter_pj_a_demande_existante(self, id_demande: str, chemin_local_source: str, type_pj: str) -> str:
+    def ajouter_pj_a_demande_existante(self, id_demande: str, chemin_local_source: str, type_pj: str,
+                                       progress_callback: Callable[[float], None] | None = None) -> str:
         demande = self.get_demande(id_demande)
         if not demande: raise ValueError("Demande non trouvée.")
 
         dossier_demande_path = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
-        return self.copier_pj_vers_dossier_demande(chemin_local_source, dossier_demande_path, type_pj)
+        return self.copier_pj_vers_dossier_demande(chemin_local_source, dossier_demande_path, type_pj,
+                                                   progress_callback)
 
     def valider_donnees_demande(self, nom: str, prenom: str, reference_facture: str, montant_demande_str: str,
                                 description: str, dossier_temporaire: str) -> tuple[bool, str, float | None]:
@@ -164,6 +167,7 @@ class RemboursementController:
         statut_filter = None
         is_archived_query = None
         date_range_query = None
+        active_for_user_query = None
 
         if is_archive_mode:
             is_archived_query = True
@@ -180,28 +184,18 @@ class RemboursementController:
             elif filter_choice == "Terminées et annulées":
                 statut_filter = [STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE]
             elif filter_choice == "En attente de mon action":
-                statut_filter = [STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE,
-                                 STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO]
-
-        if filter_choice == "En attente de mon action" and not is_archive_mode:
-            all_potential_demands, _ = remboursement_model.obtenir_demandes_filtrees_triees(
-                statut_filter=statut_filter, search_term=search_term, sort_field=sort_field,
-                sort_order=sort_order, is_archived=is_archived_query, limit=None, offset=0
-            )
-            demandes_actives = [d for d in all_potential_demands if
-                                d.is_active_for(user_roles, self.utilisateur_actuel)]
-            total_count = len(demandes_actives)
-
-            start_index = offset
-            end_index = offset + limit if limit is not None else total_count
-            paginated_demands = demandes_actives[start_index:end_index]
-
-            return paginated_demands, total_count
+                active_for_user_query = (user_roles, self.utilisateur_actuel)
 
         return remboursement_model.obtenir_demandes_filtrees_triees(
-            statut_filter=statut_filter, search_term=search_term, sort_field=sort_field,
-            sort_order=sort_order, is_archived=is_archived_query, date_range=date_range_query,
-            limit=limit, offset=offset
+            statut_filter=statut_filter,
+            search_term=search_term,
+            sort_field=sort_field,
+            sort_order=sort_order,
+            is_archived=is_archived_query,
+            date_range=date_range_query,
+            limit=limit,
+            offset=offset,
+            active_for_user=active_for_user_query
         )
 
     def get_demande(self, demande_id: str):

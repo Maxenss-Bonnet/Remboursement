@@ -1,15 +1,19 @@
 import customtkinter as ctk
 import datetime
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class ArchiveDateRangeDialog(ctk.CTkToplevel):
+class ArchiveDateRangeDialog(ctk.CTkToplevel, AnimationMixin):
     def __init__(self, master):
         super().__init__(master)
+        AnimationMixin.__init__(self, master)
+
         self.transient(master)
         self.grab_set()
         self.title("Consulter les Archives")
         self.geometry("350x250")
         self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self._result = None
         self.master = master
@@ -38,6 +42,7 @@ class ArchiveDateRangeDialog(ctk.CTkToplevel):
         ctk.CTkButton(button_frame, text="Annuler", command=self._on_cancel, fg_color="gray").pack(side="left", padx=10)
 
         self.after(100, self.start_year_entry.focus)
+        self.fade_in()
 
     def _on_validate(self, event=None):
         try:
@@ -54,14 +59,14 @@ class ArchiveDateRangeDialog(ctk.CTkToplevel):
                 return
 
             self._result = (start_year, end_year)
-            self.destroy()
+            self.close_animated()
 
         except (ValueError, TypeError):
             self.master.app_controller.show_toast("Veuillez entrer des années en chiffres (ex: 2024).", "error")
 
     def _on_cancel(self):
         self._result = None
-        self.destroy()
+        self.close_animated()
 
     def get_range(self):
         self.master.wait_window(self)

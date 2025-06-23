@@ -1,17 +1,20 @@
 import customtkinter as ctk
 from tkinter import messagebox
 from views.mixins.task_runner_mixin import TaskRunnerMixin
+from views.mixins.animation_mixin import AnimationMixin
 
 
-class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin):
+class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
     def __init__(self, master, auth_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
+        AnimationMixin.__init__(self, master)
 
         self.transient(master)
         self.grab_set()
         self.title("Configuration Email Récupération")
         self.geometry("550x450")
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self.app_controller = master.app_controller
         self.auth_controller = auth_controller
@@ -47,8 +50,9 @@ class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin):
             padx=10)
         ctk.CTkButton(button_frame, text="Enregistrer", command=self._save_config).pack(side="left",
                                                                                         padx=10)
-        ctk.CTkButton(button_frame, text="Annuler", command=self.destroy, fg_color="gray").pack(side="left",
+        ctk.CTkButton(button_frame, text="Annuler", command=self.close_animated, fg_color="gray").pack(side="left",
                                                                                                 padx=10)
+        self.fade_in()
 
     def _get_current_values(self):
         return {key: entry.get() for key, entry in self.entries.items()}
@@ -93,7 +97,7 @@ class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin):
             success, message = result
             if success:
                 self.app_controller.show_toast("Configuration enregistrée. Redémarrage requis.", 'info')
-                self.destroy()
+                self.close_animated()
             else:
                 self.app_controller.show_toast(f"Impossible d'enregistrer la configuration : {message}", 'error')
 

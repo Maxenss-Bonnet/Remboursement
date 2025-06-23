@@ -1,34 +1,32 @@
-# views/help_view.py
 import customtkinter as ctk
 from config.settings import ROLES_UTILISATEURS, ASSIGNABLE_ROLES
-from models import user_model  # Pour récupérer les utilisateurs par rôle
+from models import user_model
+from views.mixins.animation_mixin import AnimationMixin
 
-# Récupérer les couleurs définies dans MainView ou settings.py si elles y sont
-# Pour cet exemple, je vais les redéfinir ici pour la démo de la légende.
-# Idéalement, elles seraient importées d'un endroit commun.
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
 COULEUR_DEMANDE_TERMINEE = "#2E4374"
 COULEUR_DEMANDE_ANNULEE = "#6A040F"
 
 
-class HelpView(ctk.CTkToplevel):
+class HelpView(ctk.CTkToplevel, AnimationMixin):
     def __init__(self, master, current_user_name: str, user_roles: list):
         super().__init__(master)
+        AnimationMixin.__init__(self, master)
+
         self.current_user_name = current_user_name
         self.user_roles = user_roles
 
         self.title("Aide - Gestion des Remboursements")
-        self.geometry("750x650")  # Taille ajustable
+        self.geometry("750x650")
         self.transient(master)
         self.grab_set()
         self.resizable(True, True)
         self.minsize(500, 400)
+        self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
-        # Frame principal scrollable
         scrollable_frame = ctk.CTkScrollableFrame(self)
         scrollable_frame.pack(expand=True, fill="both", padx=15, pady=15)
 
-        # --- Section Introduction ---
         intro_label = ctk.CTkLabel(scrollable_frame,
                                    text="Bienvenue dans l'Application de Gestion des Remboursements !",
                                    font=ctk.CTkFont(size=18, weight="bold"))
@@ -39,10 +37,8 @@ class HelpView(ctk.CTkToplevel):
             "clients. Chaque utilisateur a des actions spécifiques en fonction de son rôle.")
         ctk.CTkLabel(scrollable_frame, text=intro_text, wraplength=680, justify="left").pack(anchor="w", pady=(0, 15))
 
-        # --- Section Légende des Couleurs ---
         self._creer_legende(scrollable_frame)
 
-        # --- Section Aide par Rôle ---
         ctk.CTkLabel(scrollable_frame, text="Fonctionnalités selon votre/vos rôle(s) :",
                      font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 5), anchor="w")
 
@@ -54,27 +50,22 @@ class HelpView(ctk.CTkToplevel):
                 ctk.CTkLabel(scrollable_frame, text=f"En tant que {role.replace('_', ' ').title()} :",
                              font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(10, 2), anchor="w")
 
-                # Utiliser un Textbox pour un meilleur formatage des descriptions multilignes
                 desc_box = ctk.CTkTextbox(scrollable_frame, wrap="word", activate_scrollbars=False, border_width=0,
                                           fg_color="transparent")
                 desc_box.insert("1.0", role_data.get("description", "Aucune description disponible."))
 
-                # Ajuster la hauteur du Textbox en fonction du contenu
-                desc_box.configure(state="disabled")  # Pour le rendre non-éditable et calculer la hauteur
-                # Le calcul de la hauteur est complexe ; pour l'instant, on donne une hauteur fixe ou on se base sur le nombre de lignes.
-                # Ou on laisse le scrollable frame principal gérer si le texte est très long.
-                num_lines = role_data.get("description", "").count('\n') + 5  # Estimation grossière
-                desc_box.configure(height=num_lines * 18)  # Ajuster le multiplicateur au besoin
+                desc_box.configure(state="disabled")
+                num_lines = role_data.get("description", "").count('\n') + 5
+                desc_box.configure(height=num_lines * 18)
                 desc_box.pack(fill="x", padx=(10, 0), pady=(0, 10), anchor="w")
                 displayed_roles_help.add(role)
 
-        if "admin" not in self.user_roles and not displayed_roles_help:  # Si aucun rôle spécifique n'a d'aide
+        if "admin" not in self.user_roles and not displayed_roles_help:
             ctk.CTkLabel(scrollable_frame,
                          text="Aucune fonctionnalité spécifique à votre rôle principal n'est détaillée ici, "
                               "vous avez probablement un accès général ou de visualisation.",
                          wraplength=680, justify="left").pack(anchor="w", pady=(0, 15))
 
-        # --- Section Spécifique Admin ---
         if "admin" in self.user_roles:
             ctk.CTkLabel(scrollable_frame, text="Consignes Spéciales pour l'Administrateur :",
                          font=ctk.CTkFont(size=16, weight="bold", underline=True)).pack(pady=(20, 5), anchor="w")
@@ -112,8 +103,9 @@ class HelpView(ctk.CTkToplevel):
             admin_desc_box.configure(height=num_lines_admin * 18, state="disabled")
             admin_desc_box.pack(fill="x", padx=(10, 0), pady=(0, 10), anchor="w")
 
-        close_button = ctk.CTkButton(self, text="Fermer", command=self.destroy, width=100)
+        close_button = ctk.CTkButton(self, text="Fermer", command=self.close_animated, width=100)
         close_button.pack(pady=10, side="bottom")
+        self.fade_in()
 
     def _creer_legende(self, parent_frame):
         legende_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")

@@ -8,7 +8,11 @@ import time
 import logging
 from typing import List, Tuple, Optional, Dict
 
-from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR
+from config.settings import (
+    REMBOURSEMENTS_ATTACHMENTS_DIR, REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
+    STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
+    STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO
+)
 from models.schemas import Remboursement, HistoriqueStatut
 from utils.database_manager import get_db_connection, execute_in_queue, handle_db_locks
 from utils.archive_utils import create_archive_for_demande
@@ -43,7 +47,8 @@ def charger_demandes_data(
         is_archived: Optional[bool] = None,
         date_range: Optional[Tuple[datetime.datetime, datetime.datetime]] = None,
         limit: Optional[int] = None,
-        offset: int = 0
+        offset: int = 0,
+        active_for_user: Optional[Tuple[list, str]] = None
 ) -> Tuple[List[Remboursement], int]:
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -60,7 +65,44 @@ def charger_demandes_data(
         term = f"%{search_term}%"
         params.extend([term, term, term])
 
-    if statut_filter:
+    if active_for_user:
+        user_roles, user_login = active_for_user
+        action_conditions = []
+
+        # Condition pour le comptable trésorerie
+        if 'comptable_tresorerie' in user_roles:
+            action_conditions.append("r.statut IN (?, ?)")
+            params.extend([STATUT_CREEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO])
+
+        # Condition pour le demandeur
+        if 'demandeur' in user_roles:
+            action_conditions.append("(r.statut = ? AND r.cree_par = ?)")
+            params.extend([STATUT_REFUSEE_CONSTAT_TP, user_login])
+
+        # Condition pour le validateur chef
+        if 'validateur_chef' in user_roles:
+            action_conditions.append("r.statut = ?")
+            params.append(STATUT_TROP_PERCU_CONSTATE)
+
+        # Condition pour le comptable fournisseur
+        if 'comptable_fournisseur' in user_roles:
+            action_conditions.append("r.statut = ?")
+            params.append(STATUT_VALIDEE)
+
+        # L'admin voit toutes les actions actives
+        if 'admin' in user_roles:
+            admin_statuses = [
+                STATUT_CREEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
+                STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE, STATUT_VALIDEE
+            ]
+            placeholders = ', '.join(['?'] * len(admin_statuses))
+            action_conditions.append(f"r.statut IN ({placeholders})")
+            params.extend(admin_statuses)
+
+        if action_conditions:
+            where_clauses.append(f"({' OR '.join(action_conditions)})")
+
+    elif statut_filter:
         placeholders = ', '.join('?' for _ in statut_filter)
         where_clauses.append(f"r.statut IN ({placeholders})")
         params.extend(statut_filter)
