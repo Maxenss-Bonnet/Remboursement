@@ -131,8 +131,8 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
 
         historique = self.demande_data.get('historique_statuts', [])
         if not historique:
-            ctk.CTkLabel(scroll_frame, text="Aucun historique.", font=ctk.CTkFont(size=13), text_color="gray60").pack(
-                pady=10)
+            ctk.CTkLabel(scroll_frame, text="Aucun historique.", font=ctk.CTkFont(size=13),
+                         text_color="gray60").pack(pady=10)
         else:
             pfp_cache = self.app_controller.preloaded_pfp_cache or {}
             default_pfp = pfp_cache.get('default')
@@ -285,7 +285,7 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
     def _resolve_color(self, color_val):
         try:
             if isinstance(color_val, (list, tuple)): return color_val[1] if ctk.get_appearance_mode() == "Dark" else \
-            color_val[0]
+                color_val[0]
             if isinstance(color_val, str) and " " in color_val: return color_val.split(" ")[
                 1] if ctk.get_appearance_mode() == "Dark" else color_val.split(" ")[0]
             return color_val
@@ -301,41 +301,50 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         except (ValueError, TypeError, TclError):
             return self._resolve_color(c2)
 
-    def animate_in(self, duration_ms: int = 300):
-        start_color = self.master.cget("fg_color")
-        end_color = self.cget("fg_color")
-        if end_color == "transparent": end_color = self._resolve_color(ctk.ThemeManager.theme["CTkFrame"]["fg_color"])
-        steps = max(1, int(duration_ms / 15))
+    def animate_in(self, duration_ms: int = 250):
+        start_color = self._resolve_color(self.master.cget("fg_color"))
+        end_color = self._resolve_color(self.cget("fg_color"))
+
+        steps = max(1, int(duration_ms / 15))  # Viser ~66 FPS
         self.configure(fg_color=start_color)
 
-        def step(s):
+        def animation_step(current_step: int):
             if not self.winfo_exists(): return
-            self.configure(fg_color=self._interpolate_color(start_color, end_color, s / steps))
-            if s < steps: self.after(15, lambda: step(s + 1))
 
-        step(0)
+            factor = current_step / steps
+            new_color = self._interpolate_color(start_color, end_color, factor)
+            self.configure(fg_color=new_color)
+
+            if current_step < steps:
+                self.after(15, lambda: animation_step(current_step + 1))
+
+        animation_step(0)
 
     def animate_out_and_destroy(self, duration_ms: int = 250):
-        start_color = self.cget("fg_color")
-        if start_color == "transparent": start_color = self._resolve_color(
-            ctk.ThemeManager.theme["CTkFrame"]["fg_color"])
-        end_color = self.master.cget("fg_color")
-        if self.id_demande in self.main_view.helper.remboursement_widgets: self.main_view.helper.remboursement_widgets.pop(
-            self.id_demande)
-        steps = max(1, int(duration_ms / 20))
+        start_color = self._resolve_color(self.cget("fg_color"))
+        end_color = self._resolve_color(self.master.cget("fg_color"))
+        start_border_color = self._resolve_color(self.cget("border_color"))
 
-        def step(s):
+        if self.id_demande in self.main_view.helper.remboursement_widgets:
+            self.main_view.helper.remboursement_widgets.pop(self.id_demande, None)
+
+        steps = max(1, int(duration_ms / 15))
+
+        def animation_step(current_step: int):
             if not self.winfo_exists(): return
-            factor = s / steps
-            self.configure(fg_color=self._interpolate_color(start_color, end_color, factor),
-                           border_color=self._interpolate_color(self.cget("border_color"), end_color, factor),
-                           height=self.winfo_height() * (1 - factor))
-            if s < steps:
-                self.after(20, lambda: step(s + 1))
+
+            factor = current_step / steps
+            new_color = self._interpolate_color(start_color, end_color, factor)
+            new_border_color = self._interpolate_color(start_border_color, end_color, factor)
+
+            self.configure(fg_color=new_color, border_color=new_border_color)
+
+            if current_step < steps:
+                self.after(15, lambda: animation_step(current_step + 1))
             else:
                 self.destroy()
 
-        step(0)
+        animation_step(0)
 
     def flash_update(self, new_data):
         self.configure(border_color=COULEUR_BORDURE_FLASH, border_width=3)
