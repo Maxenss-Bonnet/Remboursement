@@ -21,7 +21,6 @@ class MainViewHelper:
         self.app_controller = main_view.app_controller
         self.remboursement_controller = main_view.remboursement_controller
 
-        # Attributs gérés par le helper
         self.demandes_en_cache = {}
         self.remboursement_widgets = {}
         self.no_demandes_label = None
@@ -29,20 +28,49 @@ class MainViewHelper:
         self.current_page = 1
         self.total_items = 0
         self.total_pages = 1
+        self.local_loading_frame = None
+
+    def _show_local_loading(self, is_loading: bool):
+        if is_loading:
+            for widget in self.remboursement_widgets.values():
+                if widget and widget.winfo_exists():
+                    widget.destroy()
+            self.remboursement_widgets.clear()
+            if self.no_demandes_label and self.no_demandes_label.winfo_exists():
+                self.no_demandes_label.destroy()
+
+            if not self.local_loading_frame or not self.local_loading_frame.winfo_exists():
+                self.local_loading_frame = ctk.CTkFrame(self.view.scrollable_frame_demandes, fg_color="transparent")
+                self.local_loading_frame.grid(row=0, column=0, sticky="ew", pady=50)
+                ctk.CTkLabel(self.local_loading_frame, text="Chargement des demandes...", font=ctk.CTkFont(size=14)).pack(pady=5)
+                progress_bar = ctk.CTkProgressBar(self.local_loading_frame, mode='indeterminate')
+                progress_bar.pack(pady=10, padx=50, fill="x")
+                progress_bar.start()
+        else:
+            if self.local_loading_frame and self.local_loading_frame.winfo_exists():
+                for widget in self.local_loading_frame.winfo_children():
+                    if isinstance(widget, ctk.CTkProgressBar):
+                        widget.stop()
+                    widget.destroy()
+                self.local_loading_frame.destroy()
+                self.local_loading_frame = None
 
     def afficher_liste_demandes(self, is_initial_load=False, force_refresh=False):
         if self._is_refreshing:
             return
 
+        self._is_refreshing = True
+        self.view.bouton_rafraichir.configure(state="disabled")
+
         if is_initial_load:
             cache_key = f"{self.view.nom_utilisateur}_{self.view.current_filter}_default"
             cached_data = self.app_controller.cache_manager.get_demand_query_cache(cache_key)
-            if cached_data:
+            if cached_data and not force_refresh:
                 _log.info("Affichage de la liste initiale à partir du cache.")
-                self._render_demandes_list(cached_data)
+                self._on_demandes_loaded(cached_data)
+                return
 
-        self._is_refreshing = True
-        self.view.bouton_rafraichir.configure(state="disabled")
+        self._show_local_loading(True)
 
         offset = (self.current_page - 1) * self.view.items_per_page
 
@@ -58,10 +86,10 @@ class MainViewHelper:
                 offset=offset
             )
 
-        self.view.run_task(task_function=task, on_complete=self._render_demandes_list, loading_message="",
-                           show_overlay=False)
+        self.view.run_task(task_function=task, on_complete=self._on_demandes_loaded, loading_message="", show_overlay=False)
 
-    def _render_demandes_list(self, result, error=None):
+    def _on_demandes_loaded(self, result, error=None):
+        self._show_local_loading(False)
         try:
             if error:
                 error_str = str(error).lower()
@@ -79,7 +107,7 @@ class MainViewHelper:
             if self.total_pages == 0: self.total_pages = 1
             if self.current_page > self.total_pages: self.current_page = self.total_pages
 
-            if self.no_demandes_label:
+            if self.no_demandes_label and self.no_demandes_label.winfo_exists():
                 self.no_demandes_label.destroy()
                 self.no_demandes_label = None
 
