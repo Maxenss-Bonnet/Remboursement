@@ -9,7 +9,7 @@ _log = logging.getLogger(__name__)
 POLLING_INTERVAL_MS_ACTIVE = 5000
 POLLING_INTERVAL_MS_IDLE = 30000
 IDLE_THRESHOLD_SECONDS = 120
-FLAG_MAX_AGE_SECONDS = 20  # Le drapeau sera nettoyé après 20 secondes
+FLAG_MAX_AGE_SECONDS = 20
 
 
 class PollingMixin:
@@ -37,8 +37,6 @@ class PollingMixin:
         try:
             refresh_triggered = False
 
-            # --- NOUVELLE LOGIQUE HYBRIDE : SIGNAL TEMPORISÉ ---
-            # 1. Vérification prioritaire du signal de rafraîchissement
             if os.path.exists(DB_REFRESH_FLAG_FILE):
                 try:
                     with open(DB_REFRESH_FLAG_FILE, 'r') as f:
@@ -46,17 +44,15 @@ class PollingMixin:
 
                     flag_timestamp = float(flag_timestamp_str)
 
-                    # A. Ce signal est-il nouveau pour moi ?
                     if flag_timestamp > self._last_known_db_mtime:
                         _log.info(
                             f"Signal de rafraîchissement (.flag) détecté à {flag_timestamp}. Lancement du rafraîchissement.")
                         if hasattr(self, 'afficher_liste_demandes'):
-                            self.afficher_liste_demandes(force_refresh=True)
+                            self.afficher_liste_demandes(force_refresh=True, show_loader=False)
 
                         self._last_known_db_mtime = flag_timestamp
                         refresh_triggered = True
 
-                    # B. Nettoyage collaboratif du drapeau s'il est trop vieux
                     if time.time() - flag_timestamp > FLAG_MAX_AGE_SECONDS:
                         _log.info(
                             f"Nettoyage du signal de rafraîchissement (.flag) obsolète (âge: {time.time() - flag_timestamp:.2f}s).")
@@ -69,7 +65,6 @@ class PollingMixin:
                     except OSError:
                         pass
 
-            # 2. Si non rafraîchi par le drapeau, on utilise la méthode de secours par mtime
             if not refresh_triggered:
                 current_mtime = os.path.getmtime(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else 0
                 if self._last_known_db_mtime == 0:
@@ -78,9 +73,8 @@ class PollingMixin:
                     _log.info("Changement détecté sur le fichier de BDD (mtime). Rafraîchissement de la liste.")
                     self._last_known_db_mtime = current_mtime
                     if hasattr(self, 'afficher_liste_demandes'):
-                        self.afficher_liste_demandes(force_refresh=True)
+                        self.afficher_liste_demandes(force_refresh=True, show_loader=False)
 
-            # Adapter l'intervalle de polling en fonction de l'inactivité
             idle_time = time.time() - self.last_user_interaction_time
             next_poll_interval = POLLING_INTERVAL_MS_IDLE if idle_time > IDLE_THRESHOLD_SECONDS else POLLING_INTERVAL_MS_ACTIVE
 

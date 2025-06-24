@@ -42,7 +42,8 @@ class MainViewHelper:
             if not self.local_loading_frame or not self.local_loading_frame.winfo_exists():
                 self.local_loading_frame = ctk.CTkFrame(self.view.scrollable_frame_demandes, fg_color="transparent")
                 self.local_loading_frame.grid(row=0, column=0, sticky="ew", pady=50)
-                ctk.CTkLabel(self.local_loading_frame, text="Chargement des demandes...", font=ctk.CTkFont(size=14)).pack(pady=5)
+                ctk.CTkLabel(self.local_loading_frame, text="Chargement des demandes...",
+                             font=ctk.CTkFont(size=14)).pack(pady=5)
                 progress_bar = ctk.CTkProgressBar(self.local_loading_frame, mode='indeterminate')
                 progress_bar.pack(pady=10, padx=50, fill="x")
                 progress_bar.start()
@@ -55,7 +56,7 @@ class MainViewHelper:
                 self.local_loading_frame.destroy()
                 self.local_loading_frame = None
 
-    def afficher_liste_demandes(self, is_initial_load=False, force_refresh=False):
+    def afficher_liste_demandes(self, is_initial_load=False, force_refresh=False, show_loader=True):
         if self._is_refreshing:
             return
 
@@ -70,7 +71,8 @@ class MainViewHelper:
                 self._on_demandes_loaded(cached_data)
                 return
 
-        self._show_local_loading(True)
+        if show_loader:
+            self._show_local_loading(True)
 
         offset = (self.current_page - 1) * self.view.items_per_page
 
@@ -86,10 +88,13 @@ class MainViewHelper:
                 offset=offset
             )
 
-        self.view.run_task(task_function=task, on_complete=self._on_demandes_loaded, loading_message="", show_overlay=False)
+        self.view.run_task(task_function=task, on_complete=self._on_demandes_loaded, loading_message="",
+                           show_overlay=False)
 
     def _on_demandes_loaded(self, result, error=None):
-        self._show_local_loading(False)
+        if self.local_loading_frame:
+            self._show_local_loading(False)
+
         try:
             if error:
                 error_str = str(error).lower()
@@ -103,7 +108,8 @@ class MainViewHelper:
                 return
 
             demandes_a_afficher, self.total_items = result
-            self.total_pages = math.ceil(self.total_items / self.view.items_per_page) if self.view.items_per_page > 0 else 1
+            self.total_pages = math.ceil(
+                self.total_items / self.view.items_per_page) if self.view.items_per_page > 0 else 1
             if self.total_pages == 0: self.total_pages = 1
             if self.current_page > self.total_pages: self.current_page = self.total_pages
 
@@ -130,7 +136,7 @@ class MainViewHelper:
                     demande_data=new_data_map[demande_id], current_user_name=self.view.nom_utilisateur,
                     user_roles=self.view.user_roles, app_controller=self.app_controller,
                     remboursement_controller=self.remboursement_controller,
-                    refresh_list_callback=lambda: self.afficher_liste_demandes(force_refresh=True)
+                    refresh_list_callback=lambda: self.afficher_liste_demandes(force_refresh=True, show_loader=False)
                 )
                 self.remboursement_widgets[demande_id] = new_widget
                 widgets_to_animate_in.append(new_widget)
@@ -145,7 +151,7 @@ class MainViewHelper:
                     elif new_data != old_data:
                         widget.update_content(new_data)
 
-            if not demandes_a_afficher:
+            if not demandes_a_afficher and not self.local_loading_frame:
                 self.no_demandes_label = ctk.CTkLabel(self.view.scrollable_frame_demandes,
                                                       text="Aucune demande à afficher pour les critères sélectionnés.",
                                                       font=ctk.CTkFont(size=14, slant="italic"))
@@ -164,7 +170,8 @@ class MainViewHelper:
 
         finally:
             self._is_refreshing = False
-            self.view.bouton_rafraichir.configure(state="normal")
+            if self.view.bouton_rafraichir.winfo_exists():
+                self.view.bouton_rafraichir.configure(state="normal")
 
     def _update_pagination_controls(self):
         for widget in self.view.pagination_frame.winfo_children():
@@ -186,7 +193,8 @@ class MainViewHelper:
         btn_first.pack(side="left", padx=2)
         if self.current_page <= 1: btn_first.configure(state="disabled")
 
-        btn_prev = ctk.CTkButton(buttons_frame, text="<", width=40, command=lambda: self._go_to_page(self.current_page - 1))
+        btn_prev = ctk.CTkButton(buttons_frame, text="<", width=40,
+                                 command=lambda: self._go_to_page(self.current_page - 1))
         btn_prev.pack(side="left", padx=2)
         if self.current_page <= 1: btn_prev.configure(state="disabled")
 
@@ -197,13 +205,15 @@ class MainViewHelper:
 
         if start_page > 1: ctk.CTkLabel(buttons_frame, text="...").pack(side="left", padx=2)
         for page_num in range(start_page, end_page + 1):
-            btn_page = ctk.CTkButton(buttons_frame, text=str(page_num), width=30, command=lambda p=page_num: self._go_to_page(p))
+            btn_page = ctk.CTkButton(buttons_frame, text=str(page_num), width=30,
+                                     command=lambda p=page_num: self._go_to_page(p))
             if page_num == self.current_page:
                 btn_page.configure(fg_color="white", text_color="black", state="disabled")
             btn_page.pack(side="left", padx=2)
         if end_page < self.total_pages: ctk.CTkLabel(buttons_frame, text="...").pack(side="left", padx=2)
 
-        btn_next = ctk.CTkButton(buttons_frame, text=">", width=40, command=lambda: self._go_to_page(self.current_page + 1))
+        btn_next = ctk.CTkButton(buttons_frame, text=">", width=40,
+                                 command=lambda: self._go_to_page(self.current_page + 1))
         btn_next.pack(side="left", padx=2)
         if self.current_page >= self.total_pages: btn_next.configure(state="disabled")
 
@@ -214,7 +224,7 @@ class MainViewHelper:
     def _go_to_page(self, page_number):
         if 1 <= page_number <= self.total_pages:
             self.current_page = page_number
-            self.afficher_liste_demandes(force_refresh=True)
+            self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def _update_notification_badge(self):
         count = sum(1 for d in self.demandes_en_cache.values() if self.view._is_active_for_user(d))
@@ -227,21 +237,21 @@ class MainViewHelper:
     def set_sort(self, sort_choice):
         self.view.current_sort = sort_choice
         self.current_page = 1
-        self.afficher_liste_demandes(force_refresh=True)
+        self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def set_filter(self, filter_choice):
         self.view.current_filter = filter_choice
         self.current_page = 1
-        self.afficher_liste_demandes(force_refresh=True)
+        self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def trigger_search_from_event(self, event=None):
         self.current_page = 1
-        self.afficher_liste_demandes(force_refresh=True)
+        self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def clear_search(self):
         self.view.search_var.set("")
         self.current_page = 1
-        self.afficher_liste_demandes(force_refresh=True)
+        self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def open_archive_dialog(self):
         dialog = ArchiveDateRangeDialog(self.view)
@@ -252,14 +262,14 @@ class MainViewHelper:
             self.current_page = 1
             self.view.search_var.set("")
             self.view._update_ui_for_archive_mode()
-            self.afficher_liste_demandes(force_refresh=True)
+            self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def quit_archive_mode(self):
         self.view.is_archive_mode = False
         self.view.archive_date_range = None
         self.current_page = 1
         self.view._update_ui_for_archive_mode()
-        self.afficher_liste_demandes(force_refresh=True)
+        self.afficher_liste_demandes(force_refresh=True, show_loader=True)
 
     def open_help_view(self):
         HelpView(self.view, self.view.nom_utilisateur, self.view.user_roles)
@@ -268,7 +278,8 @@ class MainViewHelper:
         AdminUserManagementView(self.view, self.app_controller)
 
     def open_profile_view(self):
-        dialog = ProfileView(self.view, self.view.user_controller, self.app_controller, self.view.user_data.model_dump(),
+        dialog = ProfileView(self.view, self.view.user_controller, self.app_controller,
+                             self.view.user_data.model_dump(),
                              on_save_callback=self.view._on_profile_saved)
         self.view.wait_window(dialog)
 
@@ -277,7 +288,7 @@ class MainViewHelper:
         dialog = CreationDemandeDialog(self.view, self.remboursement_controller, self.app_controller)
         self.view.wait_window(dialog)
         if hasattr(dialog, 'submitted') and dialog.submitted:
-            self.afficher_liste_demandes(force_refresh=True)
+            self.afficher_liste_demandes(force_refresh=True, show_loader=False)
 
     def action_voir_pj(self, demande_id, rel_path):
         cached_path = self.app_controller.cache_manager.get_cached_path(rel_path)
@@ -285,25 +296,36 @@ class MainViewHelper:
             DocumentViewerWindow(self.view, cached_path, f"Aperçu (Cache) - {os.path.basename(rel_path)}",
                                  temp_dir_to_clean=None)
             return
-        def task(): return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
+
+        def task():
+            return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
+
         def on_complete(result, error):
             if error: self.app_controller.show_toast(f"Erreur à l'ouverture : {error}", "error"); return
             chemin_pj, temp_dir = result
             if chemin_pj and os.path.exists(chemin_pj):
                 self.app_controller.cache_manager.add_to_cache(chemin_pj, rel_path)
-                DocumentViewerWindow(self.view, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}", temp_dir_to_clean=temp_dir)
-            else: self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error")
+                DocumentViewerWindow(self.view, chemin_pj, f"Aperçu - {os.path.basename(rel_path)}",
+                                     temp_dir_to_clean=temp_dir)
+            else:
+                self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error")
+
         self.view.run_task(task, on_complete, "Préparation du document...")
 
     def action_telecharger_pj(self, demande_id, rel_path):
-        def task(): return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
+        def task():
+            return self.remboursement_controller.get_viewable_attachment_path(demande_id, rel_path)
+
         def on_complete(result, error):
             if error: self.app_controller.show_toast(f"Erreur : {error}", "error"); return
             chemin_pj, temp_dir = result
             if not chemin_pj: self.app_controller.show_toast(f"Fichier non trouvé : {rel_path}", "error"); return
             succes, message = self.remboursement_controller.telecharger_copie_piece_jointe(chemin_pj, temp_dir)
-            if succes: self.app_controller.show_toast(message, 'success')
-            elif "annulé" not in message.lower(): self.app_controller.show_toast(message, 'error')
+            if succes:
+                self.app_controller.show_toast(message, 'success')
+            elif "annulé" not in message.lower():
+                self.app_controller.show_toast(message, 'error')
+
         self.view.run_task(task, on_complete, "Téléchargement...")
 
     def action_voir_historique_docs(self, demande_data):
@@ -312,28 +334,38 @@ class MainViewHelper:
                               app_controller=self.app_controller)
 
     def action_admin_purge_archives(self):
-        age_str = simpledialog.askstring("Purger les Archives", "Entrez l'âge minimum (en années) des archives à supprimer.", parent=self.view)
+        age_str = simpledialog.askstring("Purger les Archives",
+                                         "Entrez l'âge minimum (en années) des archives à supprimer.", parent=self.view)
         if not age_str: return
         try:
             age = int(age_str)
-            if messagebox.askyesno("Confirmation", f"Purger les archives de plus de {age} an(s) ?\nAction IRRÉVERSIBLE.", icon='warning', parent=self.view):
-                def task(): return self.remboursement_controller.admin_purge_archives(age)
+            if messagebox.askyesno("Confirmation",
+                                   f"Purger les archives de plus de {age} an(s) ?\nAction IRRÉVERSIBLE.",
+                                   icon='warning', parent=self.view):
+                def task():
+                    return self.remboursement_controller.admin_purge_archives(age)
+
                 def on_complete(result, error):
                     if error: self.app_controller.show_toast(f"Erreur: {error}", "error"); return
                     nb, errs = result
                     msg = f"{nb} demande(s) purgées." + (f"\nErreurs: {', '.join(errs)}" if errs else "")
                     self.app_controller.show_toast(msg, 'info')
-                    self.afficher_liste_demandes(force_refresh=True)
+                    self.afficher_liste_demandes(force_refresh=True, show_loader=True)
+
                 self.view.run_task(task, on_complete, "Purge des archives...")
-        except (ValueError, TypeError): self.app_controller.show_toast("Veuillez entrer un nombre valide.", "error")
+        except (ValueError, TypeError):
+            self.app_controller.show_toast("Veuillez entrer un nombre valide.", "error")
 
     def action_admin_optimiser_bdd(self):
         msg = ("Optimiser la base de données (VACUUM) ?\n\nCette opération est bloquante et peut prendre du temps. "
                "Assurez-vous qu'aucun autre utilisateur n'est actif.")
         if messagebox.askyesno("Confirmation", msg, icon='warning', parent=self.view):
-            def task(): return self.view.maintenance_controller.optimiser_base_de_donnees_data()
+            def task():
+                return self.view.maintenance_controller.optimiser_base_de_donnees_data()
+
             def on_complete(result, error):
                 if error: self.app_controller.show_toast(f"Erreur: {error}", "error"); return
                 succes, message = result
                 self.app_controller.show_toast(message, 'success' if succes else 'error')
+
             self.view.run_task(task, on_complete, "Optimisation de la BDD...")

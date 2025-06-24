@@ -22,6 +22,7 @@ class RemboursementItemActions:
     def _perform_optimistic_workflow_action(self, action_func, new_status: str, new_comment: str,
                                             success_message: str):
         original_data = copy.deepcopy(self.view.demande_data)
+
         self.view.demande_data['statut'] = new_status
         self.view.demande_data['derniere_modification_par'] = self.view.current_user_name
         now_iso = datetime.datetime.now().isoformat()
@@ -32,11 +33,9 @@ class RemboursementItemActions:
             self.view.demande_data['historique_statuts'] = []
         self.view.demande_data['historique_statuts'].append(new_hist_entry)
 
-        self.view._build_ui_content()
-        self.view._show_local_loading(True)
+        self.view.update_content(self.view.demande_data)
 
         def on_complete(result, error):
-            self.view._show_local_loading(False)
             if error or not (result and result[0]):
                 self.app_controller.show_toast(f"Erreur: {error or (result and result[1])}", "error")
                 self.view.update_content(original_data)
@@ -120,9 +119,9 @@ class RemboursementItemActions:
             def on_complete(result, error):
                 if error:
                     self.app_controller.show_toast(f"Erreur de suppression: {error}", "error")
-                    self.view.refresh_list_callback()
                 else:
                     self.app_controller.show_toast("Demande supprimée.", "success")
+                self.view.refresh_list_callback()
 
             self.view.main_view.run_task(lambda: self.remboursement_controller.supprimer_demande(self.view.id_demande),
                                          on_complete, show_overlay=False)
@@ -137,40 +136,54 @@ class RemboursementItemActions:
 
     def get_workflow_buttons(self):
         buttons = []
-        statut_actuel = self.view.demande_data.get("statut")
+        statut = self.view.demande_data.get("statut")
+        user_is_admin = self.view.est_admin()
         btn_base = {"fg_color": None, "hover_color": None}
 
-        if self.view.est_comptable_tresorerie() and statut_actuel == STATUT_CREEE:
-            buttons.append(
-                {**btn_base, "text": "Accepter (Constat TP)", "command": self.accepter_constat_tp, "fg_color": "green",
-                 "hover_color": "darkgreen"})
-            buttons.append(
-                {**btn_base, "text": "Refuser (Constat TP)", "command": self.refuser_constat_tp, "fg_color": "orange",
-                 "hover_color": "darkorange"})
+        # --- Logique par rôle ---
 
-        if (self.view.est_validateur_chef() or self.view.est_admin()) and statut_actuel == STATUT_TROP_PERCU_CONSTATE:
-            buttons.append({**btn_base, "text": "Valider Demande", "command": self.valider_demande, "fg_color": "blue",
-                            "hover_color": "darkblue"})
-            buttons.append(
-                {**btn_base, "text": "Refuser Demande", "command": self.refuser_demande, "fg_color": "orange",
-                 "hover_color": "darkorange"})
+        # Actions pour le COMPTABLE TRESORERIE
+        if self.view.est_comptable_tresorerie() or user_is_admin:
+            if statut == STATUT_CREEE:
+                buttons.append({**btn_base, "text": "Accepter (Constat TP)", "command": self.accepter_constat_tp,
+                                "fg_color": "green", "hover_color": "darkgreen"})
+                buttons.append({**btn_base, "text": "Refuser (Constat TP)", "command": self.refuser_constat_tp,
+                                "fg_color": "orange", "hover_color": "darkorange"})
+            elif statut == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
+                buttons.append({**btn_base, "text": "Corriger Constat TP", "command": self.resoumettre_constat,
+                                "fg_color": "teal"})
 
-        if (self.view.est_comptable_fournisseur() or self.view.est_admin()) and statut_actuel == STATUT_VALIDEE:
-            buttons.append(
-                {**btn_base, "text": "Confirmer Paiement", "command": self.confirmer_paiement, "fg_color": "#006400",
-                 "hover_color": "#004d00"})
-
-        # --- CORRECTION DE LA LOGIQUE ICI ---
-        if (self.view.est_demandeur() or self.view.est_admin()) and statut_actuel == STATUT_REFUSEE_CONSTAT_TP:
+        # Actions pour le CREATEUR de la demande
+        is_creator = self.view.current_user_name == self.view.demande_data.get("cree_par")
+        if (is_creator or user_is_admin) and statut == STATUT_REFUSEE_CONSTAT_TP:
             buttons.append(
                 {**btn_base, "text": "Corriger Demande", "command": self.resoumettre_demande, "fg_color": "teal"})
             buttons.append(
                 {**btn_base, "text": "Annuler Demande", "command": self.annuler_demande, "fg_color": "#D32F2F",
                  "hover_color": "#B71C1C"})
 
-        if (
-                self.view.est_comptable_tresorerie() or self.view.est_admin()) and statut_actuel == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
+        # Actions pour le VALIDATEUR CHEF
+        if (self.view.est_validateur_chef() or user_is_admin) and statut == STATUT_TROP_PERCU_CONSTATE:
+            buttons.append({**btn_base, "text": "Valider Demande", "command": self.valider_demande, "fg_color": "blue",
+                            "hover_color": "darkblue"})
             buttons.append(
-                {**btn_base, "text": "Corriger Constat TP", "command": self.resoumettre_constat, "fg_color": "teal"})
+                {**btn_base, "text": "Refuser Demande", "command": self.refuser_demande, "fg_color": "orange",
+                 "hover_color": "darkorange"})
+
+        # Actions pour le COMPTABLE FOURNISSEUR
+        if (self.view.est_comptable_fournisseur() or user_is_admin) and statut == STATUT_VALIDEE:
+            buttons.append(
+                {**btn_base, "text": "Confirmer Paiement", "command": self.confirmer_paiement, "fg_color": "#006400",
+                 "hover_color": "#004d00"})
+
+        # Pour un admin, s'assurer qu'il n'y a pas de boutons en double s'il a plusieurs rôles
+        if user_is_admin:
+            unique_buttons = []
+            seen_texts = set()
+            for button in buttons:
+                if button['text'] not in seen_texts:
+                    unique_buttons.append(button)
+                    seen_texts.add(button['text'])
+            return unique_buttons
 
         return buttons

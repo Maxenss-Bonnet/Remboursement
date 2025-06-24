@@ -72,8 +72,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         if self.est_admin():
             self.app_controller.show_admin_warning_popup()
 
-    def afficher_liste_demandes(self, is_initial_load=False, force_refresh=False):
-        self.helper.afficher_liste_demandes(is_initial_load, force_refresh)
+    def afficher_liste_demandes(self, is_initial_load=False, force_refresh=False, show_loader=True):
+        self.helper.afficher_liste_demandes(is_initial_load, force_refresh, show_loader)
 
     def _create_placeholder_image(self, initial: str, size: int) -> ctk.CTkImage:
         placeholder = Image.new('RGBA', (size, size), (80, 80, 80, 255))
@@ -98,7 +98,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         self._create_top_bar()
         self._create_main_content_frame()
-        self._create_status_bar() # NOUVEAU
+        self._create_status_bar()
 
     def _create_top_bar(self):
         top_bar = ctk.CTkFrame(self, fg_color="transparent")

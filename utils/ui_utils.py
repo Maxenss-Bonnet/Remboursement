@@ -33,10 +33,17 @@ class DragDropFrame(ctk.CTkFrame):
 
     def on_drop(self, event):
         self.on_leave(event)
-        # event.data peut contenir des chemins entre accolades {}
-        path = event.data.strip('{}')
-        if path:
-            self.drop_callback(path)
+        try:
+            # Utilise l'analyseur de listes de Tkinter, très robuste pour les chemins avec des espaces
+            files = self.winfo_toplevel().tk.splitlist(event.data)
+            if files:
+                # Les dialogues ne gèrent qu'un seul fichier, on prend donc le premier
+                self.drop_callback(files[0])
+        except Exception:
+            # Solution de secours pour les cas simples si l'analyseur échoue
+            path = event.data.strip('{}')
+            if path:
+                self.drop_callback(path)
         return event.action
 
 
