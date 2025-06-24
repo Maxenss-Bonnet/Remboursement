@@ -5,6 +5,7 @@ import threading
 import time
 import shutil
 import logging
+import queue
 from tkinter import messagebox
 from PIL import Image, ImageDraw, ImageFont
 
@@ -22,6 +23,7 @@ from utils.cache_manager import CacheManager
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, ensure_shared_dirs_exist, load_smtp_config, \
     PROFILE_PICTURES_DIR
 from utils.image_utils import get_or_create_circular_pfp
+from utils.global_events import status_update_queue
 
 _log = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class AppController:
         self.preloading_thread = None
         self.global_loading_overlay = LoadingOverlay(self.root)
         self.pfp_cache_lock = threading.Lock()
+        self._status_update_job = None
 
     def run_initialization(self):
         load_smtp_config()
@@ -108,6 +111,28 @@ class AppController:
 
     def is_application_busy(self) -> bool:
         return global_task_tracker.is_busy() or is_db_writer_busy()
+
+    def start_status_updates_check(self):
+        if self._status_update_job:
+            self.root.after_cancel(self._status_update_job)
+        self._process_status_updates()
+
+    def stop_status_updates_check(self):
+        if self._status_update_job:
+            self.root.after_cancel(self._status_update_job)
+            self._status_update_job = None
+
+    def _process_status_updates(self):
+        try:
+            while not status_update_queue.empty():
+                message, is_busy = status_update_queue.get_nowait()
+                if self.main_view and self.main_view.winfo_exists():
+                    self.main_view.update_status_bar(message, is_busy)
+        except queue.Empty:
+            pass
+        finally:
+            if self.root.winfo_exists():
+                 self._status_update_job = self.root.after(250, self._process_status_updates)
 
     def _load_user_cache(self):
         _log.info("Chargement/Rafraîchissement du cache utilisateur.")
@@ -246,6 +271,7 @@ class AppController:
 
     def show_login_view(self):
         self.current_user = None
+        self.stop_status_updates_check()
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
         if self.main_view:
@@ -256,8 +282,6 @@ class AppController:
         self._preload_data()
 
     def show_main_view(self):
-        # Le préchargement pour l'utilisateur est maintenant lancé à la connexion
-        # La vue principale peut donc être créée directement
         self.main_view = MainView(
             master=self.root,
             nom_utilisateur=self.current_user,
@@ -266,7 +290,7 @@ class AppController:
             preloaded_pfp_cache=self.preloaded_pfp_cache
         )
         self.root.title(f"Gestion Remboursements - {self.current_user}")
-        self._preload_data()  # Relancer pour la vue principale
+        self._preload_data()
 
     def request_restart(self, reason: str):
         if messagebox.askyesno("Redémarrage Requis",
@@ -276,6 +300,7 @@ class AppController:
     def on_logout(self, restart=False):
         if self.main_view:
             self.main_view.stop_polling()
+        self.stop_status_updates_check()
 
         if restart:
             self.root.on_attempt_close(is_restart=True)

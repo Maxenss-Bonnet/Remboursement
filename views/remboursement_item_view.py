@@ -2,6 +2,7 @@ import os
 import re
 import customtkinter as ctk
 import datetime
+import logging
 from tkinter import TclError
 
 from config.settings import (
@@ -12,6 +13,7 @@ from config.settings import (
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from utils import icon_renderer
 from views.helpers.remboursement_item_actions import RemboursementItemActions
+from models.schemas import Remboursement
 
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
 COULEUR_DEMANDE_TERMINEE = "#2E4374"
@@ -21,6 +23,8 @@ COULEUR_BORDURE_TERMINEE = "#4A55A2"
 COULEUR_BORDURE_ANNULEE = "#9D0208"
 COULEUR_BORDURE_DEFAUT = "gray40"
 COULEUR_BORDURE_FLASH = "#FFD700"
+
+_log = logging.getLogger(__name__)
 
 
 class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
@@ -357,6 +361,9 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
     def est_admin(self) -> bool:
         return "admin" in self.user_roles
 
+    def est_demandeur(self) -> bool:
+        return "demandeur" in self.user_roles
+
     def est_comptable_tresorerie(self) -> bool:
         return "comptable_tresorerie" in self.user_roles
 
@@ -367,11 +374,11 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         return "comptable_fournisseur" in self.user_roles
 
     def _is_active_for_user(self):
-        status = self.demande_data.get("statut")
-        created_by = self.demande_data.get("cree_par")
-        return (self.est_comptable_tresorerie() and status == STATUT_CREEE) or \
-            ((self.current_user_name == created_by or self.est_admin()) and status == STATUT_REFUSEE_CONSTAT_TP) or \
-            ((self.est_validateur_chef() or self.est_admin()) and status == STATUT_TROP_PERCU_CONSTATE) or \
-            ((
-                         self.est_comptable_tresorerie() or self.est_admin()) and status == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO) or \
-            ((self.est_comptable_fournisseur() or self.est_admin()) and status == STATUT_VALIDEE)
+        try:
+            # On instancie le modèle pour utiliser sa logique métier centralisée
+            demande_model = Remboursement.model_validate(self.demande_data)
+            return demande_model.is_active_for(self.user_roles, self.current_user_name)
+        except Exception as e:
+            # En cas d'échec de validation (données corrompues?), on logue et on considère inactif.
+            _log.error(f"Impossible de créer le modèle Remboursement pour l'évaluation : {e}")
+            return False

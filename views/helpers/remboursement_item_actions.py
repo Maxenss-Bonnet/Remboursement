@@ -124,15 +124,12 @@ class RemboursementItemActions:
                 else:
                     self.app_controller.show_toast("Demande supprimée.", "success")
 
-            # --- CORRECTION ICI ---
-            # On lance la tâche sur la vue principale (self.view.main_view) qui ne sera pas détruite.
             self.view.main_view.run_task(lambda: self.remboursement_controller.supprimer_demande(self.view.id_demande),
                                          on_complete, show_overlay=False)
 
     def archiver_manuellement(self):
         if messagebox.askyesno("Archivage", f"Voulez-vous archiver manuellement la demande {self.view.id_demande}?",
                                parent=self.view):
-            # De même, on utilise le run_task de la vue principale
             self.view.main_view.run_task(
                 lambda: self.remboursement_controller.admin_manual_archive(self.view.id_demande),
                 lambda r, e: self.view.refresh_list_callback() if not e and r and r[0] else None,
@@ -141,7 +138,6 @@ class RemboursementItemActions:
     def get_workflow_buttons(self):
         buttons = []
         statut_actuel = self.view.demande_data.get("statut")
-        cree_par = self.view.demande_data.get("cree_par")
         btn_base = {"fg_color": None, "hover_color": None}
 
         if self.view.est_comptable_tresorerie() and statut_actuel == STATUT_CREEE:
@@ -164,8 +160,8 @@ class RemboursementItemActions:
                 {**btn_base, "text": "Confirmer Paiement", "command": self.confirmer_paiement, "fg_color": "#006400",
                  "hover_color": "#004d00"})
 
-        if (
-                self.view.current_user_name == cree_par or self.view.est_admin()) and statut_actuel == STATUT_REFUSEE_CONSTAT_TP:
+        # --- CORRECTION DE LA LOGIQUE ICI ---
+        if (self.view.est_demandeur() or self.view.est_admin()) and statut_actuel == STATUT_REFUSEE_CONSTAT_TP:
             buttons.append(
                 {**btn_base, "text": "Corriger Demande", "command": self.resoumettre_demande, "fg_color": "teal"})
             buttons.append(

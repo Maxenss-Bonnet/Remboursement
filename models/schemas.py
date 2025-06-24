@@ -4,7 +4,7 @@ import datetime
 
 from config.settings import (
     STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
-    STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO
+    STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO, STATUT_PAIEMENT_EFFECTUE, STATUT_ANNULEE
 )
 
 
@@ -14,6 +14,8 @@ class HistoriqueStatut(BaseModel):
     date: datetime.datetime
     par_utilisateur: Optional[str] = None
     commentaire: Optional[str] = ""
+    class Config:
+        from_attributes = True
 
 
 class Remboursement(BaseModel):
@@ -44,25 +46,22 @@ class Remboursement(BaseModel):
         """ Détermine si la demande requiert une action de la part de l'utilisateur donné. """
         is_admin = "admin" in user_roles
 
-        # Si l'utilisateur est admin, il peut agir sur toutes les étapes actives du workflow.
+        # L'admin peut agir sur la plupart des statuts actifs.
         if is_admin:
             active_statuses_for_admin = [
-                STATUT_CREEE,
-                STATUT_REFUSEE_CONSTAT_TP,
-                STATUT_TROP_PERCU_CONSTATE,
-                STATUT_VALIDEE,
-                STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO
+                STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_TROP_PERCU_CONSTATE,
+                STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO
             ]
             if self.statut in active_statuses_for_admin:
                 return True
 
         # Cas pour le comptable trésorerie (m.lupo)
-        if "comptable_tresorerie" in user_roles:
-            if self.statut == STATUT_CREEE or self.statut == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO:
-                return True
+        if "comptable_tresorerie" in user_roles and (
+                self.statut == STATUT_CREEE or self.statut == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO):
+            return True
 
-        # Cas pour le demandeur (p.neri)
-        if self.cree_par == user_name and self.statut == STATUT_REFUSEE_CONSTAT_TP:
+        # Cas pour le demandeur (p.neri) - CORRIGÉ
+        if "demandeur" in user_roles and self.statut == STATUT_REFUSEE_CONSTAT_TP:
             return True
 
         # Cas pour le validateur chef (j.durousset)
@@ -84,6 +83,8 @@ class Utilisateur(BaseModel):
     theme_color: Optional[str] = "blue"
     default_filter: Optional[str] = "Toutes les demandes"
     profile_picture_path: Optional[str] = None
+    class Config:
+        from_attributes = True
 
 
 class UtilisateurUpdate(BaseModel):

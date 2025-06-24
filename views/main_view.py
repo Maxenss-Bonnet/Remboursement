@@ -13,6 +13,7 @@ from utils.image_utils import get_or_create_circular_pfp
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.polling_mixin import PollingMixin
 from views.helpers.main_view_helper import MainViewHelper
+from models.schemas import Remboursement
 
 COULEUR_ACTIVE_POUR_UTILISATEUR = "#1E4D2B"
 COULEUR_DEMANDE_TERMINEE = "#2E4374"
@@ -64,6 +65,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.search_var = ctk.StringVar()
 
         self._creer_widgets()
+        self.app_controller.start_status_updates_check()
         self.afficher_liste_demandes(is_initial_load=True)
         self.start_polling()
 
@@ -86,7 +88,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(1, weight=1) # Main content
+        self.grid_rowconfigure(2, weight=0) # Status bar
 
         self.winfo_toplevel().bind("<F5>", lambda e: self.afficher_liste_demandes(force_refresh=True))
         self.winfo_toplevel().bind("<Any-KeyPress>", self._reset_idle_timer)
@@ -95,6 +98,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         self._create_top_bar()
         self._create_main_content_frame()
+        self._create_status_bar() # NOUVEAU
 
     def _create_top_bar(self):
         top_bar = ctk.CTkFrame(self, fg_color="transparent")
@@ -132,6 +136,27 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self._create_demandes_list_frame(main_content_frame)
         self._create_pagination_frame(main_content_frame)
         self._create_legend_frame(main_content_frame)
+
+    def _create_status_bar(self):
+        self.status_bar = ctk.CTkFrame(self, height=25, corner_radius=0)
+        self.status_bar.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
+        self.status_label = ctk.CTkLabel(self.status_bar, text="Prêt", font=ctk.CTkFont(size=12), anchor="w")
+        self.status_label.pack(side="left", padx=10)
+        self.status_progress = ctk.CTkProgressBar(self.status_bar, width=100, mode='indeterminate')
+        self.status_progress.pack(side="right", padx=10)
+        self.status_progress.pack_forget()
+
+    def update_status_bar(self, message: str, is_busy: bool):
+        if not self.winfo_exists(): return
+        self.status_label.configure(text=message)
+        if is_busy:
+            if not self.status_progress.winfo_ismapped():
+                self.status_progress.pack(side="right", padx=10)
+                self.status_progress.start()
+        else:
+            if self.status_progress.winfo_ismapped():
+                self.status_progress.stop()
+                self.status_progress.pack_forget()
 
     def _create_actions_bar(self, parent):
         actions_bar_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -284,14 +309,14 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.run_task(task, on_complete, "Mise à jour du profil...")
 
     def _is_active_for_user(self, demande_data: dict) -> bool:
-        status = demande_data.get("statut")
-        return (self.est_comptable_tresorerie() and status == STATUT_CREEE) or \
-            ((self.nom_utilisateur == demande_data.get(
-                "cree_par") or self.est_admin()) and status == STATUT_REFUSEE_CONSTAT_TP) or \
-            ((self.est_validateur_chef() or self.est_admin()) and status == STATUT_TROP_PERCU_CONSTATE) or \
-            ((
-                         self.est_comptable_tresorerie() or self.est_admin()) and status == STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO) or \
-            ((self.est_comptable_fournisseur() or self.est_admin()) and status == STATUT_VALIDEE)
+        try:
+            # On instancie le modèle pour utiliser sa logique métier centralisée
+            demande_model = Remboursement.model_validate(demande_data)
+            return demande_model.is_active_for(self.user_roles, self.nom_utilisateur)
+        except Exception as e:
+            # En cas d'échec de validation (données corrompues?), on logue et on considère inactif.
+            _log.error(f"Impossible de créer le modèle Remboursement pour l'évaluation : {e}")
+            return False
 
     def est_admin(self):
         return "admin" in self.user_roles
