@@ -4,9 +4,8 @@ import sqlite3
 import datetime
 import stat
 import errno
-import time
 import logging
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional
 from collections import OrderedDict
 
 from config.settings import (
@@ -175,31 +174,40 @@ def charger_demandes_data(
 
         demande_obj = demandes_map[demande_id]
 
-        if row['historique_id'] and not any(
-                h.date.isoformat() == row['hist_date'] and h.statut == row['hist_statut'] for h in
-                demande_obj.historique_statuts):
+        # --- CORRECTION DE LA LOGIQUE DE DÉDUPLICATION ---
+        historique_id = row['historique_id']
+        if historique_id is not None and not any(
+                h.historique_id == historique_id for h in demande_obj.historique_statuts):
             demande_obj.historique_statuts.append(HistoriqueStatut(
+                historique_id=historique_id,
                 statut=row['hist_statut'],
                 date=datetime.datetime.fromisoformat(row['hist_date']),
                 par_utilisateur=row['hist_user'],
                 commentaire=row['hist_comment']
             ))
 
-        if row['pj_id']:
+        if row['pj_id'] and not any(pj == row['chemin_relatif'] for pj in (
+                demande_obj.chemins_factures_stockees + demande_obj.chemins_rib_stockes + demande_obj.chemins_trop_percu_stockees)):
             type_pj = row['type_pj']
             chemin = row['chemin_relatif']
-            if type_pj == 'facture' and chemin not in demande_obj.chemins_factures_stockees:
+            if type_pj == 'facture':
                 demande_obj.chemins_factures_stockees.append(chemin)
-            elif type_pj == 'rib' and chemin not in demande_obj.chemins_rib_stockes:
+            elif type_pj == 'rib':
                 demande_obj.chemins_rib_stockes.append(chemin)
-            elif type_pj == 'trop_percu' and chemin not in demande_obj.chemins_trop_percu_stockees:
+            elif type_pj == 'trop_percu':
                 demande_obj.chemins_trop_percu_stockees.append(chemin)
 
     final_list = list(demandes_map.values())
+    # Trier la liste finale selon les critères de l'utilisateur
     final_list.sort(
         key=lambda d: getattr(d, sort_field) if hasattr(d, sort_field) else d.date_derniere_modification,
         reverse=(sort_order.upper() == 'DESC')
     )
+
+    # Trier l'historique de chaque demande par date
+    for demande in final_list:
+        demande.historique_statuts.sort(key=lambda h: h.date)
+
     return final_list, total_count
 
 
@@ -217,11 +225,18 @@ def obtenir_demande_par_id_data(id_demande: str) -> Optional[Remboursement]:
         demande = _construct_remboursement_from_row(row)
 
         cursor.execute(
-            "SELECT statut, date, par_utilisateur, commentaire FROM historique WHERE id_demande = ? ORDER BY date",
+            "SELECT historique_id, statut, date, par_utilisateur, commentaire FROM historique WHERE id_demande = ? ORDER BY date",
             (id_demande,))
-        demande.historique_statuts = [HistoriqueStatut(date=datetime.datetime.fromisoformat(h['date']),
-                                                       **{k: v for k, v in dict(h).items() if k != 'date'}) for h in
-                                      cursor.fetchall()]
+
+        demande.historique_statuts = [
+            HistoriqueStatut(
+                historique_id=h['historique_id'],
+                date=datetime.datetime.fromisoformat(h['date']),
+                statut=h['statut'],
+                par_utilisateur=h['par_utilisateur'],
+                commentaire=h['commentaire']
+            ) for h in cursor.fetchall()
+        ]
 
         cursor.execute("SELECT type_pj, chemin_relatif FROM pieces_jointes WHERE id_demande = ? ORDER BY date_ajout",
                        (id_demande,))
@@ -249,7 +264,11 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
                      demande.cree_par, demande.date_creation, demande.derniere_modification_par,
                      demande.date_derniere_modification, 1 if demande.is_archived else 0))
 
+                _log.debug(
+                    f"CREATION DEMANDE {demande.id_demande}: Ajout de {len(demande.historique_statuts)} entrées d'historique.")
                 for hist in demande.historique_statuts:
+                    _log.debug(
+                        f" -> Ajout historique: {hist.statut} par {hist.par_utilisateur} avec commentaire '{hist.commentaire}'")
                     cursor.execute(
                         "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
                         (demande.id_demande, hist.statut, hist.date, hist.par_utilisateur, hist.commentaire))
@@ -264,7 +283,8 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
                         (demande.id_demande, 'rib', path, demande.date_creation))
             return True, "Demande créée avec succès dans la BDD."
         except sqlite3.Error as e:
-            _log.error(f"Erreur de base de données lors de la création de la demande {demande.id_demande}", exc_info=True)
+            _log.error(f"Erreur de base de données lors de la création de la demande {demande.id_demande}",
+                       exc_info=True)
             return False, f"Erreur de base de données : {e}"
 
 
@@ -289,12 +309,16 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
                                (demande.nom, demande.prenom, demande.reference_facture, demande.description,
                                 demande.montant_demande, demande.statut, demande.derniere_modification_par,
                                 demande.date_derniere_modification, demande.date_paiement_effectue, demande.id_demande))
+
                 if demande.historique_statuts:
                     dernier_historique = demande.historique_statuts[-1]
+                    _log.debug(
+                        f"MISE A JOUR DEMANDE {demande.id_demande}: Ajout de la dernière entrée d'historique: {dernier_historique.statut} par {dernier_historique.par_utilisateur} avec commentaire '{dernier_historique.commentaire}'")
                     cursor.execute(
                         "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
                         (demande.id_demande, dernier_historique.statut, dernier_historique.date,
                          dernier_historique.par_utilisateur, dernier_historique.commentaire))
+
                 if nouveau_pj_relatif and type_pj:
                     cursor.execute(
                         "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
@@ -387,7 +411,8 @@ def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
                     try:
                         shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
                     except OSError as e:
-                        _log.error(f"Erreur système lors de la suppression du dossier {dossier_a_supprimer}", exc_info=True)
+                        _log.error(f"Erreur système lors de la suppression du dossier {dossier_a_supprimer}",
+                                   exc_info=True)
                         return False, f"Erreur système lors de la suppression du dossier {dossier_a_supprimer}: {e}"
 
             return True, f"La demande {id_demande} et ses fichiers ont été supprimés."

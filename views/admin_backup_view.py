@@ -5,12 +5,12 @@ from views.mixins.animation_mixin import AnimationMixin
 
 
 class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
-    def __init__(self, master, auth_controller, app_controller):
+    def __init__(self, master, maintenance_controller, app_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
         AnimationMixin.__init__(self, master)
 
-        self.auth_controller = auth_controller
+        self.maintenance_controller = maintenance_controller
         self.app_controller = app_controller
 
         self.title("Gestion des Sauvegardes de la Base de Données")
@@ -43,7 +43,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
             widget.destroy()
 
         def task():
-            return self.auth_controller.get_database_backups()
+            return self.maintenance_controller.get_database_backups()
 
         def on_complete(result, error):
             if error:
@@ -83,7 +83,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
 
     def _action_create_backup(self):
         def task():
-            return self.auth_controller.admin_backup_database()
+            return self.maintenance_controller.admin_backup_database()
 
         def on_complete(result, error):
             if error:
@@ -107,7 +107,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
 
         if messagebox.askyesno("Confirmation de Restauration", msg, icon='warning', parent=self):
             def task():
-                return self.auth_controller.admin_restore_database(backup_filename)
+                return self.maintenance_controller.admin_restore_database(backup_filename)
 
             def on_complete(result, error):
                 if error:
@@ -127,7 +127,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         msg = f"Voulez-vous vraiment supprimer la sauvegarde '{backup_filename}' ?\n\nCette action est définitive."
         if messagebox.askyesno("Confirmation de Suppression", msg, icon='warning', parent=self):
             def task():
-                return self.auth_controller.admin_delete_backup(backup_filename)
+                return self.maintenance_controller.admin_delete_backup(backup_filename)
 
             def on_complete(result, error):
                 if error:
@@ -146,7 +146,7 @@ class AdminBackupView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         msg = "Ceci supprimera tous les fichiers de sécurité temporaires (.before_restore) créés lors des restaurations précédentes.\n\nVoulez-vous continuer ?"
         if messagebox.askyesno("Confirmation du Nettoyage", msg, icon='info', parent=self):
             def task():
-                return self.auth_controller.admin_cleanup_restore_files()
+                return self.maintenance_controller.admin_cleanup_restore_files()
 
             def on_complete(result, error):
                 if error:

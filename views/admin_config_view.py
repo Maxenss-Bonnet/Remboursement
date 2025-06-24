@@ -5,7 +5,7 @@ from views.mixins.animation_mixin import AnimationMixin
 
 
 class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
-    def __init__(self, master, auth_controller):
+    def __init__(self, master, maintenance_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
         AnimationMixin.__init__(self, master)
@@ -17,8 +17,8 @@ class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
         self.app_controller = master.app_controller
-        self.auth_controller = auth_controller
-        self.config_data = self.auth_controller.get_smtp_config()
+        self.maintenance_controller = maintenance_controller
+        self.config_data = self.maintenance_controller.get_smtp_config()
 
         self.main_frame = ctk.CTkFrame(self)
         self.main_frame.pack(expand=True, fill="both", padx=20, pady=20)
@@ -68,7 +68,7 @@ class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
             return
 
         def task():
-            return self.auth_controller.test_smtp_connection(current_config)
+            return self.maintenance_controller.test_smtp_connection(current_config)
 
         def on_complete(result, error):
             if error:
@@ -87,7 +87,7 @@ class AdminConfigView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         new_config_data = self._get_current_values()
 
         def task():
-            return self.auth_controller.save_smtp_config(new_config_data)
+            return self.maintenance_controller.save_smtp_config(new_config_data)
 
         def on_complete(result, error):
             if error:

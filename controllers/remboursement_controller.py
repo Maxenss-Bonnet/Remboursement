@@ -210,9 +210,6 @@ class RemboursementController:
     def admin_manual_archive(self, demande_id: str):
         return remboursement_model.archiver_demande_par_id(demande_id)
 
-    def admin_optimiser_bdd(self):
-        return remboursement_model.optimiser_base_de_donnees_data()
-
     def get_viewable_attachment_path(self, demande_id: str, relative_path: str) -> tuple[str | None, str | None]:
         demande = self.get_demande(demande_id)
         if not demande: return None, None

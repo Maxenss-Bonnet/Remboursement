@@ -8,13 +8,14 @@ from views.mixins.animation_mixin import AnimationMixin
 
 
 class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
-    def __init__(self, master, auth_controller, app_controller):
+    def __init__(self, master, app_controller):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
         AnimationMixin.__init__(self, master)
 
-        self.auth_controller = auth_controller
         self.app_controller = app_controller
+        self.user_controller = app_controller.user_controller
+        self.maintenance_controller = app_controller.maintenance_controller
         self.master = master
 
         self.title("Gestion des Utilisateurs (Admin)")
@@ -65,14 +66,14 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.fade_in()
 
     def _open_backup_management_view(self):
-        AdminBackupView(self, self.auth_controller, self.app_controller)
+        AdminBackupView(self, self.maintenance_controller, self.app_controller)
 
     def _open_smtp_config_dialog(self):
-        AdminConfigView(self, self.auth_controller)
+        AdminConfigView(self, self.maintenance_controller)
 
     def populate_user_list(self):
         def task():
-            return self.auth_controller.get_all_users_for_management()
+            return self.user_controller.get_all_users_for_management()
 
         def on_complete(result, error):
             if error:
@@ -152,7 +153,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                                "Cette action est irréversible.",
                                icon=messagebox.WARNING, parent=self):
             def task():
-                return self.auth_controller.admin_delete_user(username_to_delete)
+                return self.user_controller.admin_delete_user(username_to_delete)
 
             def on_complete(result, error):
                 if error:
@@ -188,7 +189,6 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         dialog.transient(self)
         dialog.grab_set()
 
-        # Application de l'animation à la sous-fenêtre
         dialog.attributes('-alpha', 0)
 
         form_frame = ctk.CTkFrame(dialog)
@@ -217,7 +217,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         roles_scroll_frame.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
 
         role_vars = {}
-        assignable_roles_list = self.auth_controller.get_assignable_roles()
+        assignable_roles_list = self.user_controller.get_assignable_roles()
         for role_name in assignable_roles_list:
             var = ctk.StringVar(value="on" if role_name in roles_actuels else "off")
             cb = ctk.CTkCheckBox(roles_scroll_frame, text=role_name, variable=var, onvalue="on",
@@ -235,11 +235,11 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                 if mode == "create":
                     if not password_val:
                         return False, "Le mot de passe est requis pour créer un utilisateur."
-                    return self.auth_controller.admin_create_user(login_val, email_val,
+                    return self.user_controller.admin_create_user(login_val, email_val,
                                                                   password_val,
                                                                   selected_roles)
                 else:
-                    return self.auth_controller.admin_update_user_details(login_original,
+                    return self.user_controller.admin_update_user_details(login_original,
                                                                           login_val,
                                                                           email_val,
                                                                           selected_roles,
@@ -266,9 +266,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         submit_button = ctk.CTkButton(form_frame, text=submit_button_text, command=_submit_user_form)
         submit_button.grid(row=4, column=0, columnspan=2, pady=20)
 
-        # Animation fade-in pour la sous-fenêtre
         alpha = 0
-
         def fade_in_dialog():
             nonlocal alpha
             alpha += 0.1
@@ -285,7 +283,7 @@ class AdminUserManagementView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
 
     def _show_role_descriptions(self):
         def task():
-            return self.auth_controller.get_role_descriptions_with_users()
+            return self.user_controller.get_role_descriptions_with_users()
 
         def on_complete(result, error):
             if error:

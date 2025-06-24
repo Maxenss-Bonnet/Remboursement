@@ -17,7 +17,7 @@ PFP_MAX_SIZE = (512, 512)
 
 
 class ProfileView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
-    def __init__(self, master, auth_controller, app_controller, user_data: dict, on_save_callback):
+    def __init__(self, master, user_controller, app_controller, user_data: dict, on_save_callback):
         ctk.CTkToplevel.__init__(self, master)
         TaskRunnerMixin.__init__(self, parent_for_overlay=self)
         AnimationMixin.__init__(self, master)
@@ -26,7 +26,7 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.grab_set()
 
         self.master = master
-        self.auth_controller = auth_controller
+        self.user_controller = user_controller
         self.app_controller = app_controller
         self.user_data = user_data
         self.on_save_callback = on_save_callback
@@ -183,7 +183,7 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir supprimer votre photo de profil ?",
                                parent=self):
             def task():
-                return self.auth_controller.remove_user_profile_picture(
+                return self.user_controller.remove_user_profile_picture(
                     login=self.current_user,
                     cache_manager=self.app_controller.cache_manager
                 )
@@ -286,7 +286,7 @@ class ProfileView(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         }
 
         def task():
-            return self.auth_controller.update_user_profile(
+            return self.user_controller.update_user_profile(
                 login=self.current_user,
                 new_email=new_email,
                 old_password=old_password if old_password else None,

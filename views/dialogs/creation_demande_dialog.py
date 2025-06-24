@@ -68,7 +68,6 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.chemin_facture_var = ctk.StringVar(value="Aucun fichier sélectionné (Optionnel)")
         self.chemin_rib_var = ctk.StringVar(value="Aucun fichier sélectionné (Obligatoire)")
 
-        # --- Section Facture avec Drag & Drop ---
         ctk.CTkLabel(form_frame, text="Facture:").grid(row=current_row, column=0, padx=5, pady=(15, 5), sticky="w")
 
         facture_file_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
@@ -88,7 +87,6 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         drop_zone_facture.grid(row=current_row, column=1, padx=5, pady=(0, 10), sticky="ew", rowspan=1)
         current_row += 1
 
-        # --- Section RIB avec Drag & Drop ---
         ctk.CTkLabel(form_frame, text="RIB:").grid(row=current_row, column=0, padx=5, pady=(15, 5), sticky="w")
 
         rib_file_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
@@ -133,6 +131,9 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         if not chemin_local:
             return
 
+        if type_pj == "facture":
+            self._extraire_infos_pdf(chemin_local)
+
         self.copy_operations_in_progress += 1
         self.btn_soumettre.configure(state="disabled", text="Copie de fichier en cours...")
         self.progress_bar.grid()
@@ -143,14 +144,12 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.progress_label.configure(text=f"Copie en cours : {filename}")
 
         label_var = self.chemin_facture_var if type_pj == "facture" else self.chemin_rib_var
+        label_var.set(filename)
 
         subfolder_map = {"facture": "Facture", "rib": "RIB"}
         subfolder_path = os.path.join(self.temp_dossier_path, subfolder_map.get(type_pj))
         if os.path.exists(subfolder_path):
             shutil.rmtree(subfolder_path)
-
-        if type_pj == "facture":
-            self._extraire_infos_pdf(chemin_local)
 
         def copy_task():
             try:
@@ -163,7 +162,6 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                 self.copy_progress_queue.put(f"error: {e}")
 
         threading.Thread(target=copy_task, daemon=True).start()
-        label_var.set(filename)
 
     def _check_copy_progress(self):
         try:
@@ -192,30 +190,21 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                 self.after(100, self._check_copy_progress)
 
     def _extraire_infos_pdf(self, chemin_local_pdf):
-        if not chemin_local_pdf.lower().endswith(".pdf"): return
-
-        def task():
-            return self.remboursement_controller.extraire_info_facture_pdf(chemin_local_pdf)
-
-        def on_complete(infos, error):
-            if error: self.app_controller.show_toast(f"Erreur d'analyse PDF: {error}", "error"); return
-            if infos:
-                nom = infos.get("nom")
-                if nom is not None:
-                    self.entries_demande["nom"].delete(0, "end")
-                    self.entries_demande["nom"].insert(0, nom)
-
-                prenom = infos.get("prenom")
-                if prenom is not None:
-                    self.entries_demande["prenom"].delete(0, "end")
-                    self.entries_demande["prenom"].insert(0, prenom)
-
-                ref = infos.get("reference")
-                if ref is not None:
-                    self.entries_demande["reference_facture"].delete(0, "end")
-                    self.entries_demande["reference_facture"].insert(0, ref)
-
-        self.run_task(task, on_complete, "Analyse du PDF...", show_overlay=False)
+        if not chemin_local_pdf.lower().endswith(".pdf"):
+            return
+        try:
+            infos = self.remboursement_controller.extraire_info_facture_pdf(chemin_local_pdf)
+            if infos.get("nom"):
+                self.entries_demande["nom"].delete(0, "end")
+                self.entries_demande["nom"].insert(0, infos["nom"])
+            if infos.get("prenom"):
+                self.entries_demande["prenom"].delete(0, "end")
+                self.entries_demande["prenom"].insert(0, infos["prenom"])
+            if infos.get("reference"):
+                self.entries_demande["reference_facture"].delete(0, "end")
+                self.entries_demande["reference_facture"].insert(0, infos["reference"])
+        except Exception as e:
+            self.app_controller.show_toast(f"Erreur d'analyse du PDF : {e}", "error")
 
     def _soumettre_demande(self):
         if self.copy_operations_in_progress > 0:

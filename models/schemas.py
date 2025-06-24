@@ -9,6 +9,7 @@ from config.settings import (
 
 
 class HistoriqueStatut(BaseModel):
+    historique_id: Optional[int] = None
     statut: str
     date: datetime.datetime
     par_utilisateur: Optional[str] = None

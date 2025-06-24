@@ -13,7 +13,8 @@ from views.main_view import MainView
 from controllers.auth_controller import AuthController
 from controllers.remboursement_controller import RemboursementController
 from controllers.password_reset_controller import PasswordResetController
-from models import user_model
+from controllers.user_controller import UserController
+from controllers.maintenance_controller import MaintenanceController
 from utils.ui_utils import ToastManager, LoadingOverlay
 from utils.database_manager import create_tables, is_db_writer_busy
 from utils import global_task_tracker
@@ -30,6 +31,8 @@ class AppController:
         self.root = root_tk_app
         self.auth_controller = AuthController()
         self.password_reset_controller = PasswordResetController(self.auth_controller)
+        self.user_controller = UserController()
+        self.maintenance_controller = MaintenanceController()
         self.remboursement_controller = None
         self.current_user = None
         self.login_view = None
@@ -108,7 +111,7 @@ class AppController:
 
     def _load_user_cache(self):
         _log.info("Chargement/Rafraîchissement du cache utilisateur.")
-        all_users = self.auth_controller.get_all_users()
+        all_users = self.user_controller.get_all_users()
         self.user_cache = {user.login: user for user in all_users}
         _log.info(f"{len(self.user_cache)} utilisateurs chargés dans le cache.")
 
@@ -188,7 +191,7 @@ class AppController:
     def _ensure_database_is_ready_and_healthy(self):
         try:
             create_tables()
-            is_healthy, message = self.auth_controller.run_database_health_check()
+            is_healthy, message = self.maintenance_controller.run_database_health_check()
             if not is_healthy:
                 messagebox.showerror("Erreur Critique de Base de Données",
                                      f"L'intégrité de la base de données est compromise.\n"
@@ -224,7 +227,7 @@ class AppController:
             self._cleanup_orphaned_temp_folders()
             rc_temp = RemboursementController(utilisateur_actuel="system")
             rc_temp.archive_old_requests()
-            backup_status = self.auth_controller.run_automatic_backup()
+            backup_status = self.maintenance_controller.run_automatic_backup()
             _log.info(f"Statut de la sauvegarde automatique : {backup_status}")
             _log.info("Tâches de démarrage terminées.")
 

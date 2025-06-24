@@ -4,6 +4,7 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
+
 def setup_logging():
     """
     Configure la journalisation pour l'application.
@@ -30,11 +31,17 @@ def setup_logging():
         # Handler pour la console
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(log_formatter)
-        console_handler.setLevel(logging.WARNING)
+        # --- MODIFICATION ICI ---
+        console_handler.setLevel(logging.DEBUG)
 
         # Configurer le logger root
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.INFO)
+        root_logger.setLevel(logging.DEBUG)  # On met aussi le root à DEBUG pour être sûr que rien n'est filtré en amont
+
+        # Vider les anciens handlers pour éviter les duplications si la fonction est appelée plusieurs fois
+        if root_logger.hasHandlers():
+            root_logger.handlers.clear()
+
         root_logger.addHandler(file_handler)
         root_logger.addHandler(console_handler)
 
