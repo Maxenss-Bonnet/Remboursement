@@ -86,23 +86,25 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=0)  # Network banner
-        self.grid_rowconfigure(2, weight=1)  # Main content
-        self.grid_rowconfigure(3, weight=0)  # Status bar
+        # --- CORRECTION: Restauration de la disposition en grille correcte ---
+        self.grid_rowconfigure(0, weight=0)  # Top bar
+        self.grid_rowconfigure(1, weight=1)  # Main content frame
+        self.grid_rowconfigure(2, weight=0)  # Status bar
 
+        # --- CORRECTION: Restauration des bindings pour le timer d'inactivité ---
         self.winfo_toplevel().bind("<F5>", lambda e: self.afficher_liste_demandes(force_refresh=True))
         self.winfo_toplevel().bind("<Any-KeyPress>", self._reset_idle_timer)
         self.winfo_toplevel().bind("<Any-ButtonPress>", self._reset_idle_timer)
         self.winfo_toplevel().bind("<Motion>", self._reset_idle_timer)
 
         self._create_top_bar()
-        self._create_network_banner()
         self._create_main_content_frame()
         self._create_status_bar()
 
     def _create_top_bar(self):
         top_bar = ctk.CTkFrame(self, fg_color="transparent")
-        top_bar.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        # --- CORRECTION: Placé dans la rangée 0 ---
+        top_bar.grid(row=0, column=0, sticky="new", padx=10, pady=(10, 5))
 
         self.user_info_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
         self.user_info_frame.pack(side="left", padx=5, pady=2)
@@ -127,27 +129,20 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         self.network_sensitive_widgets.extend([btn_profil, btn_aide, btn_deco])
 
-    def _create_network_banner(self):
-        self.network_banner = ctk.CTkFrame(self, fg_color="#A93226", height=25, corner_radius=0)
-        label = ctk.CTkLabel(self.network_banner, text="⚠️ Connexion réseau perdue. Tentative de reconnexion en cours...",
-                             text_color="white", font=ctk.CTkFont(weight="bold"))
-        label.pack(expand=True, fill="both")
-
-    def set_network_status(self, is_connected: bool):
-        if is_connected:
-            self.network_banner.grid_forget()
-        else:
-            self.network_banner.grid(row=1, column=0, sticky="ew", pady=(5, 0))
-
-        # Activer/désactiver les widgets sensibles au réseau
+    def update_widget_states(self, is_connected: bool):
+        """Met à jour l'état des widgets sensibles au réseau dans cette vue."""
         state = "normal" if is_connected else "disabled"
         for widget in self.network_sensitive_widgets:
             if widget.winfo_exists():
                 widget.configure(state=state)
+        # Appeler la mise à jour pour le mode archive qui dépend aussi de l'état du réseau
+        self._update_ui_for_archive_mode()
+
 
     def _create_main_content_frame(self):
         main_content_frame = ctk.CTkFrame(self)
-        main_content_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=10)
+        # --- CORRECTION: Placé dans la rangée 1 ---
+        main_content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(3, weight=1)
 
@@ -162,7 +157,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _create_status_bar(self):
         self.status_bar = ctk.CTkFrame(self, height=25, corner_radius=0)
-        self.status_bar.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
+        # --- CORRECTION: Placé dans la rangée 2 ---
+        self.status_bar.grid(row=2, column=0, sticky="sew", padx=0, pady=0)
         self.status_label = ctk.CTkLabel(self.status_bar, text="Prêt", font=ctk.CTkFont(size=12), anchor="w")
         self.status_label.pack(side="left", padx=10)
         self.status_progress = ctk.CTkProgressBar(self.status_bar, width=100, mode='indeterminate')
@@ -325,8 +321,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         state = "disabled" if is_disabled_by_archive or is_disabled_by_network else "normal"
 
         self.filter_menu.configure(state=state)
-        # Ne pas désactiver le scope de recherche pour permettre de chercher dans les archives
-        # self.search_scope_menu.configure(state=state)
 
         if self.is_archive_mode:
             start, end = self.archive_date_range

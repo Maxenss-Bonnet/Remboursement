@@ -4,7 +4,7 @@ from typing import Callable
 from .decorators import retry_on_network_error
 
 
-@retry_on_network_error(retries=4, delay=2.5)
+@retry_on_network_error(retries=4, delay=2.5, infinite_retry_on_disconnect=True)
 def copy_with_progress(source_path: str, dest_path: str, progress_callback: Callable[[float], None]):
     """
     Copie un fichier d'une source vers une destination en appelant un callback
@@ -33,6 +33,7 @@ def copy_with_progress(source_path: str, dest_path: str, progress_callback: Call
                         progress = min(1.0, copied_size / total_size)
                         progress_callback(progress)
     except Exception as e:
+        # Si une erreur survient, on supprime le fichier potentiellement incomplet
         if os.path.exists(dest_path):
             os.remove(dest_path)
         raise e

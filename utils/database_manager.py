@@ -11,10 +11,10 @@ from contextlib import contextmanager
 
 import psutil
 
-from config.settings import SHARED_DATA_BASE_PATH
-from utils.global_events import status_update_queue, network_status_queue
+from config.settings import SHARED_DATA_BASE_PATH, DATABASE_FILE
+from utils.global_events import status_update_queue
+from utils.network_monitor import is_path_accessible, wait_for_network
 
-DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 DB_LOCK_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db.lock")
 DB_REFRESH_FLAG_FILE = os.path.join(SHARED_DATA_BASE_PATH, "refresh_required.flag")
 LOCK_TIMEOUT_SECONDS = 60.0
@@ -22,17 +22,6 @@ LOCK_TIMEOUT_SECONDS = 60.0
 _write_queue = queue.Queue()
 _stop_queue_processor = threading.Event()
 _log = logging.getLogger(__name__)
-
-
-def _is_network_available() -> bool:
-    """Vérifie si le chemin de la BDD est accessible."""
-    path_to_check = os.path.dirname(DATABASE_FILE)
-    try:
-        # os.listdir est un moyen rapide et efficace de tester l'accessibilité d'un chemin réseau
-        os.listdir(path_to_check)
-        return True
-    except (OSError, IOError):
-        return False
 
 
 def _db_writer_thread():
@@ -44,106 +33,56 @@ def _db_writer_thread():
         except queue.Empty:
             continue
 
+        wait_for_network(f"Tâche BDD: {task_func.__name__}")
+
         lock_acquired = False
         try:
-            # --- Boucle pour acquérir le verrou ---
+            start_lock_wait = time.time()
             while not lock_acquired:
                 if _stop_queue_processor.is_set(): return
 
                 try:
-                    if not _is_network_available():
-                        status_update_queue.put(("Connexion réseau perdue, attente...", True))
-                        time.sleep(2)
-                        continue
-
                     with open(DB_LOCK_FILE, 'x') as f:
                         f.write(f"{os.getpid()}|{time.time()}|{hostname}")
                     lock_acquired = True
                 except FileExistsError:
+                    if time.time() - start_lock_wait > LOCK_TIMEOUT_SECONDS:
+                        _log.warning(f"Timeout en attente du verrou BDD. Forçage de la suppression du verrou.")
+                        try: os.remove(DB_LOCK_FILE)
+                        except OSError: pass
+                        start_lock_wait = time.time()
                     status_update_queue.put(("Base de données occupée, en attente...", True))
-                    # La logique pour gérer les verrous orphelins reste la même
-                    try:
-                        with open(DB_LOCK_FILE, 'r') as f:
-                            content = f.read().strip()
-                        lock_pid_str, lock_time_str, lock_hostname = content.split('|', 2)
-                        if (time.time() - float(lock_time_str)) > LOCK_TIMEOUT_SECONDS or \
-                           (lock_hostname == hostname and not psutil.pid_exists(int(lock_pid_str))):
-                            os.remove(DB_LOCK_FILE)
-                    except (IOError, IndexError, ValueError):
-                        if os.path.exists(DB_LOCK_FILE): os.remove(DB_LOCK_FILE)
                     time.sleep(random.uniform(0.5, 1.5))
                 except (IOError, OSError) as e:
-                    status_update_queue.put(("Erreur réseau lors de l'accès au verrou...", True))
                     _log.error(f"Erreur réseau lors de la tentative de prise de verrou : {e}")
-                    time.sleep(3)
-                except Exception as e:
-                    _log.error(f"Erreur inattendue lors de la prise de verrou : {e}", exc_info=True)
                     time.sleep(2)
-
-            # --- CORRECTION : Logique d'exécution de tâche robuste aux coupures ---
-            func_name = task_func.__name__
-            _log.info(f"Début de l'opération d'écriture en file : {func_name}")
-            start_time = time.time()
 
             task_completed = False
             while not task_completed and retries > 0 and not _stop_queue_processor.is_set():
-                # On vérifie la connexion avant chaque tentative
-                if not _is_network_available():
-                    status_update_queue.put(("Connexion réseau perdue, en attente...", True))
-                    network_status_queue.put(False)
-                    # Boucle d'attente active du retour de la connexion
-                    while not _is_network_available():
-                        if _stop_queue_processor.is_set():
-                            result_queue.put((False, Exception("Arrêt de l'application demandé.")))
-                            return
-                        time.sleep(1)
-                    network_status_queue.put(True)
-                    status_update_queue.put(("Connexion rétablie, reprise de l'opération...", True))
-
                 try:
-                    # Tentative d'exécution de la tâche
                     result = task_func(*task_args, **task_kwargs)
-                    duration = time.time() - start_time
-                    _log.info(f"Opération d'écriture '{func_name}' terminée avec succès en {duration:.4f}s.")
                     result_queue.put((True, result))
                     task_completed = True
-
                 except sqlite3.OperationalError as e:
-                    if "disk I/O error" in str(e) or "unable to open" in str(e):
-                        retries -= 1
-                        _log.warning(f"Erreur I/O disque sur '{func_name}'. Connexion réseau probablement perdue. Nouvel essai... ({retries} restants)")
-                        status_update_queue.put((f"Erreur réseau, nouvel essai dans 2s...", True))
-                        time.sleep(2) # On attend un peu avant de retenter
-                    else:
-                        _log.exception(f"Erreur sqlite inattendue pour '{func_name}'.")
-                        result_queue.put((False, e))
-                        task_completed = True
+                    _log.warning(f"Erreur BDD: '{e}'. Nouvel essai... ({retries - 1} restants)")
+                    retries -= 1
+                    time.sleep(2)
                 except Exception as e:
-                    _log.exception(f"Erreur non gérée dans le thread d'écriture pour '{func_name}'.")
-                    result_queue.put((False, e))
-                    task_completed = True
+                    _log.exception(f"Erreur non gérée dans le thread d'écriture pour '{task_func.__name__}'.")
+                    result_queue.put((False, e)); task_completed = True
 
             if not task_completed and retries == 0:
-                _log.error(f"Échec final de la tâche '{func_name}' après plusieurs tentatives.")
-                result_queue.put((False, Exception(f"Échec de l'opération BDD pour {func_name} après plusieurs tentatives.")))
+                _log.error(f"Échec final de la tâche '{task_func.__name__}' après plusieurs tentatives.")
+                result_queue.put((False, Exception(f"Échec de l'opération BDD pour {task_func.__name__}.")))
 
         finally:
             if lock_acquired:
                 try:
                     os.remove(DB_LOCK_FILE)
-                except OSError as e:
-                    _log.error(f"Impossible de supprimer le fichier de verrou : {e}", exc_info=True)
-
-                temp_flag_path = f"{DB_REFRESH_FLAG_FILE}.{os.getpid()}.tmp"
-                try:
-                    with open(temp_flag_path, 'w') as f:
+                    with open(DB_REFRESH_FLAG_FILE, 'w') as f:
                         f.write(str(time.time()))
-                    os.rename(temp_flag_path, DB_REFRESH_FLAG_FILE)
-                except IOError as e:
-                    _log.error(f"Impossible de créer le fichier de signal de rafraîchissement : {e}", exc_info=True)
-                    if os.path.exists(temp_flag_path):
-                        os.remove(temp_flag_path)
-
+                except OSError as e:
+                    _log.error(f"Impossible de gérer les fichiers de lock/flag : {e}", exc_info=True)
             status_update_queue.put(("Prêt", False))
             _write_queue.task_done()
 
@@ -155,13 +94,8 @@ _writer_thread_instance.start()
 def stop_db_writer_thread():
     _log.info("Tentative d'arrêt du thread d'écriture de la BDD...")
     _stop_queue_processor.set()
-    while not _write_queue.empty():
-        try:
-            _write_queue.get_nowait()
-            _write_queue.task_done()
-        except queue.Empty:
-            break
-    _writer_thread_instance.join(timeout=2)
+    if _writer_thread_instance.is_alive():
+        _writer_thread_instance.join(timeout=2)
     if _writer_thread_instance.is_alive():
         _log.warning("Le thread d'écriture de la BDD n'a pas pu être arrêté proprement.")
     else:
@@ -173,52 +107,36 @@ def is_db_writer_busy() -> bool:
 
 
 def execute_in_queue(func):
-    """
-    Décorateur pour exécuter une fonction dans la file d'attente d'écriture de la BDD.
-    AMÉLIORATION : Ajout d'un compteur de tentatives.
-    """
     @wraps(func)
     def wrapper(*args, **kwargs):
         result_queue = queue.Queue(1)
-        # On donne 3 tentatives à la tâche
         _write_queue.put((func, args, kwargs, result_queue, 3))
         success, result = result_queue.get()
-
         if not success:
             raise result
         return result
-
     return wrapper
 
 
 def handle_db_locks(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        wait_for_network(f"Opération de lecture BDD: {func.__name__}")
         retries = 5
         for i in range(retries):
             try:
                 return func(*args, **kwargs)
             except sqlite3.OperationalError as e:
-                # AMÉLIORATION : Gestion plus large des erreurs de connexion pour les lectures
-                if "locked" in str(e) or "busy" in str(e) or "disk I/O error" in str(e) or "unable to open" in str(e):
+                if "locked" in str(e) or "busy" in str(e):
                     if i < retries - 1:
-                        wait_time = random.uniform(0.3, 0.8)
-                        _log.warning(
-                            f"Base de données indisponible (lecture). Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour {func.__name__}...")
-                        network_status_queue.put(False)
-                        time.sleep(wait_time)
+                        _log.warning(f"Base de données verrouillée pour la lecture ({func.__name__}). Tentative {i + 1}/{retries}...")
+                        time.sleep(random.uniform(0.3, 0.8))
                         continue
-                    else:
-                        _log.error(
-                            f"La base de données est restée indisponible après plusieurs tentatives pour {func.__name__}.")
-                        raise e
-                else:
-                    raise e
+                raise e
     return wrapper
 
 
 def get_db_connection():
-    # Le timeout de 30s est généreux pour les connexions réseau lentes
     conn = sqlite3.connect(DATABASE_FILE, timeout=30)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -272,22 +190,22 @@ def create_tables():
 
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS remboursements (
-                                                      id_demande TEXT PRIMARY KEY,
-                                                      nom TEXT,
-                                                      prenom TEXT,
-                                                      reference_facture TEXT NOT NULL,
-                                                      reference_facture_dossier TEXT,
-                                                      description TEXT,
-                                                      montant_demande REAL NOT NULL,
-                                                      statut TEXT NOT NULL,
-                                                      cree_par TEXT,
-                                                      date_creation TEXT NOT NULL,
-                                                      derniere_modification_par TEXT,
-                                                      date_derniere_modification TEXT NOT NULL,
-                                                      date_paiement_effectue TEXT,
-                                                      is_archived INTEGER NOT NULL DEFAULT 0,
-                                                      FOREIGN KEY (cree_par) REFERENCES utilisateurs (login) ON DELETE SET NULL,
-            FOREIGN KEY (derniere_modification_par) REFERENCES utilisateurs (login)ON DELETE SET NULL
+            id_demande TEXT PRIMARY KEY,
+            nom TEXT,
+            prenom TEXT,
+            reference_facture TEXT NOT NULL,
+            reference_facture_dossier TEXT,
+            description TEXT,
+            montant_demande REAL NOT NULL,
+            statut TEXT NOT NULL,
+            cree_par TEXT,
+            date_creation TEXT NOT NULL,
+            derniere_modification_par TEXT,
+            date_derniere_modification TEXT NOT NULL,
+            date_paiement_effectue TEXT,
+            is_archived INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (cree_par) REFERENCES utilisateurs (login) ON DELETE SET NULL,
+            FOREIGN KEY (derniere_modification_par) REFERENCES utilisateurs (login) ON DELETE SET NULL
         )""")
 
         cursor.execute("""
@@ -304,34 +222,29 @@ def create_tables():
 
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS pieces_jointes (
-                                                      pj_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                      id_demande TEXT NOT NULL,
-                                                      type_pj TEXT NOT NULL,
-                                                      chemin_relatif TEXT NOT NULL,
-                                                      date_ajout TEXT NOT NULL,
-                                                      FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
+            pj_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_demande TEXT NOT NULL,
+            type_pj TEXT NOT NULL,
+            chemin_relatif TEXT NOT NULL,
+            date_ajout TEXT NOT NULL,
+            FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
         )""")
 
+        # --- INDEX ---
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_statut ON remboursements (statut);")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_nom ON remboursements (nom);")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_is_archived ON remboursements (is_archived);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande ON historique (id_demande);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande ON pieces_jointes (id_demande);")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_general ON remboursements (is_archived, date_derniere_modification DESC);")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_general ON remboursements (is_archived, date_derniere_modification DESC);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_montant_demande ON remboursements (montant_demande);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_creation ON remboursements (date_creation);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande_date ON historique (id_demande, date);")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande_date_ajout ON pieces_jointes (id_demande, date_ajout);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande_date_ajout ON pieces_jointes (id_demande, date_ajout);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_cree_par ON remboursements (cree_par);")
 
         conn.commit()
