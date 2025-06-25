@@ -2,6 +2,9 @@ import os
 import customtkinter as ctk
 import threading
 import queue
+from PIL import Image
+import fitz
+
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
 from utils.ui_utils import DragDropFrame
@@ -22,45 +25,12 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
         self.copy_progress_queue = queue.Queue()
 
         self.title(f"Accepter Constat TP - Demande {id_demande[:8]}")
-        self.geometry("500x550")
+        self.geometry("850x600")
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.close_animated)
 
-        self.chemin_pj_var = ctk.StringVar(value="Aucune PJ sélectionnée (Obligatoire)")
-
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.pack(expand=True, fill="both", padx=10, pady=10)
-
-        ctk.CTkLabel(main_frame, text="Preuve de Trop-Perçu (Image/PDF/Doc...):", font=ctk.CTkFont(weight="bold")).pack(
-            pady=(15, 2))
-
-        file_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        file_frame.pack(pady=(0, 5), padx=10, fill="x")
-        file_frame.columnconfigure(1, weight=1)
-
-        ctk.CTkButton(file_frame, text="Choisir Fichier...", command=self._select_pj).grid(row=0, column=0,
-                                                                                           padx=(0, 10))
-        self.label_pj = ctk.CTkLabel(file_frame, textvariable=self.chemin_pj_var)
-        self.label_pj.grid(row=0, column=1, sticky="ew")
-
-        drop_zone = DragDropFrame(main_frame, drop_callback=self._select_pj, text="Déposez la preuve ici")
-        drop_zone.pack(pady=5, padx=10, fill="x")
-
-        self.progress_bar = ctk.CTkProgressBar(main_frame)
-        self.progress_bar.pack(pady=(5, 10), padx=20, fill="x")
-        self.progress_bar.set(0)
-        self.progress_bar.pack_forget()
-
-        ctk.CTkLabel(main_frame, text="Commentaire (Optionnel):", font=ctk.CTkFont(weight="bold")).pack(pady=(10, 2))
-        self.commentaire_box = ctk.CTkTextbox(main_frame, height=100)
-        self.commentaire_box.pack(pady=5, padx=10, fill="x", expand=True)
-        self.commentaire_box.focus()
-
-        self.btn_submit = ctk.CTkButton(self, text="Valider et Soumettre à J. Durousset", command=self._submit,
-                                        height=35)
-        self.btn_submit.pack(pady=20)
-
+        self._build_ui()
         self.fade_in()
         self._check_copy_progress()
 
@@ -69,6 +39,101 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
             threading.Thread(target=self.remboursement_controller.supprimer_piece_jointe_reseau,
                              args=(self.chemin_pj_reseau,), daemon=True).start()
         super().destroy()
+
+    def _build_ui(self):
+        self.grid_columnconfigure(0, weight=2)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        form_frame = ctk.CTkFrame(self)
+        form_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
+
+        self.chemin_pj_var = ctk.StringVar(value="Aucune PJ sélectionnée (Obligatoire)")
+
+        ctk.CTkLabel(form_frame, text="Preuve de Trop-Perçu (Image/PDF/Doc...):",
+                     font=ctk.CTkFont(weight="bold")).pack(pady=(15, 2), anchor="w", padx=10)
+
+        file_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        file_frame.pack(pady=(0, 5), padx=10, fill="x")
+        file_frame.columnconfigure(1, weight=1)
+        ctk.CTkButton(file_frame, text="Choisir Fichier...", command=self._select_pj).grid(row=0, column=0,
+                                                                                           padx=(0, 10))
+        ctk.CTkLabel(file_frame, textvariable=self.chemin_pj_var, wraplength=250).grid(row=0, column=1,
+                                                                                        sticky="ew")
+
+        DragDropFrame(form_frame, drop_callback=self._select_pj, text="Déposez la preuve ici").pack(pady=5,
+                                                                                                    padx=10,
+                                                                                                    fill="x")
+
+        ctk.CTkLabel(form_frame, text="Commentaire (Optionnel):", font=ctk.CTkFont(weight="bold")).pack(
+            pady=(20, 2), anchor="w", padx=10)
+        self.commentaire_box = ctk.CTkTextbox(form_frame)
+        self.commentaire_box.pack(pady=5, padx=10, fill="both", expand=True)
+        self.commentaire_box.focus()
+
+        self.progress_bar = ctk.CTkProgressBar(form_frame)
+        self.progress_bar.pack(pady=(5, 10), padx=10, fill="x")
+        self.progress_bar.set(0)
+        self.progress_bar.pack_forget()
+
+        self._build_preview_panel()
+
+        self.btn_submit = ctk.CTkButton(self, text="Valider et Soumettre à J. Durousset", command=self._submit,
+                                        height=35)
+        self.btn_submit.grid(row=1, column=0, columnspan=2, pady=(0, 20))
+
+    def _build_preview_panel(self):
+        self.preview_area_frame = ctk.CTkFrame(self, border_width=1)
+        self.preview_area_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 20), pady=20)
+        self.preview_area_frame.grid_rowconfigure(1, weight=1)
+        self.preview_area_frame.grid_columnconfigure(0, weight=1)
+
+        self.preview_title_label = ctk.CTkLabel(self.preview_area_frame, text="Aperçu",
+                                                font=ctk.CTkFont(size=14, weight="bold"))
+        self.preview_title_label.grid(row=0, column=0, pady=(10, 5), padx=10)
+
+        self.preview_image_label = ctk.CTkLabel(self.preview_area_frame,
+                                                text="Sélectionnez un fichier\npour voir un aperçu.",
+                                                text_color="gray60")
+        self.preview_image_label.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+
+        self.preview_info_label = ctk.CTkLabel(self.preview_area_frame, text="", font=ctk.CTkFont(size=11),
+                                               text_color="gray60")
+        self.preview_info_label.grid(row=2, column=0, sticky="ew", padx=10, pady=(5, 10))
+
+    def _show_preview(self, file_path: str):
+        self.preview_title_label.configure(text="Aperçu de la Preuve TP")
+        self.preview_image_label.configure(text="Chargement...", image=None)
+        self.preview_info_label.configure(text=os.path.basename(file_path))
+
+        def task():
+            file_ext = file_path.lower().split('.')[-1]
+            preview_max_size = (300, 400)
+            if file_ext in ("png", "jpg", "jpeg", "gif", "bmp"):
+                with Image.open(file_path) as img:
+                    img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
+                    return img
+            elif file_ext == "pdf":
+                with fitz.open(file_path) as doc:
+                    if not doc.page_count: return None
+                    page = doc.load_page(0)
+                    pix = page.get_pixmap(dpi=150)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
+                    return img
+            return None
+
+        def on_complete(image, error):
+            if error or not image:
+                self.preview_image_label.configure(image=None, text="Aperçu non disponible")
+                self.preview_image_label.image = None
+                return
+            ctk_image = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+            self.preview_image_label.configure(image=ctk_image, text="")
+            self.preview_image_label.image = ctk_image
+            self.preview_info_label.configure(text=f"{os.path.basename(file_path)}\n({image.width}x{image.height})")
+
+        self.run_task(task, on_complete, show_overlay=False)
 
     def _select_pj(self, file_path: str = None):
         if file_path:
@@ -79,13 +144,16 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
 
         if not chemin_local: return
 
+        self._show_preview(chemin_local)
+
         self.btn_submit.configure(state="disabled", text="Copie en cours...")
         self.progress_bar.pack()
         self.progress_bar.set(0)
 
         if self.chemin_pj_reseau:
             self.run_task(
-                lambda p=self.chemin_pj_reseau: self.remboursement_controller.supprimer_piece_jointe_reseau(p), None,
+                lambda p=self.chemin_pj_reseau: self.remboursement_controller.supprimer_piece_jointe_reseau(p),
+                None,
                 show_overlay=False)
         self.chemin_pj_reseau = None
 
@@ -135,7 +203,8 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
         def task():
             path_to_submit = self.chemin_pj_reseau
             self.chemin_pj_reseau = None
-            return self.remboursement_controller.mlupo_accepter_constat(self.id_demande, commentaire, path_to_submit)
+            return self.remboursement_controller.mlupo_accepter_constat(self.id_demande, commentaire,
+                                                                        path_to_submit)
 
         def on_complete(result, error):
             if error:

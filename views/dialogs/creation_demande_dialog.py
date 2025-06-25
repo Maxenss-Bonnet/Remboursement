@@ -3,6 +3,9 @@ import customtkinter as ctk
 import threading
 import shutil
 import queue
+from PIL import Image
+import fitz
+
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
 from utils.ui_utils import DragDropFrame
@@ -21,7 +24,7 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.copy_operations_in_progress = 0
 
         self.title("Nouvelle Demande de Remboursement")
-        self.geometry("700x800")
+        self.geometry("950x700")
         self.transient(master)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.close_animated)
@@ -29,6 +32,10 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         self.entries_demande = {}
         self.temp_dossier_path = self.remboursement_controller.creer_dossier_demande_temporaire()
         self.copy_progress_queue = queue.Queue()
+
+        self.facture_local_path = None
+        self.rib_local_path = None
+        self.currently_previewing = None
 
         self._build_ui()
         self.fade_in()
@@ -42,84 +49,151 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         super().destroy()
 
     def _build_ui(self):
+        self.grid_columnconfigure(0, weight=2)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
         form_frame = ctk.CTkFrame(self)
-        form_frame.pack(expand=True, fill="both", padx=20, pady=20)
+        form_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
         form_frame.columnconfigure(1, weight=1)
 
-        current_row = 0
         labels_entries = {
             "Nom:": "nom", "Prénom:": "prenom", "Référence Facture:": "reference_facture",
             "Montant demandé (€):": "montant_demande"
         }
-
-        for label_text, key_name in labels_entries.items():
-            ctk.CTkLabel(form_frame, text=label_text).grid(row=current_row, column=0, padx=5, pady=8, sticky="w")
-            entry = ctk.CTkEntry(form_frame, width=350)
-            entry.grid(row=current_row, column=1, padx=5, pady=8, sticky="ew")
+        for i, (label_text, key_name) in enumerate(labels_entries.items()):
+            ctk.CTkLabel(form_frame, text=label_text).grid(row=i, column=0, padx=10, pady=8, sticky="w")
+            entry = ctk.CTkEntry(form_frame)
+            entry.grid(row=i, column=1, padx=10, pady=8, sticky="ew")
             self.entries_demande[key_name] = entry
-            current_row += 1
 
-        ctk.CTkLabel(form_frame, text="Description/Raison:").grid(row=current_row, column=0, padx=5, pady=(8, 0),
-                                                                  sticky="nw")
-        self.textbox_description = ctk.CTkTextbox(form_frame, width=350, height=100)
-        self.textbox_description.grid(row=current_row, column=1, padx=5, pady=8, sticky="ew")
-        current_row += 1
+        ctk.CTkLabel(form_frame, text="Description/Raison:").grid(row=4, column=0, padx=10, pady=(8, 0), sticky="nw")
+        self.textbox_description = ctk.CTkTextbox(form_frame, height=100)
+        self.textbox_description.grid(row=4, column=1, padx=10, pady=8, sticky="ew")
 
-        self.chemin_facture_var = ctk.StringVar(value="Aucun fichier sélectionné (Optionnel)")
-        self.chemin_rib_var = ctk.StringVar(value="Aucun fichier sélectionné (Obligatoire)")
+        self.chemin_facture_var = ctk.StringVar(value="Aucun fichier (Optionnel)")
+        self.chemin_rib_var = ctk.StringVar(value="Aucun fichier (Obligatoire)")
 
-        ctk.CTkLabel(form_frame, text="Facture:").grid(row=current_row, column=0, padx=5, pady=(15, 5), sticky="w")
-
+        ctk.CTkLabel(form_frame, text="Facture:").grid(row=5, column=0, padx=10, pady=(15, 5), sticky="w")
         facture_file_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-        facture_file_frame.grid(row=current_row, column=1, sticky="ew")
+        facture_file_frame.grid(row=5, column=1, sticky="ew", pady=5, padx=10)
         facture_file_frame.columnconfigure(1, weight=1)
+        ctk.CTkButton(facture_file_frame, text="Choisir", width=80,
+                      command=lambda: self._selectionner_pj("facture")).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(facture_file_frame, textvariable=self.chemin_facture_var, wraplength=250).pack(side="left",
+                                                                                                    fill="x",
+                                                                                                    expand=True)
+        DragDropFrame(form_frame, drop_callback=lambda p: self._selectionner_pj("facture", p),
+                      text="Déposez la facture ici").grid(row=6, column=1, padx=10, pady=(0, 10), sticky="ew")
 
-        btn_facture = ctk.CTkButton(facture_file_frame, text="Choisir Facture", width=120,
-                                    command=lambda: self._selectionner_pj("facture"))
-        btn_facture.grid(row=0, column=0, padx=(5, 10), pady=5)
-        self.label_facture = ctk.CTkLabel(facture_file_frame, textvariable=self.chemin_facture_var, wraplength=300)
-        self.label_facture.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        current_row += 1
-
-        drop_zone_facture = DragDropFrame(form_frame,
-                                          drop_callback=lambda path: self._selectionner_pj("facture", file_path=path),
-                                          text="Déposez la facture ici (optionnel)")
-        drop_zone_facture.grid(row=current_row, column=1, padx=5, pady=(0, 10), sticky="ew", rowspan=1)
-        current_row += 1
-
-        ctk.CTkLabel(form_frame, text="RIB:").grid(row=current_row, column=0, padx=5, pady=(15, 5), sticky="w")
-
+        ctk.CTkLabel(form_frame, text="RIB:").grid(row=7, column=0, padx=10, pady=(15, 5), sticky="w")
         rib_file_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-        rib_file_frame.grid(row=current_row, column=1, sticky="ew")
+        rib_file_frame.grid(row=7, column=1, sticky="ew", pady=5, padx=10)
         rib_file_frame.columnconfigure(1, weight=1)
-
-        btn_rib = ctk.CTkButton(rib_file_frame, text="Choisir RIB", width=120,
-                                command=lambda: self._selectionner_pj("rib"))
-        btn_rib.grid(row=0, column=0, padx=(5, 10), pady=5)
-        self.label_rib = ctk.CTkLabel(rib_file_frame, textvariable=self.chemin_rib_var, wraplength=300)
-        self.label_rib.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        current_row += 1
-
-        drop_zone_rib = DragDropFrame(form_frame,
-                                      drop_callback=lambda path: self._selectionner_pj("rib", file_path=path),
-                                      text="Déposez le RIB ici (obligatoire)")
-        drop_zone_rib.grid(row=current_row, column=1, padx=5, pady=(0, 10), sticky="ew")
-        current_row += 1
+        ctk.CTkButton(rib_file_frame, text="Choisir", width=80, command=lambda: self._selectionner_pj("rib")).pack(
+            side="left", padx=(0, 10))
+        ctk.CTkLabel(rib_file_frame, textvariable=self.chemin_rib_var, wraplength=250).pack(side="left", fill="x",
+                                                                                            expand=True)
+        DragDropFrame(form_frame, drop_callback=lambda p: self._selectionner_pj("rib", p),
+                      text="Déposez le RIB ici").grid(row=8, column=1, padx=10, pady=(0, 10), sticky="ew")
 
         self.progress_label = ctk.CTkLabel(form_frame, text="")
-        self.progress_label.grid(row=current_row, column=0, columnspan=2, sticky="w", padx=5)
-        current_row += 1
-
+        self.progress_label.grid(row=9, column=0, columnspan=2, pady=(10, 0), padx=10, sticky="ew")
         self.progress_bar = ctk.CTkProgressBar(form_frame)
-        self.progress_bar.grid(row=current_row, column=0, columnspan=2, sticky="ew", padx=5, pady=(0, 5))
-        self.progress_bar.set(0)
+        self.progress_bar.grid(row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 5))
         self.progress_label.grid_remove()
         self.progress_bar.grid_remove()
-        current_row += 1
 
-        self.btn_soumettre = ctk.CTkButton(form_frame, text="Enregistrer la Demande", command=self._soumettre_demande,
+        self._build_preview_panel()
+
+        self.btn_soumettre = ctk.CTkButton(self, text="Enregistrer la Demande", command=self._soumettre_demande,
                                            height=35)
-        self.btn_soumettre.grid(row=current_row, column=0, columnspan=2, pady=(15, 5), padx=5)
+        self.btn_soumettre.grid(row=1, column=0, columnspan=2, pady=(0, 20))
+
+    def _build_preview_panel(self):
+        self.preview_area_frame = ctk.CTkFrame(self, border_width=1)
+        self.preview_area_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 20), pady=20)
+        self.preview_area_frame.grid_rowconfigure(2, weight=1)
+        self.preview_area_frame.grid_columnconfigure(0, weight=1)
+
+        preview_buttons_frame = ctk.CTkFrame(self.preview_area_frame, fg_color="transparent")
+        preview_buttons_frame.grid(row=0, column=0, pady=(5, 5), padx=10, sticky="ew")
+        preview_buttons_frame.grid_columnconfigure((0, 1), weight=1)
+
+        self.show_facture_button = ctk.CTkButton(preview_buttons_frame, text="Aperçu Facture",
+                                                 command=lambda: self._show_preview(self.facture_local_path,
+                                                                                    "facture") if self.facture_local_path else None,
+                                                 state="disabled")
+        self.show_facture_button.grid(row=0, column=0, padx=(0, 5))
+
+        self.show_rib_button = ctk.CTkButton(preview_buttons_frame, text="Aperçu RIB",
+                                             command=lambda: self._show_preview(self.rib_local_path,
+                                                                                "rib") if self.rib_local_path else None,
+                                             state="disabled")
+        self.show_rib_button.grid(row=0, column=1, padx=(5, 0))
+
+        self.preview_title_label = ctk.CTkLabel(self.preview_area_frame, text="",
+                                                font=ctk.CTkFont(size=14, weight="bold"))
+        self.preview_title_label.grid(row=1, column=0, pady=(5, 5), padx=10)
+
+        self.preview_image_label = ctk.CTkLabel(self.preview_area_frame,
+                                                text="Sélectionnez un fichier\npour voir un aperçu.",
+                                                text_color="gray60")
+        self.preview_image_label.grid(row=2, column=0, sticky="nsew", padx=10, pady=10)
+
+        self.preview_info_label = ctk.CTkLabel(self.preview_area_frame, text="", font=ctk.CTkFont(size=11),
+                                               text_color="gray60")
+        self.preview_info_label.grid(row=3, column=0, sticky="ew", padx=10, pady=(5, 10))
+
+    def _update_preview_buttons(self, new_preview: str | None):
+        self.currently_previewing = new_preview
+
+        default_color = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+        selected_color = "green"
+
+        facture_color = default_color if self.currently_previewing != "facture" else selected_color
+        rib_color = default_color if self.currently_previewing != "rib" else selected_color
+
+        self.show_facture_button.configure(fg_color=facture_color)
+        self.show_rib_button.configure(fg_color=rib_color)
+
+    def _show_preview(self, file_path: str, pj_type: str):
+        if not file_path: return
+
+        self._update_preview_buttons(pj_type)
+        self.preview_title_label.configure(text=f"Aperçu de la {pj_type.title()}")
+        self.preview_image_label.configure(text="Chargement...", image=None)
+        self.preview_info_label.configure(text=os.path.basename(file_path))
+
+        def task():
+            file_ext = file_path.lower().split('.')[-1]
+            preview_max_size = (300, 400)
+            if file_ext in ("png", "jpg", "jpeg", "gif", "bmp"):
+                with Image.open(file_path) as img:
+                    img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
+                    return img
+            elif file_ext == "pdf":
+                with fitz.open(file_path) as doc:
+                    if not doc.page_count: return None
+                    page = doc.load_page(0)
+                    pix = page.get_pixmap(dpi=150)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img.thumbnail(preview_max_size, Image.Resampling.LANCZOS)
+                    return img
+            return None
+
+        def on_complete(image, error):
+            if error or not image:
+                self.preview_image_label.configure(image=None, text="Aperçu non disponible")
+                self.preview_image_label.image = None
+                return
+
+            ctk_image = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+            self.preview_image_label.configure(image=ctk_image, text="")
+            self.preview_image_label.image = ctk_image
+            self.preview_info_label.configure(text=f"{os.path.basename(file_path)}\n({image.width}x{image.height})")
+
+        self.run_task(task, on_complete, show_overlay=False)
 
     def _selectionner_pj(self, type_pj: str, file_path: str = None):
         if file_path:
@@ -128,11 +202,17 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
             chemin_local = self.remboursement_controller.selectionner_fichier_document_ou_image(
                 f"Sélectionner {type_pj.title()}")
 
-        if not chemin_local:
-            return
+        if not chemin_local: return
 
         if type_pj == "facture":
+            self.facture_local_path = chemin_local
+            self.show_facture_button.configure(state="normal")
             self._extraire_infos_pdf(chemin_local)
+        elif type_pj == "rib":
+            self.rib_local_path = chemin_local
+            self.show_rib_button.configure(state="normal")
+
+        self._show_preview(chemin_local, type_pj)
 
         self.copy_operations_in_progress += 1
         self.btn_soumettre.configure(state="disabled", text="Copie de fichier en cours...")
@@ -148,8 +228,7 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
 
         subfolder_map = {"facture": "Facture", "rib": "RIB"}
         subfolder_path = os.path.join(self.temp_dossier_path, subfolder_map.get(type_pj))
-        if os.path.exists(subfolder_path):
-            shutil.rmtree(subfolder_path)
+        if os.path.exists(subfolder_path): shutil.rmtree(subfolder_path)
 
         def copy_task():
             try:
@@ -182,7 +261,6 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                         self.btn_soumettre.configure(state="normal", text="Enregistrer la Demande")
                         self.progress_bar.grid_remove()
                         self.progress_label.grid_remove()
-
         except queue.Empty:
             pass
         finally:
@@ -190,19 +268,21 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                 self.after(100, self._check_copy_progress)
 
     def _extraire_infos_pdf(self, chemin_local_pdf):
-        if not chemin_local_pdf.lower().endswith(".pdf"):
-            return
+        if not chemin_local_pdf.lower().endswith(".pdf"): return
         try:
             infos = self.remboursement_controller.extraire_info_facture_pdf(chemin_local_pdf)
             if infos.get("nom"):
-                self.entries_demande["nom"].delete(0, "end")
+                self.entries_demande["nom"].delete(0, "end");
                 self.entries_demande["nom"].insert(0, infos["nom"])
             if infos.get("prenom"):
-                self.entries_demande["prenom"].delete(0, "end")
-                self.entries_demande["prenom"].insert(0, infos["prenom"])
+                self.entries_demande["prenom"].delete(0, "end");
+                self.entries_demande["prenom"].insert(0,
+                                                      infos[
+                                                          "prenom"])
             if infos.get("reference"):
-                self.entries_demande["reference_facture"].delete(0, "end")
-                self.entries_demande["reference_facture"].insert(0, infos["reference"])
+                self.entries_demande["reference_facture"].delete(0, "end");
+                self.entries_demande[
+                    "reference_facture"].insert(0, infos["reference"])
         except Exception as e:
             self.app_controller.show_toast(f"Erreur d'analyse du PDF : {e}", "error")
 
@@ -221,7 +301,6 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         is_valid, error_message, montant_valide = self.remboursement_controller.valider_donnees_demande(
             nom, prenom, ref_facture, montant_str, description, self.temp_dossier_path
         )
-
         if not is_valid:
             self.app_controller.show_toast(error_message, "error")
             self.btn_soumettre.configure(state="normal")
@@ -239,7 +318,6 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                 self.app_controller.show_toast(f"Erreur: {error}", 'error')
                 self.btn_soumettre.configure(state="normal")
                 return
-
             success, message = result
             if success:
                 self.app_controller.show_toast(message, 'success')

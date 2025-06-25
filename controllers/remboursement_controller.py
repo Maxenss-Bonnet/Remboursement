@@ -155,7 +155,7 @@ class RemboursementController:
                                                                      self.utilisateur_actuel)
 
     def get_demandes_filtrees_triees(self, user_roles: list, filter_choice: str, sort_choice: str, search_term: str,
-                                     is_archive_mode: bool,
+                                     search_scope: str, is_archive_mode: bool,
                                      archive_date_range: Optional[Tuple[int, int]],
                                      limit: int | None = None, offset: int = 0) -> Tuple[List[Remboursement], int]:
         sort_map = {"Date de création (récent)": ("date_derniere_modification", "DESC"),
@@ -189,6 +189,7 @@ class RemboursementController:
         return remboursement_model.obtenir_demandes_filtrees_triees(
             statut_filter=statut_filter,
             search_term=search_term,
+            search_scope=search_scope,
             sort_field=sort_field,
             sort_order=sort_order,
             is_archived=is_archived_query,
@@ -217,7 +218,8 @@ class RemboursementController:
             full_path = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, relative_path)
             return full_path, None
         else:
-            zip_path = os.path.join(REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR, f"{demande.reference_facture_dossier}.zip")
+            zip_path = os.path.join(REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR,
+                                    f"{demande.reference_facture_dossier}.zip")
             if not os.path.exists(zip_path): return None, None
             try:
                 temp_dir = tempfile.mkdtemp(prefix="remb-archive-")

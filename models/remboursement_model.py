@@ -108,11 +108,13 @@ def obtenir_demande_par_id(
     id_demande)
 
 
-def obtenir_demandes_filtrees_triees(statut_filter: Optional[List[str]], search_term: str, sort_field: str,
+def obtenir_demandes_filtrees_triees(statut_filter: Optional[List[str]], search_term: str, search_scope: str,
+                                     sort_field: str,
                                      sort_order: str, is_archived: Optional[bool], limit: int | None, offset: int,
                                      date_range: Optional[Tuple[datetime.datetime, datetime.datetime]] = None,
                                      active_for_user: Optional[Tuple[list, str]] = None):
     return remboursement_data.charger_demandes_data(statut_filter=statut_filter, search_term=search_term,
+                                                    search_scope=search_scope,
                                                     sort_field=sort_field, sort_order=sort_order,
                                                     is_archived=is_archived, date_range=date_range,
                                                     limit=limit, offset=offset, active_for_user=active_for_user)
@@ -123,7 +125,7 @@ def archiver_les_vieilles_demandes() -> int:
     douze_mois = datetime.timedelta(days=365)
     now = datetime.datetime.now()
     demandes_actives, _ = obtenir_demandes_filtrees_triees(
-        statut_filter=None, search_term="", sort_field="date_derniere_modification",
+        statut_filter=None, search_term="", search_scope="Tout", sort_field="date_derniere_modification",
         sort_order="ASC", is_archived=False, limit=None, offset=0
     )
     for demande in demandes_actives:
@@ -138,7 +140,7 @@ def admin_supprimer_archives_anciennes(age_en_annees: int) -> tuple[int, list[st
     demandes_supprimees, erreurs = 0, []
     date_limite = datetime.datetime.now() - datetime.timedelta(days=age_en_annees * 365.25)
     demandes_archivees, _ = obtenir_demandes_filtrees_triees(
-        statut_filter=None, search_term="", sort_field="date_derniere_modification",
+        statut_filter=None, search_term="", search_scope="Tout", sort_field="date_derniere_modification",
         sort_order="ASC", is_archived=True, limit=None, offset=0
     )
     for demande in demandes_archivees:
@@ -176,7 +178,8 @@ def refuser_demande_par_validateur(id_demande: str, commentaire: str, utilisateu
 
 def confirmer_paiement_effectue(id_demande: str, utilisateur: str, commentaire: str | None) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande, utilisateur, commentaire, remboursement_workflow.confirmer_paiement_action)
+    return _generic_workflow_action(demande, utilisateur, commentaire,
+                                    remboursement_workflow.confirmer_paiement_action)
 
 
 def mlupo_refuser_correction(id_demande: str, commentaire: str, utilisateur: str) -> tuple[bool, str]:

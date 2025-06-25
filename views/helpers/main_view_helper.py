@@ -82,6 +82,7 @@ class MainViewHelper:
                 filter_choice=self.view.current_filter,
                 sort_choice=self.view.current_sort,
                 search_term=self.view.search_var.get(),
+                search_scope=self.view.search_scope_var.get(),
                 is_archive_mode=self.view.is_archive_mode,
                 archive_date_range=self.view.archive_date_range,
                 limit=self.view.items_per_page,
@@ -217,7 +218,8 @@ class MainViewHelper:
         btn_next.pack(side="left", padx=2)
         if self.current_page >= self.total_pages: btn_next.configure(state="disabled")
 
-        btn_last = ctk.CTkButton(buttons_frame, text=">>", width=40, command=lambda: self._go_to_page(self.total_pages))
+        btn_last = ctk.CTkButton(buttons_frame, text=">>", width=40,
+                                 command=lambda: self._go_to_page(self.total_pages))
         btn_last.pack(side="left", padx=2)
         if self.current_page >= self.total_pages: btn_last.configure(state="disabled")
 
@@ -335,7 +337,8 @@ class MainViewHelper:
 
     def action_admin_purge_archives(self):
         age_str = simpledialog.askstring("Purger les Archives",
-                                         "Entrez l'âge minimum (en années) des archives à supprimer.", parent=self.view)
+                                         "Entrez l'âge minimum (en années) des archives à supprimer.",
+                                         parent=self.view)
         if not age_str: return
         try:
             age = int(age_str)

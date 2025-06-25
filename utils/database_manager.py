@@ -9,6 +9,8 @@ import queue
 import logging
 from contextlib import contextmanager
 
+import psutil
+
 from config.settings import SHARED_DATA_BASE_PATH
 from utils.global_events import status_update_queue
 
@@ -39,24 +41,44 @@ def _db_writer_thread():
 
                 try:
                     with open(DB_LOCK_FILE, 'x') as f:
-                        f.write(f"{time.time()}|{hostname}")
+                        f.write(f"{os.getpid()}|{time.time()}|{hostname}")
                     lock_acquired = True
                     status_update_queue.put(("Prêt", False))
                 except FileExistsError:
                     status_update_queue.put(("Base de données occupée, en attente...", True))
                     try:
                         with open(DB_LOCK_FILE, 'r') as f:
-                            content = f.read()
-                        lock_time_str = content.split('|')[0]
-                        lock_age = time.time() - float(lock_time_str)
+                            content = f.read().strip()
 
-                        if lock_age > LOCK_TIMEOUT_SECONDS:
+                        lock_pid_str, lock_time_str, lock_hostname = content.split('|', 2)
+                        lock_pid = int(lock_pid_str)
+                        lock_time = float(lock_time_str)
+                        lock_age = time.time() - lock_time
+
+                        is_stale = False
+                        if lock_hostname == hostname and not psutil.pid_exists(lock_pid):
                             _log.warning(
-                                f"Le verrou est ancien de {lock_age:.2f}s. Il est considéré comme orphelin. Tentative de prise de force.")
+                                f"Le verrou est détenu par un processus local (PID: {lock_pid}) qui n'existe plus. Il est considéré comme orphelin.")
+                            is_stale = True
+
+                        if not is_stale and lock_age > LOCK_TIMEOUT_SECONDS:
+                            _log.warning(
+                                f"Le verrou de '{lock_hostname}' est ancien de {lock_age:.2f}s. Il est considéré comme orphelin (timeout).")
+                            is_stale = True
+
+                        if is_stale:
                             os.remove(DB_LOCK_FILE)
+                            _log.info("Verrou orphelin supprimé. Nouvelle tentative de prise de verrou.")
                             continue
+
                     except (IOError, IndexError, ValueError) as e:
-                        _log.warning(f"Impossible de lire ou d'interpréter le fichier de verrou : {e}. Nouvelle tentative.")
+                        _log.warning(
+                            f"Impossible de lire ou d'interpréter le fichier de verrou : {e}. Suppression par sécurité.")
+                        try:
+                            os.remove(DB_LOCK_FILE)
+                        except OSError:
+                            pass
+                        continue
 
                     time.sleep(random.uniform(0.5, 1.5))
                 except Exception as e:
@@ -73,7 +95,8 @@ def _db_writer_thread():
                 _log.info(f"Opération d'écriture '{func_name}' terminée avec succès en {duration:.4f}s.")
                 result_queue.put((True, result))
             except Exception as e:
-                _log.exception(f"Erreur dans le thread d'écriture de la BDD lors de l'exécution de la tâche '{func_name}'.")
+                _log.exception(
+                    f"Erreur dans le thread d'écriture de la BDD lors de l'exécution de la tâche '{func_name}'.")
                 result_queue.put((False, e))
 
         finally:
@@ -127,6 +150,7 @@ def execute_in_queue(func):
         if not success:
             raise result
         return result
+
     return wrapper
 
 
@@ -141,14 +165,17 @@ def handle_db_locks(func):
                 if "locked" in str(e) or "busy" in str(e):
                     if i < retries - 1:
                         wait_time = random.uniform(0.2, 0.5)
-                        _log.warning(f"Base de données verrouillée (lecture). Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour la fonction {func.__name__}...")
+                        _log.warning(
+                            f"Base de données verrouillée (lecture). Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour la fonction {func.__name__}...")
                         time.sleep(wait_time)
                         continue
                     else:
-                        _log.error(f"La base de données est restée verrouillée après plusieurs tentatives pour {func.__name__}.")
+                        _log.error(
+                            f"La base de données est restée verrouillée après plusieurs tentatives pour {func.__name__}.")
                         raise e
                 else:
                     raise e
+
     return wrapper
 
 
@@ -247,19 +274,25 @@ def create_tables():
         )""")
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_statut ON remboursements (statut);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_remboursements_date_modif ON remboursements (date_derniere_modification);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_nom ON remboursements (nom);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_remboursements_ref_facture ON remboursements (reference_facture);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_is_archived ON remboursements (is_archived);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande ON historique (id_demande);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande ON pieces_jointes (id_demande);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_general ON remboursements (is_archived, date_derniere_modification DESC);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_general ON remboursements (is_archived, date_derniere_modification DESC);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_montant_demande ON remboursements (montant_demande);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_creation ON remboursements (date_creation);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande_date ON historique (id_demande, date);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande_date_ajout ON pieces_jointes (id_demande, date_ajout);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pieces_jointes_id_demande_date_ajout ON pieces_jointes (id_demande, date_ajout);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_cree_par ON remboursements (cree_par);")
 
         conn.commit()

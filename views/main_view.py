@@ -63,6 +63,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.current_sort = "Date de création (récent)"
         self.current_filter = self.user_data.default_filter
         self.search_var = ctk.StringVar()
+        self.search_scope_var = ctk.StringVar(value="Tout")
 
         self._creer_widgets()
         self.app_controller.start_status_updates_check()
@@ -88,8 +89,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1) # Main content
-        self.grid_rowconfigure(2, weight=0) # Status bar
+        self.grid_rowconfigure(1, weight=1)  # Main content
+        self.grid_rowconfigure(2, weight=0)  # Status bar
 
         self.winfo_toplevel().bind("<F5>", lambda e: self.afficher_liste_demandes(force_refresh=True))
         self.winfo_toplevel().bind("<Any-KeyPress>", self._reset_idle_timer)
@@ -119,7 +120,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
                       fg_color="gray").pack(side="left", padx=5)
         ctk.CTkButton(right_buttons_frame, text="Aide", command=self.helper.open_help_view, width=70).pack(side="left",
                                                                                                            padx=5)
-        ctk.CTkButton(right_buttons_frame, text="Déconnexion", command=self.app_controller.on_logout, width=120).pack(
+        ctk.CTkButton(right_buttons_frame, text="Déconnexion", command=self.app_controller.on_logout,
+                      width=120).pack(
             side="left", padx=(5, 0))
 
     def _create_main_content_frame(self):
@@ -164,7 +166,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         if self.peut_creer_demande():
             ctk.CTkButton(actions_bar_frame, text="Nouvelle Demande",
-                          command=self.helper.ouvrir_fenetre_creation_demande).pack(side="left", pady=5, padx=(0, 10))
+                          command=self.helper.ouvrir_fenetre_creation_demande).pack(side="left", pady=5,
+                                                                                    padx=(0, 10))
 
         self.bouton_rafraichir = ctk.CTkButton(actions_bar_frame, text="Rafraîchir (F5)",
                                                command=lambda: self.afficher_liste_demandes(force_refresh=True),
@@ -185,21 +188,23 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
             ctk.CTkButton(admin_buttons_frame, text="Purger les Archives",
                           command=self.helper.action_admin_purge_archives,
                           fg_color="#9D0208", hover_color="#6A040F").pack(side="left", padx=5)
-            ctk.CTkButton(admin_buttons_frame, text="Maintenance BDD", command=self.helper.action_admin_optimiser_bdd,
+            ctk.CTkButton(admin_buttons_frame, text="Maintenance BDD",
+                          command=self.helper.action_admin_optimiser_bdd,
                           fg_color="#1F618D", hover_color="#154360").pack(side="left", padx=5)
 
     def _create_search_and_filter_bar(self, parent):
         search_frame_parent = ctk.CTkFrame(parent, fg_color="transparent")
         search_frame_parent.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
-        search_frame_parent.grid_columnconfigure(1, weight=1)
+        search_frame_parent.grid_columnconfigure(0, weight=1)
 
         options_frame = ctk.CTkFrame(search_frame_parent, fg_color="transparent")
-        options_frame.pack(side="right", pady=5)
+        options_frame.pack(side="right", pady=5, padx=0)
 
         ctk.CTkLabel(options_frame, text="Trier par:").pack(side="left", padx=(10, 5))
         sort_options = ["Date de création (récent)", "Date de création (ancien)", "Montant (décroissant)",
                         "Montant (croissant)", "Nom du patient (A-Z)"]
-        self.sort_menu = ctk.CTkOptionMenu(options_frame, values=sort_options, command=self.helper.set_sort, width=180)
+        self.sort_menu = ctk.CTkOptionMenu(options_frame, values=sort_options, command=self.helper.set_sort,
+                                           width=180)
         self.sort_menu.set(self.current_sort)
         self.sort_menu.pack(side="left", padx=(0, 10))
 
@@ -212,24 +217,33 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         search_bar_frame = ctk.CTkFrame(search_frame_parent, fg_color="transparent")
         search_bar_frame.pack(side="left", fill="x", expand=True, pady=5, padx=0)
-        search_bar_frame.grid_columnconfigure(1, weight=1)
+        search_bar_frame.grid_columnconfigure(2, weight=1)
 
-        ctk.CTkLabel(search_bar_frame, text="Rechercher (Nom, Prénom, Réf.):",
-                     font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w", padx=(0, 5))
+        ctk.CTkLabel(search_bar_frame, text="Rechercher:", font=ctk.CTkFont(size=12)).grid(row=0, column=0,
+                                                                                               sticky="w",
+                                                                                               padx=(0, 5))
+
+        search_scope_options = ["Tout", "Nom/Prénom", "Réf. Facture", "Montant"]
+        self.search_scope_menu = ctk.CTkOptionMenu(search_bar_frame, values=search_scope_options,
+                                                   variable=self.search_scope_var,
+                                                   width=120, command=lambda e: self.helper.trigger_search_from_event())
+        self.search_scope_menu.grid(row=0, column=1, sticky="w", padx=5)
+
         self.search_entry = ctk.CTkEntry(search_bar_frame, textvariable=self.search_var)
-        self.search_entry.grid(row=0, column=1, sticky="ew", padx=(0, 5))
+        self.search_entry.grid(row=0, column=2, sticky="ew", padx=(0, 5))
         self.search_entry.bind("<Return>", self.helper.trigger_search_from_event)
-        ctk.CTkButton(search_bar_frame, text="X", width=30, command=self.helper.clear_search).grid(row=0, column=2,
+        ctk.CTkButton(search_bar_frame, text="X", width=30, command=self.helper.clear_search).grid(row=0, column=3,
                                                                                                    sticky="w",
                                                                                                    padx=(0, 20))
 
         self.archive_mode_widgets = {
             "label": ctk.CTkLabel(search_bar_frame, text="", font=ctk.CTkFont(size=12, weight="bold")),
             "button": ctk.CTkButton(search_bar_frame, text="Quitter le mode Archive", text_color="white",
-                                    fg_color="#E53935", hover_color="#C62828", command=self.helper.quit_archive_mode)
+                                    fg_color="#E53935", hover_color="#C62828",
+                                    command=self.helper.quit_archive_mode)
         }
-        self.archive_mode_widgets["label"].grid(row=0, column=3, sticky="w", padx=(20, 5))
-        self.archive_mode_widgets["button"].grid(row=0, column=4, sticky="w")
+        self.archive_mode_widgets["label"].grid(row=0, column=4, sticky="w", padx=(20, 5))
+        self.archive_mode_widgets["button"].grid(row=0, column=5, sticky="w")
 
         self._update_ui_for_archive_mode()
 
@@ -246,7 +260,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
     def _create_legend_frame(self, parent):
         legende_frame = ctk.CTkFrame(parent, fg_color="transparent")
         legende_frame.grid(row=5, column=0, sticky="ew", padx=10, pady=(5, 10))
-        ctk.CTkLabel(legende_frame, text="Légende:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(legende_frame, text="Légende:", font=ctk.CTkFont(weight="bold")).pack(side="left",
+                                                                                           padx=(0, 10))
         legend_items = [("Action Requise", COULEUR_ACTIVE_POUR_UTILISATEUR),
                         ("Terminée", COULEUR_DEMANDE_TERMINEE),
                         ("Annulée", COULEUR_DEMANDE_ANNULEE)]
@@ -275,6 +290,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
     def _update_ui_for_archive_mode(self):
         state = "disabled" if self.is_archive_mode else "normal"
         self.filter_menu.configure(state=state)
+        self.search_scope_menu.configure(state=state)
 
         if self.is_archive_mode:
             start, end = self.archive_date_range
@@ -310,11 +326,9 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _is_active_for_user(self, demande_data: dict) -> bool:
         try:
-            # On instancie le modèle pour utiliser sa logique métier centralisée
             demande_model = Remboursement.model_validate(demande_data)
             return demande_model.is_active_for(self.user_roles, self.nom_utilisateur)
         except Exception as e:
-            # En cas d'échec de validation (données corrompues?), on logue et on considère inactif.
             _log.error(f"Impossible de créer le modèle Remboursement pour l'évaluation : {e}")
             return False
 

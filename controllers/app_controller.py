@@ -132,7 +132,7 @@ class AppController:
             pass
         finally:
             if self.root.winfo_exists():
-                 self._status_update_job = self.root.after(250, self._process_status_updates)
+                self._status_update_job = self.root.after(250, self._process_status_updates)
 
     def _load_user_cache(self):
         _log.info("Chargement/Rafraîchissement du cache utilisateur.")
@@ -150,7 +150,6 @@ class AppController:
         def _preloading_task():
             _log.info("Pré-chargement des données en arrière-plan démarré...")
             try:
-                # Préchargement des photos de profil
                 users_from_cache = self.get_all_users_from_cache()
                 pfp_cache = {}
                 pfp_size = 20
@@ -174,7 +173,6 @@ class AppController:
                 with self.pfp_cache_lock:
                     self.preloaded_pfp_cache = pfp_cache
 
-                # Préchargement de la vue par défaut de l'utilisateur
                 if self.current_user:
                     user_data = self.get_user_from_cache(self.current_user)
                     if user_data:
@@ -184,13 +182,15 @@ class AppController:
                             filter_choice=user_data.default_filter,
                             sort_choice="Date de création (récent)",
                             search_term="",
+                            search_scope="Tout",
                             is_archive_mode=False,
                             archive_date_range=None,
                             limit=20, offset=0
                         )
                         cache_key = f"{self.current_user}_{user_data.default_filter}_default"
                         self.cache_manager.set_demand_query_cache(cache_key, (demandes, total))
-                        _log.info(f"Vue par défaut préchargée pour {self.current_user} avec {len(demandes)} demandes.")
+                        _log.info(
+                            f"Vue par défaut préchargée pour {self.current_user} avec {len(demandes)} demandes.")
 
                 _log.info("Pré-chargement des données terminé avec succès.")
             except Exception as e:

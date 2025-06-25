@@ -48,7 +48,8 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
         remboursement_data['date_derniere_modification'] = datetime.datetime.fromisoformat(
             data['date_derniere_modification'])
     if data['date_paiement_effectue'] and isinstance(data['date_paiement_effectue'], str):
-        remboursement_data['date_paiement_effectue'] = datetime.datetime.fromisoformat(data['date_paiement_effectue'])
+        remboursement_data['date_paiement_effectue'] = datetime.datetime.fromisoformat(
+            data['date_paiement_effectue'])
     else:
         remboursement_data['date_paiement_effectue'] = None
 
@@ -59,6 +60,7 @@ def _construct_remboursement_from_row(row: sqlite3.Row) -> Remboursement:
 def charger_demandes_data(
         statut_filter: Optional[List[str]] = None,
         search_term: Optional[str] = None,
+        search_scope: str = 'Tout',
         sort_field: str = 'date_derniere_modification',
         sort_order: str = 'DESC',
         is_archived: Optional[bool] = None,
@@ -78,9 +80,19 @@ def charger_demandes_data(
             params.append(1 if is_archived else 0)
 
         if search_term:
-            where_clauses.append("(r.nom LIKE ? OR r.prenom LIKE ? OR r.reference_facture LIKE ?)")
             term = f"%{search_term}%"
-            params.extend([term, term, term])
+            if search_scope == "Nom/Prénom":
+                where_clauses.append("(r.nom LIKE ? OR r.prenom LIKE ?)")
+                params.extend([term, term])
+            elif search_scope == "Réf. Facture":
+                where_clauses.append("r.reference_facture LIKE ?")
+                params.append(term)
+            elif search_scope == "Montant":
+                where_clauses.append("CAST(r.montant_demande AS TEXT) LIKE ?")
+                params.append(term)
+            else:  # "Tout"
+                where_clauses.append("(r.nom LIKE ? OR r.prenom LIKE ? OR r.reference_facture LIKE ?)")
+                params.extend([term, term, term])
 
         if active_for_user:
             user_roles, user_login = active_for_user
@@ -174,7 +186,6 @@ def charger_demandes_data(
 
         demande_obj = demandes_map[demande_id]
 
-        # --- CORRECTION DE LA LOGIQUE DE DÉDUPLICATION ---
         historique_id = row['historique_id']
         if historique_id is not None and not any(
                 h.historique_id == historique_id for h in demande_obj.historique_statuts):
@@ -198,13 +209,11 @@ def charger_demandes_data(
                 demande_obj.chemins_trop_percu_stockees.append(chemin)
 
     final_list = list(demandes_map.values())
-    # Trier la liste finale selon les critères de l'utilisateur
     final_list.sort(
         key=lambda d: getattr(d, sort_field) if hasattr(d, sort_field) else d.date_derniere_modification,
         reverse=(sort_order.upper() == 'DESC')
     )
 
-    # Trier l'historique de chaque demande par date
     for demande in final_list:
         demande.historique_statuts.sort(key=lambda h: h.date)
 
@@ -308,7 +317,8 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
                                   WHERE id_demande = ?""",
                                (demande.nom, demande.prenom, demande.reference_facture, demande.description,
                                 demande.montant_demande, demande.statut, demande.derniere_modification_par,
-                                demande.date_derniere_modification, demande.date_paiement_effectue, demande.id_demande))
+                                demande.date_derniere_modification, demande.date_paiement_effectue,
+                                demande.id_demande))
 
                 if demande.historique_statuts:
                     dernier_historique = demande.historique_statuts[-1]
@@ -406,7 +416,8 @@ def supprimer_demande_par_id_data(id_demande: str) -> Tuple[bool, str]:
                                               f"{demande.reference_facture_dossier}.zip")
                 if os.path.exists(chemin_archive): os.remove(chemin_archive)
             else:
-                dossier_a_supprimer = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR, demande.reference_facture_dossier)
+                dossier_a_supprimer = os.path.join(REMBOURSEMENTS_ATTACHMENTS_DIR,
+                                                   demande.reference_facture_dossier)
                 if os.path.isdir(dossier_a_supprimer):
                     try:
                         shutil.rmtree(dossier_a_supprimer, onerror=handle_remove_readonly)
