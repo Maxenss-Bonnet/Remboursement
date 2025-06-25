@@ -16,10 +16,9 @@ from views.helpers.remboursement_item_actions import RemboursementItemActions
 from models.schemas import Remboursement
 from views.widgets.status_stepper import StatusStepper
 
-# --- Couleurs pour les fonds des cartes ---
-COULEUR_FOND_ACTIVE = ("#E8F5E9", "#1B5E20")  # Vert clair / Vert foncé
-COULEUR_FOND_TERMINEE = ("#E3F2FD", "#283747")  # Bleu très clair / Bleu-gris foncé
-COULEUR_FOND_ANNULEE = ("#FFEBEE", "#4A2326")  # Rose très clair / Rouge-brun foncé
+COULEUR_FOND_ACTIVE = ("#E8F5E9", "#1B5E20")
+COULEUR_FOND_TERMINEE = ("#E3F2FD", "#283747")
+COULEUR_FOND_ANNULEE = ("#FFEBEE", "#4A2326")
 COULEUR_FOND_DEFAUT = ("gray86", "gray17")
 COULEUR_FOND_SURVOL = ("gray80", "gray25")
 COULEUR_BORDURE_FLASH = "#FFD700"
@@ -139,7 +138,7 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
             actions_frame.grid(row=1, column=0, columnspan=3, pady=(10, 5), sticky="ew")
             self._build_workflow_buttons_frame(actions_frame, workflow_buttons)
             self._build_admin_buttons_frame(actions_frame)
-            self._bind_mouse_wheel_recursively(actions_frame, self._scroll_main_list)
+            self._bind_children_to_scroll(actions_frame, self._scroll_main_list)
 
     def _toggle_details(self, event=None):
         self.is_expanded = not self.is_expanded
@@ -155,22 +154,21 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _apply_scroll_bindings_to_details(self):
         if self.basic_info_frame:
-            self._bind_mouse_wheel_recursively(self.basic_info_frame, self._scroll_main_list)
+            self._bind_children_to_scroll(self.basic_info_frame, self._scroll_main_list)
         if self.documents_frame:
-            self._bind_mouse_wheel_recursively(self.documents_frame, self._scroll_main_list)
+            self._bind_children_to_scroll(self.documents_frame, self._scroll_main_list)
         if self.history_container:
-            self._bind_mouse_wheel_recursively(self.history_container, self._scroll_history_list)
+            self._bind_children_to_scroll(self.history_container, self._scroll_history_list)
 
     def bind_events(self):
         self.header_frame.bind("<Button-1>", self._toggle_details)
+        self._bind_children_to_scroll(self.header_frame, self._scroll_main_list)
+
         for widget in self.header_frame.winfo_children():
-            if not isinstance(widget, ctk.CTkFrame):
-                widget.bind("<Button-1>", self._toggle_details)
+            widget.bind("<Button-1>", self._toggle_details)
 
         self.bind("<Enter>", self.on_enter)
         self.bind("<Leave>", self.on_leave)
-
-        self._bind_mouse_wheel_recursively(self.header_frame, self._scroll_main_list)
 
     def on_enter(self, event=None):
         self.configure(fg_color=COULEUR_FOND_SURVOL)
@@ -365,13 +363,10 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
                           hover_color="#5a6268", command=self.actions.archiver_manuellement).pack(side="right",
                                                                                                   padx=(5, 5))
 
-    def _bind_mouse_wheel_recursively(self, widget, command):
-        widget.bind("<MouseWheel>", command)
+    def _bind_children_to_scroll(self, widget, command):
+        widget.bind("<MouseWheel>", command, add="+")
         for child in widget.winfo_children():
-            # Si l'enfant est le scrollable frame lui-même, on ne lie pas ses enfants
-            # car il a sa propre gestion interne. On lie seulement le cadre.
-            if not isinstance(child, ctk.CTkScrollableFrame):
-                self._bind_mouse_wheel_recursively(child, command)
+            self._bind_children_to_scroll(child, command)
 
     def _scroll_main_list(self, event):
         if self.master_scrollable_frame and self.master_scrollable_frame.winfo_exists():
@@ -379,8 +374,9 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
 
     def _scroll_history_list(self, event):
         if self.history_scroll_frame and self.history_scroll_frame.winfo_exists():
-            self.history_scroll_frame._parent_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            return "break"
+            scroll_amount = int(-1 * (event.delta / 120) * 5)
+            self.history_scroll_frame._parent_canvas.yview_scroll(scroll_amount, "units")
+        return "break"
 
     def _resolve_color(self, color_val):
         try:
