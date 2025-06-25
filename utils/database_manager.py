@@ -12,7 +12,7 @@ from contextlib import contextmanager
 import psutil
 
 from config.settings import SHARED_DATA_BASE_PATH
-from utils.global_events import status_update_queue
+from utils.global_events import status_update_queue, network_status_queue
 
 DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 DB_LOCK_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db.lock")
@@ -24,12 +24,23 @@ _stop_queue_processor = threading.Event()
 _log = logging.getLogger(__name__)
 
 
+def _is_network_available() -> bool:
+    """Vérifie si le chemin de la BDD est accessible."""
+    path_to_check = os.path.dirname(DATABASE_FILE)
+    try:
+        # os.listdir est un moyen rapide et efficace de tester l'accessibilité d'un chemin réseau
+        os.listdir(path_to_check)
+        return True
+    except (OSError, IOError):
+        return False
+
+
 def _db_writer_thread():
     hostname = socket.gethostname()
 
     while not _stop_queue_processor.is_set():
         try:
-            task_func, task_args, task_kwargs, result_queue = _write_queue.get(timeout=0.5)
+            task_func, task_args, task_kwargs, result_queue, retries = _write_queue.get(timeout=0.5)
         except queue.Empty:
             continue
 
@@ -40,64 +51,81 @@ def _db_writer_thread():
                 if _stop_queue_processor.is_set(): return
 
                 try:
+                    if not _is_network_available():
+                        status_update_queue.put(("Connexion réseau perdue, attente...", True))
+                        time.sleep(2)
+                        continue
+
                     with open(DB_LOCK_FILE, 'x') as f:
                         f.write(f"{os.getpid()}|{time.time()}|{hostname}")
                     lock_acquired = True
-                    status_update_queue.put(("Prêt", False))
                 except FileExistsError:
                     status_update_queue.put(("Base de données occupée, en attente...", True))
+                    # La logique pour gérer les verrous orphelins reste la même
                     try:
                         with open(DB_LOCK_FILE, 'r') as f:
                             content = f.read().strip()
-
                         lock_pid_str, lock_time_str, lock_hostname = content.split('|', 2)
-                        lock_pid = int(lock_pid_str)
-                        lock_time = float(lock_time_str)
-                        lock_age = time.time() - lock_time
-
-                        is_stale = False
-                        if lock_hostname == hostname and not psutil.pid_exists(lock_pid):
-                            _log.warning(
-                                f"Le verrou est détenu par un processus local (PID: {lock_pid}) qui n'existe plus. Il est considéré comme orphelin.")
-                            is_stale = True
-
-                        if not is_stale and lock_age > LOCK_TIMEOUT_SECONDS:
-                            _log.warning(
-                                f"Le verrou de '{lock_hostname}' est ancien de {lock_age:.2f}s. Il est considéré comme orphelin (timeout).")
-                            is_stale = True
-
-                        if is_stale:
+                        if (time.time() - float(lock_time_str)) > LOCK_TIMEOUT_SECONDS or \
+                           (lock_hostname == hostname and not psutil.pid_exists(int(lock_pid_str))):
                             os.remove(DB_LOCK_FILE)
-                            _log.info("Verrou orphelin supprimé. Nouvelle tentative de prise de verrou.")
-                            continue
-
-                    except (IOError, IndexError, ValueError) as e:
-                        _log.warning(
-                            f"Impossible de lire ou d'interpréter le fichier de verrou : {e}. Suppression par sécurité.")
-                        try:
-                            os.remove(DB_LOCK_FILE)
-                        except OSError:
-                            pass
-                        continue
-
+                    except (IOError, IndexError, ValueError):
+                        if os.path.exists(DB_LOCK_FILE): os.remove(DB_LOCK_FILE)
                     time.sleep(random.uniform(0.5, 1.5))
+                except (IOError, OSError) as e:
+                    status_update_queue.put(("Erreur réseau lors de l'accès au verrou...", True))
+                    _log.error(f"Erreur réseau lors de la tentative de prise de verrou : {e}")
+                    time.sleep(3)
                 except Exception as e:
                     _log.error(f"Erreur inattendue lors de la prise de verrou : {e}", exc_info=True)
                     time.sleep(2)
 
-            # --- Exécution de la tâche BDD ---
+            # --- CORRECTION : Logique d'exécution de tâche robuste aux coupures ---
             func_name = task_func.__name__
             _log.info(f"Début de l'opération d'écriture en file : {func_name}")
             start_time = time.time()
-            try:
-                result = task_func(*task_args, **task_kwargs)
-                duration = time.time() - start_time
-                _log.info(f"Opération d'écriture '{func_name}' terminée avec succès en {duration:.4f}s.")
-                result_queue.put((True, result))
-            except Exception as e:
-                _log.exception(
-                    f"Erreur dans le thread d'écriture de la BDD lors de l'exécution de la tâche '{func_name}'.")
-                result_queue.put((False, e))
+
+            task_completed = False
+            while not task_completed and retries > 0 and not _stop_queue_processor.is_set():
+                # On vérifie la connexion avant chaque tentative
+                if not _is_network_available():
+                    status_update_queue.put(("Connexion réseau perdue, en attente...", True))
+                    network_status_queue.put(False)
+                    # Boucle d'attente active du retour de la connexion
+                    while not _is_network_available():
+                        if _stop_queue_processor.is_set():
+                            result_queue.put((False, Exception("Arrêt de l'application demandé.")))
+                            return
+                        time.sleep(1)
+                    network_status_queue.put(True)
+                    status_update_queue.put(("Connexion rétablie, reprise de l'opération...", True))
+
+                try:
+                    # Tentative d'exécution de la tâche
+                    result = task_func(*task_args, **task_kwargs)
+                    duration = time.time() - start_time
+                    _log.info(f"Opération d'écriture '{func_name}' terminée avec succès en {duration:.4f}s.")
+                    result_queue.put((True, result))
+                    task_completed = True
+
+                except sqlite3.OperationalError as e:
+                    if "disk I/O error" in str(e) or "unable to open" in str(e):
+                        retries -= 1
+                        _log.warning(f"Erreur I/O disque sur '{func_name}'. Connexion réseau probablement perdue. Nouvel essai... ({retries} restants)")
+                        status_update_queue.put((f"Erreur réseau, nouvel essai dans 2s...", True))
+                        time.sleep(2) # On attend un peu avant de retenter
+                    else:
+                        _log.exception(f"Erreur sqlite inattendue pour '{func_name}'.")
+                        result_queue.put((False, e))
+                        task_completed = True
+                except Exception as e:
+                    _log.exception(f"Erreur non gérée dans le thread d'écriture pour '{func_name}'.")
+                    result_queue.put((False, e))
+                    task_completed = True
+
+            if not task_completed and retries == 0:
+                _log.error(f"Échec final de la tâche '{func_name}' après plusieurs tentatives.")
+                result_queue.put((False, Exception(f"Échec de l'opération BDD pour {func_name} après plusieurs tentatives.")))
 
         finally:
             if lock_acquired:
@@ -106,19 +134,15 @@ def _db_writer_thread():
                 except OSError as e:
                     _log.error(f"Impossible de supprimer le fichier de verrou : {e}", exc_info=True)
 
-                # AMÉLIORATION : Écriture atomique du fichier de rafraîchissement
                 temp_flag_path = f"{DB_REFRESH_FLAG_FILE}.{os.getpid()}.tmp"
                 try:
                     with open(temp_flag_path, 'w') as f:
                         f.write(str(time.time()))
-                    # Renommer est une opération atomique sur la plupart des systèmes de fichiers réseau
                     os.rename(temp_flag_path, DB_REFRESH_FLAG_FILE)
                 except IOError as e:
                     _log.error(f"Impossible de créer le fichier de signal de rafraîchissement : {e}", exc_info=True)
-                    # S'assurer que le fichier temporaire est nettoyé en cas d'échec
                     if os.path.exists(temp_flag_path):
                         os.remove(temp_flag_path)
-
 
             status_update_queue.put(("Prêt", False))
             _write_queue.task_done()
@@ -149,10 +173,15 @@ def is_db_writer_busy() -> bool:
 
 
 def execute_in_queue(func):
+    """
+    Décorateur pour exécuter une fonction dans la file d'attente d'écriture de la BDD.
+    AMÉLIORATION : Ajout d'un compteur de tentatives.
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
         result_queue = queue.Queue(1)
-        _write_queue.put((func, args, kwargs, result_queue))
+        # On donne 3 tentatives à la tâche
+        _write_queue.put((func, args, kwargs, result_queue, 3))
         success, result = result_queue.get()
 
         if not success:
@@ -170,24 +199,26 @@ def handle_db_locks(func):
             try:
                 return func(*args, **kwargs)
             except sqlite3.OperationalError as e:
-                if "locked" in str(e) or "busy" in str(e):
+                # AMÉLIORATION : Gestion plus large des erreurs de connexion pour les lectures
+                if "locked" in str(e) or "busy" in str(e) or "disk I/O error" in str(e) or "unable to open" in str(e):
                     if i < retries - 1:
-                        wait_time = random.uniform(0.2, 0.5)
+                        wait_time = random.uniform(0.3, 0.8)
                         _log.warning(
-                            f"Base de données verrouillée (lecture). Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour la fonction {func.__name__}...")
+                            f"Base de données indisponible (lecture). Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour {func.__name__}...")
+                        network_status_queue.put(False)
                         time.sleep(wait_time)
                         continue
                     else:
                         _log.error(
-                            f"La base de données est restée verrouillée après plusieurs tentatives pour {func.__name__}.")
+                            f"La base de données est restée indisponible après plusieurs tentatives pour {func.__name__}.")
                         raise e
                 else:
                     raise e
-
     return wrapper
 
 
 def get_db_connection():
+    # Le timeout de 30s est généreux pour les connexions réseau lentes
     conn = sqlite3.connect(DATABASE_FILE, timeout=30)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()

@@ -11,20 +11,7 @@ from controllers.app_controller import AppController
 from config.settings import SHARED_DATA_BASE_PATH, IS_DEPLOYMENT_MODE, get_application_base_path
 from utils.database_manager import stop_db_writer_thread
 from utils.logging_config import setup_logging
-
-
-def is_path_writable(path: str) -> bool:
-    try:
-        if not os.path.isdir(path):
-            return False
-
-        test_file = os.path.join(path, f"write_test_{os.getpid()}.tmp")
-        with open(test_file, 'w') as f:
-            f.write('test')
-        os.remove(test_file)
-        return True
-    except (IOError, OSError, PermissionError):
-        return False
+from utils.network_monitor import is_path_accessible
 
 
 class MainApplication(TkinterDnD.Tk):
@@ -35,11 +22,8 @@ class MainApplication(TkinterDnD.Tk):
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
 
-        # CORRECTION : Forcer la couleur de fond pour la fenêtre racine
         self.configure(background="gray14")
-
         self.title("Application de Gestion")
-
         self.shutdown_window = None
 
         try:
@@ -82,6 +66,8 @@ class MainApplication(TkinterDnD.Tk):
             self.shutdown_window.destroy()
             self.shutdown_window = None
 
+        if self.app_controller:
+            self.app_controller.shutdown()
         stop_db_writer_thread()
 
         if is_restart:
@@ -119,16 +105,16 @@ class MainApplication(TkinterDnD.Tk):
         result_queue = queue.Queue()
 
         def checker_task():
-            is_writable = is_path_writable(SHARED_DATA_BASE_PATH) if IS_DEPLOYMENT_MODE else True
-            result_queue.put(is_writable)
+            is_accessible = is_path_accessible(SHARED_DATA_BASE_PATH)
+            result_queue.put(is_accessible)
 
         threading.Thread(target=checker_task, daemon=True).start()
         self._process_network_check_result(result_queue)
 
     def _process_network_check_result(self, result_queue: queue.Queue):
         try:
-            is_writable = result_queue.get_nowait()
-            if is_writable:
+            is_accessible = result_queue.get_nowait()
+            if is_accessible:
                 self.loading_label.configure(text="Démarrage de l'application...")
                 self.loading_window.update_idletasks()
                 self.app_controller = AppController(self)
@@ -168,8 +154,8 @@ class MainApplication(TkinterDnD.Tk):
                          "Veuillez vérifier votre connexion Wi-Fi ou votre connexion VPN si vous êtes hors site.")
         ctk.CTkLabel(error_frame, text=error_message, font=ctk.CTkFont(size=14), justify="center").pack(pady=10,
                                                                                                         padx=30)
-        ctk.CTkButton(error_frame, text="Redémarrer l'application", command=self._restart_app, width=200,
-                      height=40).pack(pady=(15, 20), padx=30)
+        ctk.CTkButton(error_frame, text="Réessayer", command=self._restart_app, width=200, height=40).pack(
+            pady=(15, 20), padx=30)
 
     def center_window(self):
         self.update_idletasks()

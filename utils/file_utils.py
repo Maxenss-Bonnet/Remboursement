@@ -1,12 +1,14 @@
-# utils/file_utils.py
 import os
 import shutil
 from typing import Callable
+from .decorators import retry_on_network_error
 
+
+@retry_on_network_error(retries=4, delay=2.5)
 def copy_with_progress(source_path: str, dest_path: str, progress_callback: Callable[[float], None]):
     """
     Copie un fichier d'une source vers une destination en appelant un callback
-    avec le pourcentage de progression.
+    avec le pourcentage de progression. Réessaie en cas d'erreur réseau.
     """
     try:
         total_size = os.path.getsize(source_path)
@@ -31,7 +33,6 @@ def copy_with_progress(source_path: str, dest_path: str, progress_callback: Call
                         progress = min(1.0, copied_size / total_size)
                         progress_callback(progress)
     except Exception as e:
-        # En cas d'erreur, s'assurer que le fichier de destination incomplet est supprimé
         if os.path.exists(dest_path):
             os.remove(dest_path)
         raise e

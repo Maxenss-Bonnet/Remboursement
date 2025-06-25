@@ -23,7 +23,8 @@ from utils.cache_manager import CacheManager
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, ensure_shared_dirs_exist, load_smtp_config, \
     PROFILE_PICTURES_DIR
 from utils.image_utils import get_or_create_circular_pfp
-from utils.global_events import status_update_queue
+from utils.global_events import status_update_queue, network_status_queue
+from utils.network_monitor import NetworkMonitor
 
 _log = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ class AppController:
         self.global_loading_overlay = LoadingOverlay(self.root)
         self.pfp_cache_lock = threading.Lock()
         self._status_update_job = None
+        self._network_status_job = None
+        self.network_monitor = NetworkMonitor()
 
     def run_initialization(self):
         load_smtp_config()
@@ -112,12 +115,24 @@ class AppController:
     def is_application_busy(self) -> bool:
         return global_task_tracker.is_busy() or is_db_writer_busy()
 
-    def start_status_updates_check(self):
+    def _start_all_background_checks(self):
+        """Démarre tous les processus de surveillance en arrière-plan."""
+        self._start_status_updates_check()
+        self._start_network_status_check()
+        self.network_monitor.start()
+
+    def _stop_all_background_checks(self):
+        """Arrête tous les processus de surveillance en arrière-plan."""
+        self._stop_status_updates_check()
+        self._stop_network_status_check()
+        self.network_monitor.stop()
+
+    def _start_status_updates_check(self):
         if self._status_update_job:
             self.root.after_cancel(self._status_update_job)
         self._process_status_updates()
 
-    def stop_status_updates_check(self):
+    def _stop_status_updates_check(self):
         if self._status_update_job:
             self.root.after_cancel(self._status_update_job)
             self._status_update_job = None
@@ -133,6 +148,28 @@ class AppController:
         finally:
             if self.root.winfo_exists():
                 self._status_update_job = self.root.after(250, self._process_status_updates)
+
+    def _start_network_status_check(self):
+        if self._network_status_job:
+            self.root.after_cancel(self._network_status_job)
+        self._process_network_status()
+
+    def _stop_network_status_check(self):
+        if self._network_status_job:
+            self.root.after_cancel(self._network_status_job)
+            self._network_status_job = None
+
+    def _process_network_status(self):
+        try:
+            while not network_status_queue.empty():
+                is_connected = network_status_queue.get_nowait()
+                if self.main_view and self.main_view.winfo_exists():
+                    self.main_view.set_network_status(is_connected)
+        except queue.Empty:
+            pass
+        finally:
+            if self.root.winfo_exists():
+                self._network_status_job = self.root.after(250, self._process_network_status)
 
     def _load_user_cache(self):
         _log.info("Chargement/Rafraîchissement du cache utilisateur.")
@@ -271,7 +308,7 @@ class AppController:
 
     def show_login_view(self):
         self.current_user = None
-        self.stop_status_updates_check()
+        self._stop_all_background_checks()
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
         if self.main_view:
@@ -290,6 +327,7 @@ class AppController:
             preloaded_pfp_cache=self.preloaded_pfp_cache
         )
         self.root.title(f"Gestion Remboursements - {self.current_user}")
+        self._start_all_background_checks()
         self._preload_data()
 
     def request_restart(self, reason: str):
@@ -300,7 +338,7 @@ class AppController:
     def on_logout(self, restart=False):
         if self.main_view:
             self.main_view.stop_polling()
-        self.stop_status_updates_check()
+        self._stop_all_background_checks()
 
         if restart:
             self.root.on_attempt_close(is_restart=True)
@@ -313,3 +351,7 @@ class AppController:
     def show_admin_warning_popup(self):
         self.show_toast("Vous êtes connecté en tant qu'administrateur.\nCertaines actions sont irréversibles.",
                         "warning")
+
+    def shutdown(self):
+        """Méthode à appeler lors de la fermeture pour nettoyer les ressources."""
+        self._stop_all_background_checks()

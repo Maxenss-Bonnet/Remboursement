@@ -1,13 +1,13 @@
 import os
 import time
 import logging
+import threading
 from config.settings import DATABASE_FILE
 from utils.database_manager import DB_REFRESH_FLAG_FILE
 
 _log = logging.getLogger(__name__)
 
-# AMÉLIORATION : Intervalles de polling plus agressifs pour une meilleure réactivité
-POLLING_INTERVAL_MS_ACTIVE = 1500  # <- Réduit de 5000ms à 1500ms
+POLLING_INTERVAL_MS_ACTIVE = 1500
 POLLING_INTERVAL_MS_IDLE = 30000
 IDLE_THRESHOLD_SECONDS = 120
 FLAG_MAX_AGE_SECONDS = 20
@@ -16,9 +16,9 @@ FLAG_MAX_AGE_SECONDS = 20
 class PollingMixin:
     def __init__(self):
         self._polling_job_id = None
-        # AMÉLIORATION : Renommé pour plus de clarté, stocke le timestamp du dernier drapeau traité
         self._last_processed_flag_timestamp = 0
         self.last_user_interaction_time = time.time()
+        self._mtime_check_thread = None
 
     def _reset_idle_timer(self, event=None):
         self.last_user_interaction_time = time.time()
@@ -34,66 +34,71 @@ class PollingMixin:
             except ValueError:
                 pass
             self._polling_job_id = None
+        if self._mtime_check_thread and self._mtime_check_thread.is_alive():
+            # Il n'est pas critique d'attendre la fin de ce thread
+            pass
 
     def _check_for_data_updates(self):
         try:
-            # AMÉLIORATION : La logique se concentre sur le fichier drapeau pour la réactivité
-            # La vérification du fichier de BDD principal devient une sécurité secondaire.
-            refresh_triggered_by_flag = False
+            refresh_triggered_by_flag = self._check_flag_file()
 
-            if os.path.exists(DB_REFRESH_FLAG_FILE):
-                try:
-                    # Lire le timestamp du drapeau
-                    with open(DB_REFRESH_FLAG_FILE, 'r') as f:
-                        flag_timestamp_str = f.read()
-                    flag_timestamp = float(flag_timestamp_str)
-
-                    # Rafraîchir seulement si ce drapeau est plus récent que le dernier qu'on a traité
-                    if flag_timestamp > self._last_processed_flag_timestamp:
-                        _log.info(
-                            f"Nouveau signal de rafraîchissement détecté (ts: {flag_timestamp}). Lancement du rafraîchissement.")
-                        if hasattr(self, 'afficher_liste_demandes'):
-                            self.afficher_liste_demandes(force_refresh=True, show_loader=False)
-
-                        # Mémoriser le timestamp de ce drapeau pour ne pas rafraîchir à nouveau pour le même signal
-                        self._last_processed_flag_timestamp = flag_timestamp
-                        refresh_triggered_by_flag = True
-
-                    # Nettoyage du fichier drapeau s'il est trop vieux (laissé par une app qui a planté par exemple)
-                    if time.time() - flag_timestamp > FLAG_MAX_AGE_SECONDS:
-                        _log.info(
-                            f"Nettoyage du signal de rafraîchissement obsolète (âge: {time.time() - flag_timestamp:.2f}s).")
-                        os.remove(DB_REFRESH_FLAG_FILE)
-
-                except (IOError, OSError, ValueError) as e:
-                    _log.warning(
-                        f"Impossible de lire ou de supprimer le fichier drapeau : {e}. Tentative de nettoyage.")
-                    try:
-                        os.remove(DB_REFRESH_FLAG_FILE)
-                    except OSError:
-                        pass
-
-            # Fallback : si aucun drapeau n'a été traité, vérifier la date de modification de la BDD
-            # C'est une sécurité si le mécanisme de drapeau échoue.
+            # CORRECTION : La vérification de la BDD est maintenant asynchrone pour ne pas freezer l'UI
             if not refresh_triggered_by_flag:
-                if os.path.exists(DATABASE_FILE):
-                    current_mtime = os.path.getmtime(DATABASE_FILE)
-                    if self._last_processed_flag_timestamp == 0:
-                        self._last_processed_flag_timestamp = current_mtime
-                    # On utilise mtime comme un timestamp de drapeau s'il est plus récent
-                    elif current_mtime > self._last_processed_flag_timestamp:
-                        _log.info("Changement détecté sur le fichier BDD (mtime). Rafraîchissement de la liste.")
-                        if hasattr(self, 'afficher_liste_demandes'):
-                            self.afficher_liste_demandes(force_refresh=True, show_loader=False)
-                        self._last_processed_flag_timestamp = current_mtime
+                # On lance la vérification en arrière-plan uniquement si un précédent n'est pas déjà en cours
+                if self._mtime_check_thread is None or not self._mtime_check_thread.is_alive():
+                    self._mtime_check_thread = threading.Thread(target=self._check_db_mtime_async, daemon=True)
+                    self._mtime_check_thread.start()
 
-            # Logique pour ajuster l'intervalle de polling (actif/inactif)
             idle_time = time.time() - self.last_user_interaction_time
             next_poll_interval = POLLING_INTERVAL_MS_IDLE if idle_time > IDLE_THRESHOLD_SECONDS else POLLING_INTERVAL_MS_ACTIVE
-
             self._polling_job_id = self.after(next_poll_interval, self._check_for_data_updates)
 
         except Exception as e:
-            _log.error(f"Erreur lors du polling de la base de données : {e}", exc_info=True)
+            _log.error(f"Erreur lors du polling : {e}", exc_info=True)
             if self.winfo_exists():
                 self._polling_job_id = self.after(POLLING_INTERVAL_MS_IDLE, self._check_for_data_updates)
+
+    def _check_flag_file(self) -> bool:
+        """Vérifie le fichier drapeau et déclenche le rafraîchissement si nécessaire. Renvoie True si un rafraîchissement a été déclenché."""
+        if os.path.exists(DB_REFRESH_FLAG_FILE):
+            try:
+                with open(DB_REFRESH_FLAG_FILE, 'r') as f:
+                    flag_timestamp = float(f.read())
+
+                if flag_timestamp > self._last_processed_flag_timestamp:
+                    _log.info(f"Signal de rafraîchissement (drapeau) détecté (ts: {flag_timestamp}).")
+                    if hasattr(self, 'afficher_liste_demandes'):
+                        self.afficher_liste_demandes(force_refresh=True, show_loader=False)
+                    self._last_processed_flag_timestamp = flag_timestamp
+                    return True
+
+                if time.time() - flag_timestamp > FLAG_MAX_AGE_SECONDS:
+                    _log.info(f"Nettoyage du signal de rafraîchissement drapeau obsolète.")
+                    os.remove(DB_REFRESH_FLAG_FILE)
+
+            except (IOError, OSError, ValueError) as e:
+                _log.warning(f"Impossible de traiter le fichier drapeau : {e}. Tentative de nettoyage.")
+                try:
+                    os.remove(DB_REFRESH_FLAG_FILE)
+                except OSError:
+                    pass
+        return False
+
+    def _check_db_mtime_async(self):
+        """Vérifie la date de modification de la BDD dans un thread séparé."""
+        try:
+            if os.path.exists(DATABASE_FILE):
+                current_mtime = os.path.getmtime(DATABASE_FILE)
+                if self._last_processed_flag_timestamp == 0:
+                    self._last_processed_flag_timestamp = current_mtime
+                elif current_mtime > self._last_processed_flag_timestamp:
+                    _log.info("Changement détecté sur le fichier BDD (mtime). Rafraîchissement.")
+                    if hasattr(self, 'afficher_liste_demandes') and self.winfo_exists():
+                        # On demande au thread UI de lancer le rafraîchissement
+                        self.after(0, lambda: self.afficher_liste_demandes(force_refresh=True, show_loader=False))
+                    self._last_processed_flag_timestamp = current_mtime
+        except (OSError, IOError) as e:
+            # Erreur normale si le disque est déconnecté, on ne log que si c'est inattendu.
+            _log.debug(f"Erreur d'accès à la BDD pour mtime check (attendu si déconnecté): {e}")
+        except Exception as e:
+            _log.error(f"Erreur inattendue lors de la vérification de mtime BDD: {e}", exc_info=True)

@@ -4,9 +4,6 @@ import logging
 from PIL import Image, ImageDraw, ImageFont
 
 from config.settings import (
-    STATUT_CREEE, STATUT_REFUSEE_CONSTAT_TP, STATUT_ANNULEE,
-    STATUT_PAIEMENT_EFFECTUE, STATUT_TROP_PERCU_CONSTATE,
-    STATUT_VALIDEE, STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO,
     PROFILE_PICTURES_DIR
 )
 from utils.image_utils import get_or_create_circular_pfp
@@ -39,6 +36,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.remboursement_controller = remboursement_controller_factory(self.nom_utilisateur)
 
         self.helper = MainViewHelper(self)
+        self.network_sensitive_widgets = []
 
         self.pfp_size = 80
         self.pfp_cache = preloaded_pfp_cache
@@ -66,8 +64,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.search_scope_var = ctk.StringVar(value="Tout")
 
         self._creer_widgets()
-        self.app_controller.start_status_updates_check()
-        self.afficher_liste_demandes(is_initial_load=True)
+        self.helper.afficher_liste_demandes(is_initial_load=True)
         self.start_polling()
 
         if self.est_admin():
@@ -89,8 +86,9 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)  # Main content
-        self.grid_rowconfigure(2, weight=0)  # Status bar
+        self.grid_rowconfigure(1, weight=0)  # Network banner
+        self.grid_rowconfigure(2, weight=1)  # Main content
+        self.grid_rowconfigure(3, weight=0)  # Status bar
 
         self.winfo_toplevel().bind("<F5>", lambda e: self.afficher_liste_demandes(force_refresh=True))
         self.winfo_toplevel().bind("<Any-KeyPress>", self._reset_idle_timer)
@@ -98,6 +96,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.winfo_toplevel().bind("<Motion>", self._reset_idle_timer)
 
         self._create_top_bar()
+        self._create_network_banner()
         self._create_main_content_frame()
         self._create_status_bar()
 
@@ -116,17 +115,39 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         right_buttons_frame = ctk.CTkFrame(top_bar, fg_color="transparent")
         right_buttons_frame.pack(side="right")
-        ctk.CTkButton(right_buttons_frame, text="Mon Profil", command=self.helper.open_profile_view, width=100,
-                      fg_color="gray").pack(side="left", padx=5)
-        ctk.CTkButton(right_buttons_frame, text="Aide", command=self.helper.open_help_view, width=70).pack(side="left",
-                                                                                                           padx=5)
-        ctk.CTkButton(right_buttons_frame, text="Déconnexion", command=self.app_controller.on_logout,
-                      width=120).pack(
-            side="left", padx=(5, 0))
+        btn_profil = ctk.CTkButton(right_buttons_frame, text="Mon Profil", command=self.helper.open_profile_view,
+                                   width=100,
+                                   fg_color="gray")
+        btn_profil.pack(side="left", padx=5)
+        btn_aide = ctk.CTkButton(right_buttons_frame, text="Aide", command=self.helper.open_help_view, width=70)
+        btn_aide.pack(side="left", padx=5)
+        btn_deco = ctk.CTkButton(right_buttons_frame, text="Déconnexion", command=self.app_controller.on_logout,
+                                 width=120)
+        btn_deco.pack(side="left", padx=(5, 0))
+
+        self.network_sensitive_widgets.extend([btn_profil, btn_aide, btn_deco])
+
+    def _create_network_banner(self):
+        self.network_banner = ctk.CTkFrame(self, fg_color="#A93226", height=25, corner_radius=0)
+        label = ctk.CTkLabel(self.network_banner, text="⚠️ Connexion réseau perdue. Tentative de reconnexion en cours...",
+                             text_color="white", font=ctk.CTkFont(weight="bold"))
+        label.pack(expand=True, fill="both")
+
+    def set_network_status(self, is_connected: bool):
+        if is_connected:
+            self.network_banner.grid_forget()
+        else:
+            self.network_banner.grid(row=1, column=0, sticky="ew", pady=(5, 0))
+
+        # Activer/désactiver les widgets sensibles au réseau
+        state = "normal" if is_connected else "disabled"
+        for widget in self.network_sensitive_widgets:
+            if widget.winfo_exists():
+                widget.configure(state=state)
 
     def _create_main_content_frame(self):
         main_content_frame = ctk.CTkFrame(self)
-        main_content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        main_content_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=10)
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(3, weight=1)
 
@@ -141,7 +162,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _create_status_bar(self):
         self.status_bar = ctk.CTkFrame(self, height=25, corner_radius=0)
-        self.status_bar.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
+        self.status_bar.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
         self.status_label = ctk.CTkLabel(self.status_bar, text="Prêt", font=ctk.CTkFont(size=12), anchor="w")
         self.status_label.pack(side="left", padx=10)
         self.status_progress = ctk.CTkProgressBar(self.status_bar, width=100, mode='indeterminate')
@@ -165,9 +186,10 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         actions_bar_frame.grid(row=1, column=0, pady=(0, 5), padx=10, sticky="ew")
 
         if self.peut_creer_demande():
-            ctk.CTkButton(actions_bar_frame, text="Nouvelle Demande",
-                          command=self.helper.ouvrir_fenetre_creation_demande).pack(side="left", pady=5,
-                                                                                    padx=(0, 10))
+            btn_nouveau = ctk.CTkButton(actions_bar_frame, text="Nouvelle Demande",
+                                        command=self.helper.ouvrir_fenetre_creation_demande)
+            btn_nouveau.pack(side="left", pady=5, padx=(0, 10))
+            self.network_sensitive_widgets.append(btn_nouveau)
 
         self.bouton_rafraichir = ctk.CTkButton(actions_bar_frame, text="Rafraîchir (F5)",
                                                command=lambda: self.afficher_liste_demandes(force_refresh=True),
@@ -175,22 +197,29 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.bouton_rafraichir.pack(side="left", pady=5, padx=10)
         self.notification_badge = ctk.CTkLabel(self.bouton_rafraichir, text="", fg_color="red", corner_radius=8,
                                                width=18, height=18, font=("Arial", 11, "bold"))
+        self.network_sensitive_widgets.append(self.bouton_rafraichir)
 
-        ctk.CTkButton(actions_bar_frame, text="Consulter les Archives", fg_color="gray50",
-                      command=self.helper.open_archive_dialog).pack(side="left", pady=5, padx=10)
+        btn_archives = ctk.CTkButton(actions_bar_frame, text="Consulter les Archives", fg_color="gray50",
+                                     command=self.helper.open_archive_dialog)
+        btn_archives.pack(side="left", pady=5, padx=10)
+        self.network_sensitive_widgets.append(btn_archives)
 
         if self.est_admin():
             admin_buttons_frame = ctk.CTkFrame(actions_bar_frame, fg_color="transparent")
             admin_buttons_frame.pack(side="left", padx=20)
-            ctk.CTkButton(admin_buttons_frame, text="Gérer Utilisateurs et BDD",
-                          command=self.helper.open_admin_user_management_view,
-                          fg_color="#555555", hover_color="#444444").pack(side="left", padx=5)
-            ctk.CTkButton(admin_buttons_frame, text="Purger les Archives",
-                          command=self.helper.action_admin_purge_archives,
-                          fg_color="#9D0208", hover_color="#6A040F").pack(side="left", padx=5)
-            ctk.CTkButton(admin_buttons_frame, text="Maintenance BDD",
-                          command=self.helper.action_admin_optimiser_bdd,
-                          fg_color="#1F618D", hover_color="#154360").pack(side="left", padx=5)
+            btn_gerer = ctk.CTkButton(admin_buttons_frame, text="Gérer Utilisateurs et BDD",
+                                      command=self.helper.open_admin_user_management_view,
+                                      fg_color="#555555", hover_color="#444444")
+            btn_gerer.pack(side="left", padx=5)
+            btn_purger = ctk.CTkButton(admin_buttons_frame, text="Purger les Archives",
+                                       command=self.helper.action_admin_purge_archives,
+                                       fg_color="#9D0208", hover_color="#6A040F")
+            btn_purger.pack(side="left", padx=5)
+            btn_maintenance = ctk.CTkButton(admin_buttons_frame, text="Maintenance BDD",
+                                            command=self.helper.action_admin_optimiser_bdd,
+                                            fg_color="#1F618D", hover_color="#154360")
+            btn_maintenance.pack(side="left", padx=5)
+            self.network_sensitive_widgets.extend([btn_gerer, btn_purger, btn_maintenance])
 
     def _create_search_and_filter_bar(self, parent):
         search_frame_parent = ctk.CTkFrame(parent, fg_color="transparent")
@@ -235,6 +264,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         ctk.CTkButton(search_bar_frame, text="X", width=30, command=self.helper.clear_search).grid(row=0, column=3,
                                                                                                    sticky="w",
                                                                                                    padx=(0, 20))
+        self.network_sensitive_widgets.extend([self.sort_menu, self.filter_menu, self.search_scope_menu, self.search_entry])
 
         self.archive_mode_widgets = {
             "label": ctk.CTkLabel(search_bar_frame, text="", font=ctk.CTkFont(size=12, weight="bold")),
@@ -244,6 +274,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         }
         self.archive_mode_widgets["label"].grid(row=0, column=4, sticky="w", padx=(20, 5))
         self.archive_mode_widgets["button"].grid(row=0, column=5, sticky="w")
+        self.network_sensitive_widgets.append(self.archive_mode_widgets["button"])
 
         self._update_ui_for_archive_mode()
 
@@ -288,9 +319,14 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.user_name_label.configure(text=f"{self.nom_utilisateur}{roles_str}")
 
     def _update_ui_for_archive_mode(self):
-        state = "disabled" if self.is_archive_mode else "normal"
+        is_disabled_by_archive = self.is_archive_mode
+        is_disabled_by_network = self.bouton_rafraichir.cget("state") == "disabled"
+
+        state = "disabled" if is_disabled_by_archive or is_disabled_by_network else "normal"
+
         self.filter_menu.configure(state=state)
-        self.search_scope_menu.configure(state=state)
+        # Ne pas désactiver le scope de recherche pour permettre de chercher dans les archives
+        # self.search_scope_menu.configure(state=state)
 
         if self.is_archive_mode:
             start, end = self.archive_date_range
@@ -338,14 +374,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
     def peut_creer_demande(self):
         return "demandeur" in self.user_roles
 
-    def est_comptable_tresorerie(self):
-        return "comptable_tresorerie" in self.user_roles
-
-    def est_validateur_chef(self):
-        return "validateur_chef" in self.user_roles
-
-    def est_comptable_fournisseur(self):
-        return "comptable_fournisseur" in self.user_roles
-
     def __del__(self):
+        _log.debug(f"Destruction de MainView pour {self.nom_utilisateur}")
         self.stop_polling()
