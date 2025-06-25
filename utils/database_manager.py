@@ -105,12 +105,20 @@ def _db_writer_thread():
                     os.remove(DB_LOCK_FILE)
                 except OSError as e:
                     _log.error(f"Impossible de supprimer le fichier de verrou : {e}", exc_info=True)
-                # Créer le drapeau avec le timestamp pour signaler aux autres clients de se rafraîchir
+
+                # AMÉLIORATION : Écriture atomique du fichier de rafraîchissement
+                temp_flag_path = f"{DB_REFRESH_FLAG_FILE}.{os.getpid()}.tmp"
                 try:
-                    with open(DB_REFRESH_FLAG_FILE, 'w') as f:
+                    with open(temp_flag_path, 'w') as f:
                         f.write(str(time.time()))
+                    # Renommer est une opération atomique sur la plupart des systèmes de fichiers réseau
+                    os.rename(temp_flag_path, DB_REFRESH_FLAG_FILE)
                 except IOError as e:
                     _log.error(f"Impossible de créer le fichier de signal de rafraîchissement : {e}", exc_info=True)
+                    # S'assurer que le fichier temporaire est nettoyé en cas d'échec
+                    if os.path.exists(temp_flag_path):
+                        os.remove(temp_flag_path)
+
 
             status_update_queue.put(("Prêt", False))
             _write_queue.task_done()
