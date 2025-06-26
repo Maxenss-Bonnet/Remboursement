@@ -24,8 +24,9 @@ _log = logging.getLogger(__name__)
 
 def _is_network_available() -> bool:
     """Vérifie si le chemin de la BDD est accessible."""
-    from utils.network_monitor import is_path_accessible
-    return is_path_accessible(os.path.dirname(DATABASE_FILE))
+    # Cette fonction vérifie le chemin du dossier parent du fichier de la base de données.
+    # La variable DATABASE_FILE est déjà mise à jour au démarrage de l'application.
+    return os.path.isdir(os.path.dirname(DATABASE_FILE))
 
 
 def _wait_for_network_reconnection():

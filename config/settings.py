@@ -7,33 +7,62 @@ def get_application_base_path():
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS
     else:
+        # Retourne le dossier parent du dossier 'config'
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 APP_ROOT_PATH = get_application_base_path()
+CONFIG_DIR = os.path.join(APP_ROOT_PATH, "config")
+os.makedirs(CONFIG_DIR, exist_ok=True)
 
 # --- CONFIGURATION DES CHEMINS DE DONNÉES ---
-# MODE DÉPLOIEMENT
-SHARED_DATA_BASE_PATH = "Z:\\REMBOURSEMENT"
-# MODE DÉVELOPPEMENT LOCAL
-# SHARED_DATA_BASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "donnees_partagees_mock")
+PATH_CONFIG_FILE = os.path.join(CONFIG_DIR, "path_config.ini")
 
+def load_custom_path() -> str | None:
+    """Charge le chemin personnalisé depuis path_config.ini."""
+    if not os.path.exists(PATH_CONFIG_FILE):
+        return None
+    config = configparser.ConfigParser()
+    try:
+        config.read(PATH_CONFIG_FILE, encoding='utf-8')
+        custom_path = config.get('Path', 'shared_data_base_path', fallback=None)
+        return custom_path
+    except Exception:
+        return None
 
-IS_DEPLOYMENT_MODE = not SHARED_DATA_BASE_PATH.startswith(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def save_custom_path(path: str) -> bool:
+    """Sauvegarde le chemin personnalisé dans path_config.ini."""
+    config = configparser.ConfigParser()
+    config['Path'] = {'shared_data_base_path': path}
+    try:
+        with open(PATH_CONFIG_FILE, 'w', encoding='utf-8') as configfile:
+            config.write(configfile)
+        return True
+    except IOError:
+        return False
 
-# --- Sous-dossiers de données ---
+# Charge le chemin personnalisé ou utilise le chemin par défaut.
+SHARED_DATA_BASE_PATH_DEFAULT = "Z:\\REMBOURSEMENT"
+SHARED_DATA_BASE_PATH = load_custom_path() or SHARED_DATA_BASE_PATH_DEFAULT
+
+# MODE DÉVELOPPEMENT LOCAL (décommenter pour tester en local)
+# DEV_MODE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "donnees_partagees_mock")
+# SHARED_DATA_BASE_PATH = DEV_MODE_PATH
+
+IS_DEPLOYMENT_MODE = not SHARED_DATA_BASE_PATH.endswith("donnees_partagees_mock")
+
+# --- Sous-dossiers de données (dérivés de SHARED_DATA_BASE_PATH) ---
 REMBOURSEMENTS_BASE_DIR = os.path.join(SHARED_DATA_BASE_PATH, "remboursements")
 REMBOURSEMENTS_ATTACHMENTS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "fichiers")
 PROFILE_PICTURES_DIR = os.path.join(SHARED_DATA_BASE_PATH, "assets", "profile_pictures")
-
-# --- Dossiers d'archives ---
 REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "archive", "fichiers")
 
 # --- Fichiers de configuration et de statut ---
 DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
 DB_LOCK_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db.lock")
 DB_REFRESH_FLAG_FILE = os.path.join(SHARED_DATA_BASE_PATH, "refresh_required.flag")
-CONFIG_EMAIL_FILE = os.path.join(APP_ROOT_PATH, "config", "config_email.ini")
+CONFIG_EMAIL_FILE = os.path.join(CONFIG_DIR, "config_email.ini")
 SMTP_CONFIG = {}
+
 
 # --- Statuts des demandes de remboursement ---
 STATUT_ANNULEE = "0. Demande Annulée"
@@ -135,6 +164,12 @@ def save_email_config_to_ini(new_config: dict) -> tuple[bool, str]:
         return False, f"Erreur lors de l'écriture du fichier de configuration : {e}"
 
 def ensure_shared_dirs_exist():
+    # Vérifie si le chemin de base lui-même est accessible avant de créer les sous-dossiers.
+    if not os.path.exists(SHARED_DATA_BASE_PATH):
+        # Le chemin de base n'existe pas, on ne peut rien faire.
+        # L'erreur sera gérée au démarrage de l'application.
+        return
+
     dirs_to_create = [
         REMBOURSEMENTS_ATTACHMENTS_DIR,
         PROFILE_PICTURES_DIR,

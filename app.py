@@ -7,11 +7,13 @@ import queue
 import logging
 from tkinter import messagebox
 from tkinterdnd2 import TkinterDnD
+
 from controllers.app_controller import AppController
-from config.settings import SHARED_DATA_BASE_PATH, IS_DEPLOYMENT_MODE, get_application_base_path
+from config.settings import SHARED_DATA_BASE_PATH, get_application_base_path
 from utils.database_manager import stop_db_writer_thread
 from utils.logging_config import setup_logging
 from utils.network_monitor import is_path_accessible
+from views.path_config_dialog import PathConfigDialog
 
 
 class MainApplication(TkinterDnD.Tk):
@@ -142,7 +144,7 @@ class MainApplication(TkinterDnD.Tk):
             widget.destroy()
 
         self.title("Erreur de Connexion")
-        self.geometry("600x250")
+        self.geometry("600x300")
         self.center_window()
 
         error_frame = ctk.CTkFrame(self)
@@ -150,12 +152,33 @@ class MainApplication(TkinterDnD.Tk):
 
         ctk.CTkLabel(error_frame, text="Erreur de Connexion Réseau", font=ctk.CTkFont(size=20, weight="bold")).pack(
             pady=(20, 10), padx=30)
-        error_message = ("Impossible d'accéder aux données partagées.\n\n"
-                         "Veuillez vérifier votre connexion Wi-Fi ou votre connexion VPN si vous êtes hors site.")
+
+        error_message = (
+            "Impossible d'accéder au dossier des données partagées.\n\n"
+            "Veuillez vérifier votre connexion Wi-Fi ou votre VPN (si hors-site).\n"
+            "Si le problème persiste alors que vous êtes bien connecté au VPN ou au Wi-Fi de NATECIA,\n"
+            "le chemin d'accès au dossier a peut-être changé."
+        )
         ctk.CTkLabel(error_frame, text=error_message, font=ctk.CTkFont(size=14), justify="center").pack(pady=10,
                                                                                                         padx=30)
-        ctk.CTkButton(error_frame, text="Réessayer", command=self._restart_app, width=200, height=40).pack(
-            pady=(15, 20), padx=30)
+        button_frame = ctk.CTkFrame(error_frame, fg_color="transparent")
+        button_frame.pack(pady=(15, 20), padx=30)
+
+        ctk.CTkButton(button_frame, text="Configurer le chemin", command=self._open_path_config_dialog,
+                      width=180, height=40).pack(side="left", padx=10)
+
+        ctk.CTkButton(button_frame, text="Réessayer", command=self._restart_app, width=180, height=40).pack(
+            side="left", padx=10)
+
+    def _open_path_config_dialog(self):
+        # Cache la fenêtre d'erreur pendant que la config est ouverte
+        self.withdraw()
+        dialog = PathConfigDialog(master=self, restart_callback=self._restart_app)
+        # attend que la fenêtre de dialogue soit fermée
+        self.wait_window(dialog)
+        # Réaffiche la fenêtre d'erreur si l'utilisateur a juste fermé le dialogue sans valider
+        self.deiconify()
+
 
     def center_window(self):
         self.update_idletasks()
