@@ -45,7 +45,7 @@ class AppController:
         self.preloaded_pfp_cache = None
         self.user_cache = {}
         self.preloading_thread = None
-        self.global_loading_overlay = LoadingOverlay(self.root)
+        self.global_loading_overlay = LoadingOverlay(self.root.main_content_container)
         self.pfp_cache_lock = threading.Lock()
         self._status_update_job = None
         self._network_status_job = None
@@ -116,13 +116,11 @@ class AppController:
         return global_task_tracker.is_busy() or is_db_writer_busy()
 
     def _start_all_background_checks(self):
-        """Démarre tous les processus de surveillance en arrière-plan."""
         self._start_status_updates_check()
         self._start_network_status_check()
         self.network_monitor.start()
 
     def _stop_all_background_checks(self):
-        """Arrête tous les processus de surveillance en arrière-plan."""
         self._stop_status_updates_check()
         self._stop_network_status_check()
         self.network_monitor.stop()
@@ -163,8 +161,9 @@ class AppController:
         try:
             while not network_status_queue.empty():
                 is_connected = network_status_queue.get_nowait()
-                if self.main_view and self.main_view.winfo_exists():
-                    self.main_view.set_network_status(is_connected)
+                # Appel de la méthode de la fenêtre racine
+                if self.root.winfo_exists():
+                    self.root.set_network_status(is_connected)
         except queue.Empty:
             pass
         finally:
@@ -314,13 +313,13 @@ class AppController:
         if self.main_view:
             self.main_view.destroy()
             self.main_view = None
-        self.login_view = LoginView(self.root, self.auth_controller, self)
+        self.login_view = LoginView(self.root.main_content_container, self.auth_controller, self)
         self.root.title("Application de Remboursement - Connexion")
         self._preload_data()
 
     def show_main_view(self):
         self.main_view = MainView(
-            master=self.root,
+            master=self.root.main_content_container,
             nom_utilisateur=self.current_user,
             app_controller=self,
             remboursement_controller_factory=self._remboursement_controller_factory,
@@ -353,5 +352,4 @@ class AppController:
                         "warning")
 
     def shutdown(self):
-        """Méthode à appeler lors de la fermeture pour nettoyer les ressources."""
         self._stop_all_background_checks()

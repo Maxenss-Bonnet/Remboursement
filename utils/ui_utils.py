@@ -1,6 +1,8 @@
 import customtkinter as ctk
 import tkinter
+import queue
 from tkinterdnd2 import DND_FILES, TkinterDnD
+from utils.global_events import loader_status_queue
 
 
 class DragDropFrame(ctk.CTkFrame):
@@ -34,13 +36,10 @@ class DragDropFrame(ctk.CTkFrame):
     def on_drop(self, event):
         self.on_leave(event)
         try:
-            # Utilise l'analyseur de listes de Tkinter, très robuste pour les chemins avec des espaces
             files = self.winfo_toplevel().tk.splitlist(event.data)
             if files:
-                # Les dialogues ne gèrent qu'un seul fichier, on prend donc le premier
                 self.drop_callback(files[0])
         except Exception:
-            # Solution de secours pour les cas simples si l'analyseur échoue
             path = event.data.strip('{}')
             if path:
                 self.drop_callback(path)
@@ -64,24 +63,58 @@ class LoadingOverlay(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent)
         self.configure(fg_color=("gray20", "gray20"))
+        self._polling_job_id = None
 
-        self.label = ctk.CTkLabel(self, text="Chargement...", font=ctk.CTkFont(size=16))
-        self.label.place(relx=0.5, rely=0.5, y=-40, anchor="center")
+        self.main_label = ctk.CTkLabel(self, text="Chargement...", font=ctk.CTkFont(size=16))
+        self.main_label.place(relx=0.5, rely=0.5, y=-40, anchor="center")
 
-        self.progress_bar = ctk.CTkProgressBar(self, mode="indeterminate")
+        # --- CORRECTION APPLIQUÉE ICI ---
+        # L'argument 'width' est passé au constructeur, et non à .place()
+        self.progress_bar = ctk.CTkProgressBar(self, mode="indeterminate", width=250)
         self.progress_bar.place(relx=0.5, rely=0.5, anchor="center")
+        # ------------------------------------
+
+        self.status_label = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=12), text_color="gray70")
+        self.status_label.place(relx=0.5, rely=0.5, y=30, anchor="center")
 
     def set_message(self, message: str):
-        self.label.configure(text=message)
+        self.main_label.configure(text=message)
+        self.status_label.configure(text="")
 
     def show(self):
         self.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.lift()
         self.progress_bar.start()
+        self._start_polling()
 
     def hide(self):
         self.progress_bar.stop()
+        self._stop_polling()
         self.place_forget()
+        while not loader_status_queue.empty():
+            try:
+                loader_status_queue.get_nowait()
+            except queue.Empty:
+                break
+
+    def _start_polling(self):
+        self._stop_polling()
+        self._poll_status_queue()
+
+    def _stop_polling(self):
+        if self._polling_job_id:
+            self.after_cancel(self._polling_job_id)
+            self._polling_job_id = None
+
+    def _poll_status_queue(self):
+        try:
+            message = loader_status_queue.get_nowait()
+            self.status_label.configure(text=message)
+        except queue.Empty:
+            pass
+        finally:
+            if self.winfo_exists():
+                self._polling_job_id = self.after(200, self._poll_status_queue)
 
 
 class ToastNotification(ctk.CTkFrame):

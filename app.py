@@ -6,6 +6,7 @@ import threading
 import queue
 import logging
 from tkinter import messagebox
+# La classe TkinterDnD.Tk n'est plus utilisée comme base, mais la bibliothèque reste nécessaire pour les widgets internes.
 from tkinterdnd2 import TkinterDnD
 from controllers.app_controller import AppController
 from config.settings import SHARED_DATA_BASE_PATH, IS_DEPLOYMENT_MODE, get_application_base_path
@@ -14,7 +15,8 @@ from utils.logging_config import setup_logging
 from utils.network_monitor import is_path_accessible
 
 
-class MainApplication(TkinterDnD.Tk):
+# --- CORRECTION : Hériter de ctk.CTk pour la compatibilité avec la bibliothèque ---
+class MainApplication(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.withdraw()
@@ -38,11 +40,36 @@ class MainApplication(TkinterDnD.Tk):
         self.geometry(f"{int(initial_width)}x{int(initial_height)}")
         self.minsize(800, 600)
 
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.network_banner = ctk.CTkFrame(self, fg_color="#A93226", height=25, corner_radius=0)
+        label = ctk.CTkLabel(self.network_banner, text="⚠️ Connexion réseau perdue. Tentative de reconnexion en cours...",
+                             text_color="white", font=ctk.CTkFont(weight="bold"))
+        label.pack(expand=True, fill="both")
+
+        self.main_content_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        self.main_content_container.grid(row=1, column=0, sticky="nsew")
+
         self.app_controller = None
         self.loading_window, self.loading_label = self._create_loading_splash_screen()
         self.after(50, self.run_startup_check)
 
         self.protocol("WM_DELETE_WINDOW", self.on_attempt_close)
+
+    def set_network_status(self, is_connected: bool):
+        if not self.winfo_exists():
+            return
+
+        if is_connected:
+            self.network_banner.grid_forget()
+        else:
+            self.network_banner.grid(row=0, column=0, sticky="ew")
+            self.network_banner.lift()
+
+        if self.app_controller and self.app_controller.main_view and self.app_controller.main_view.winfo_exists():
+            self.app_controller.main_view.update_widget_states(is_connected)
 
     def on_attempt_close(self, is_restart: bool = False):
         if self.app_controller and self.app_controller.is_application_busy():
