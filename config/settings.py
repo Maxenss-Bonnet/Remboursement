@@ -3,7 +3,7 @@ import configparser
 import sys
 
 def get_application_base_path():
-    """ Obtient le chemin de base de l'application, fonctionne pour le dev et pour l'exécutable PyInstaller.    """
+    """ Obtient le chemin de base de l'application, fonctionne pour le dev et pour l'exécutable PyInstaller. """
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS
     else:
