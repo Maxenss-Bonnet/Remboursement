@@ -12,11 +12,10 @@ def get_application_base_path():
 APP_ROOT_PATH = get_application_base_path()
 
 # --- CONFIGURATION DES CHEMINS DE DONNÉES ---
-# MODE DÉPLOIEMENT (à décommenter pour créer l'EXE)
+# MODE DÉPLOIEMENT
 SHARED_DATA_BASE_PATH = "Z:\\REMBOURSEMENT"
-
-# MODE DÉVELOPPEMENT LOCAL (à commenter pour créer l'EXE)
-#SHARED_DATA_BASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "donnees_partagees_mock")
+# MODE DÉVELOPPEMENT LOCAL
+# SHARED_DATA_BASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "donnees_partagees_mock")
 
 
 IS_DEPLOYMENT_MODE = not SHARED_DATA_BASE_PATH.startswith(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,8 +28,10 @@ PROFILE_PICTURES_DIR = os.path.join(SHARED_DATA_BASE_PATH, "assets", "profile_pi
 # --- Dossiers d'archives ---
 REMBOURSEMENTS_ARCHIVE_ATTACHMENTS_DIR = os.path.join(REMBOURSEMENTS_BASE_DIR, "archive", "fichiers")
 
-# --- Fichiers de configuration ---
+# --- Fichiers de configuration et de statut ---
 DATABASE_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db")
+DB_LOCK_FILE = os.path.join(SHARED_DATA_BASE_PATH, "remboursements.db.lock")
+DB_REFRESH_FLAG_FILE = os.path.join(SHARED_DATA_BASE_PATH, "refresh_required.flag")
 CONFIG_EMAIL_FILE = os.path.join(APP_ROOT_PATH, "config", "config_email.ini")
 SMTP_CONFIG = {}
 

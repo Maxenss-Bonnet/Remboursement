@@ -86,6 +86,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)  # Top bar
         self.grid_rowconfigure(1, weight=0)  # Network banner
         self.grid_rowconfigure(2, weight=1)  # Main content
         self.grid_rowconfigure(3, weight=0)  # Status bar
@@ -129,25 +130,32 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _create_network_banner(self):
         self.network_banner = ctk.CTkFrame(self, fg_color="#A93226", height=25, corner_radius=0)
-        label = ctk.CTkLabel(self.network_banner, text="⚠️ Connexion réseau perdue. Tentative de reconnexion en cours...",
+        label = ctk.CTkLabel(self.network_banner,
+                             text="⚠️ Connexion réseau perdue. Certaines fonctionnalités sont désactivées. Tentative de reconnexion en cours...",
                              text_color="white", font=ctk.CTkFont(weight="bold"))
         label.pack(expand=True, fill="both")
 
     def set_network_status(self, is_connected: bool):
-        if is_connected:
-            self.network_banner.grid_forget()
-        else:
-            self.network_banner.grid(row=1, column=0, sticky="ew", pady=(5, 0))
+        """Affiche ou masque la bannière de déconnexion et active/désactive les widgets."""
+        if self.winfo_exists():
+            if is_connected:
+                if self.network_banner.winfo_ismapped():
+                    self.network_banner.grid_forget()
+            else:
+                if not self.network_banner.winfo_ismapped():
+                    self.network_banner.grid(row=1, column=0, sticky="ew")
+                    self.network_banner.lift()
 
-        # Activer/désactiver les widgets sensibles au réseau
-        state = "normal" if is_connected else "disabled"
-        for widget in self.network_sensitive_widgets:
-            if widget.winfo_exists():
-                widget.configure(state=state)
+            state = "normal" if is_connected else "disabled"
+            for widget in self.network_sensitive_widgets:
+                if widget and widget.winfo_exists():
+                    widget.configure(state=state)
+
+            self._update_ui_for_archive_mode()
 
     def _create_main_content_frame(self):
         main_content_frame = ctk.CTkFrame(self)
-        main_content_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=10)
+        main_content_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(3, weight=1)
 
@@ -185,11 +193,11 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         actions_bar_frame = ctk.CTkFrame(parent, fg_color="transparent")
         actions_bar_frame.grid(row=1, column=0, pady=(0, 5), padx=10, sticky="ew")
 
+        btn_nouveau = ctk.CTkButton(actions_bar_frame, text="Nouvelle Demande",
+                                    command=self.helper.ouvrir_fenetre_creation_demande)
         if self.peut_creer_demande():
-            btn_nouveau = ctk.CTkButton(actions_bar_frame, text="Nouvelle Demande",
-                                        command=self.helper.ouvrir_fenetre_creation_demande)
             btn_nouveau.pack(side="left", pady=5, padx=(0, 10))
-            self.network_sensitive_widgets.append(btn_nouveau)
+        self.network_sensitive_widgets.append(btn_nouveau)
 
         self.bouton_rafraichir = ctk.CTkButton(actions_bar_frame, text="Rafraîchir (F5)",
                                                command=lambda: self.afficher_liste_demandes(force_refresh=True),
@@ -249,8 +257,8 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         search_bar_frame.grid_columnconfigure(2, weight=1)
 
         ctk.CTkLabel(search_bar_frame, text="Rechercher:", font=ctk.CTkFont(size=12)).grid(row=0, column=0,
-                                                                                               sticky="w",
-                                                                                               padx=(0, 5))
+                                                                                           sticky="w",
+                                                                                           padx=(0, 5))
 
         search_scope_options = ["Tout", "Nom/Prénom", "Réf. Facture", "Montant"]
         self.search_scope_menu = ctk.CTkOptionMenu(search_bar_frame, values=search_scope_options,
@@ -261,10 +269,12 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.search_entry = ctk.CTkEntry(search_bar_frame, textvariable=self.search_var)
         self.search_entry.grid(row=0, column=2, sticky="ew", padx=(0, 5))
         self.search_entry.bind("<Return>", self.helper.trigger_search_from_event)
-        ctk.CTkButton(search_bar_frame, text="X", width=30, command=self.helper.clear_search).grid(row=0, column=3,
-                                                                                                   sticky="w",
-                                                                                                   padx=(0, 20))
-        self.network_sensitive_widgets.extend([self.sort_menu, self.filter_menu, self.search_scope_menu, self.search_entry])
+        self.btn_clear_search = ctk.CTkButton(search_bar_frame, text="X", width=30, command=self.helper.clear_search)
+        self.btn_clear_search.grid(row=0, column=3,
+                                   sticky="w",
+                                   padx=(0, 20))
+        self.network_sensitive_widgets.extend(
+            [self.sort_menu, self.filter_menu, self.search_scope_menu, self.search_entry, self.btn_clear_search])
 
         self.archive_mode_widgets = {
             "label": ctk.CTkLabel(search_bar_frame, text="", font=ctk.CTkFont(size=12, weight="bold")),
@@ -320,14 +330,20 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _update_ui_for_archive_mode(self):
         is_disabled_by_archive = self.is_archive_mode
-        is_disabled_by_network = self.bouton_rafraichir.cget("state") == "disabled"
+        # On récupère l'état du bouton rafraîchir comme indicateur de l'état du réseau
+        is_enabled_by_network = self.bouton_rafraichir.cget("state") == "normal"
 
-        state = "disabled" if is_disabled_by_archive or is_disabled_by_network else "normal"
+        # Un widget est désactivé si on est en mode archive OU si le réseau est coupé.
+        # Il n'est actif que si les deux conditions sont favorables.
+        state_for_archive_sensitive_widgets = "normal" if is_enabled_by_network and not is_disabled_by_archive else "disabled"
 
-        self.filter_menu.configure(state=state)
-        # Ne pas désactiver le scope de recherche pour permettre de chercher dans les archives
-        # self.search_scope_menu.configure(state=state)
+        # Appliquer l'état
+        self.filter_menu.configure(state=state_for_archive_sensitive_widgets)
 
+        # La recherche doit toujours être possible, mais pas si le réseau est coupé.
+        self.search_entry.configure(state="normal" if is_enabled_by_network else "disabled")
+
+        # Gérer la visibilité des widgets du mode archive
         if self.is_archive_mode:
             start, end = self.archive_date_range
             self.archive_mode_widgets["label"].configure(text=f"Mode Archive ({start} - {end})")

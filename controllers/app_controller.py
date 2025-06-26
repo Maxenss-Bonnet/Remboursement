@@ -17,7 +17,7 @@ from controllers.password_reset_controller import PasswordResetController
 from controllers.user_controller import UserController
 from controllers.maintenance_controller import MaintenanceController
 from utils.ui_utils import ToastManager, LoadingOverlay
-from utils.database_manager import create_tables, is_db_writer_busy
+from utils.database_manager import create_tables, is_db_writer_busy, handle_db_locks
 from utils import global_task_tracker
 from utils.cache_manager import CacheManager
 from config.settings import REMBOURSEMENTS_ATTACHMENTS_DIR, ensure_shared_dirs_exist, load_smtp_config, \
@@ -76,13 +76,19 @@ class AppController:
                     self.root.after(0, self.handle_login_failure)
             except Exception as e:
                 _log.error(f"Erreur pendant la tâche de connexion : {e}", exc_info=True)
-                self.root.after(0, self.handle_login_failure)
+                self.root.after(0, self.handle_login_failure, str(e))
 
         threading.Thread(target=task, daemon=True).start()
 
-    def handle_login_failure(self):
+    def handle_login_failure(self, error_message=None):
         self.hide_global_loading()
-        self.show_toast("Nom d'utilisateur ou mot de passe incorrect.", "error")
+
+        default_message = "Nom d'utilisateur ou mot de passe incorrect."
+        if error_message:
+            self.show_toast(f"Erreur: {error_message}", "error")
+        else:
+            self.show_toast(default_message, "error")
+
         if self.login_view:
             self.login_view.entry_mdp.delete(0, 'end')
             self.login_view.bouton_connexion.configure(state="normal")
@@ -250,6 +256,7 @@ class AppController:
         draw.text((size / 2, size / 2), initial, font=font, anchor="mm", fill=(220, 220, 220))
         return ctk.CTkImage(light_image=placeholder, dark_image=placeholder, size=(size, size))
 
+    @handle_db_locks
     def _ensure_database_is_ready_and_healthy(self):
         try:
             create_tables()
