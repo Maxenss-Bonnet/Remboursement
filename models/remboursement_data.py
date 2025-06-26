@@ -273,23 +273,33 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
                      demande.cree_par, demande.date_creation, demande.derniere_modification_par,
                      demande.date_derniere_modification, 1 if demande.is_archived else 0))
 
-                _log.debug(
-                    f"CREATION DEMANDE {demande.id_demande}: Ajout de {len(demande.historique_statuts)} entrées d'historique.")
-                for hist in demande.historique_statuts:
-                    _log.debug(
-                        f" -> Ajout historique: {hist.statut} par {hist.par_utilisateur} avec commentaire '{hist.commentaire}'")
-                    cursor.execute(
+                if demande.historique_statuts:
+                    historique_a_inserer = [
+                        (demande.id_demande, hist.statut, hist.date, hist.par_utilisateur, hist.commentaire)
+                        for hist in demande.historique_statuts
+                    ]
+                    cursor.executemany(
                         "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
-                        (demande.id_demande, hist.statut, hist.date, hist.par_utilisateur, hist.commentaire))
+                        historique_a_inserer
+                    )
 
-                for path in demande.chemins_factures_stockees:
-                    cursor.execute(
+                pj_a_inserer = []
+                if demande.chemins_factures_stockees:
+                    pj_a_inserer.extend(
+                        (demande.id_demande, 'facture', path, demande.date_creation)
+                        for path in demande.chemins_factures_stockees
+                    )
+                if demande.chemins_rib_stockes:
+                    pj_a_inserer.extend(
+                        (demande.id_demande, 'rib', path, demande.date_creation)
+                        for path in demande.chemins_rib_stockes
+                    )
+                if pj_a_inserer:
+                    cursor.executemany(
                         "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
-                        (demande.id_demande, 'facture', path, demande.date_creation))
-                for path in demande.chemins_rib_stockes:
-                    cursor.execute(
-                        "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
-                        (demande.id_demande, 'rib', path, demande.date_creation))
+                        pj_a_inserer
+                    )
+
             return True, "Demande créée avec succès dans la BDD."
         except sqlite3.Error as e:
             _log.error(f"Erreur de base de données lors de la création de la demande {demande.id_demande}",
@@ -322,8 +332,6 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
 
                 if demande.historique_statuts:
                     dernier_historique = demande.historique_statuts[-1]
-                    _log.debug(
-                        f"MISE A JOUR DEMANDE {demande.id_demande}: Ajout de la dernière entrée d'historique: {dernier_historique.statut} par {dernier_historique.par_utilisateur} avec commentaire '{dernier_historique.commentaire}'")
                     cursor.execute(
                         "INSERT INTO historique (id_demande, statut, date, par_utilisateur, commentaire) VALUES (?, ?, ?, ?, ?)",
                         (demande.id_demande, dernier_historique.statut, dernier_historique.date,

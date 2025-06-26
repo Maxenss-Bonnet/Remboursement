@@ -15,7 +15,7 @@ from config.settings import SHARED_DATA_BASE_PATH, DATABASE_FILE, DB_LOCK_FILE, 
 from utils.global_events import status_update_queue, network_status_queue
 
 
-LOCK_TIMEOUT_SECONDS = 60.0
+LOCK_TIMEOUT_SECONDS = 25.0
 
 _write_queue = queue.Queue()
 _stop_queue_processor = threading.Event()
@@ -24,8 +24,6 @@ _log = logging.getLogger(__name__)
 
 def _is_network_available() -> bool:
     """Vérifie si le chemin de la BDD est accessible."""
-    # Cette fonction vérifie le chemin du dossier parent du fichier de la base de données.
-    # La variable DATABASE_FILE est déjà mise à jour au démarrage de l'application.
     return os.path.isdir(os.path.dirname(DATABASE_FILE))
 
 
@@ -58,6 +56,7 @@ def _db_writer_thread():
         lock_acquired = False
         try:
             # --- Boucle pour acquérir le verrou ---
+            lock_wait_start = time.time()
             while not lock_acquired:
                 if _stop_queue_processor.is_set(): return
 
@@ -67,6 +66,10 @@ def _db_writer_thread():
                     with open(DB_LOCK_FILE, 'x') as f:
                         f.write(f"{os.getpid()}|{time.time()}|{hostname}")
                     lock_acquired = True
+                    lock_wait_duration = time.time() - lock_wait_start
+                    if lock_wait_duration > 1.0:
+                        _log.info(f"Verrou acquis après {lock_wait_duration:.2f}s d'attente.")
+
                 except FileExistsError:
                     status_update_queue.put(("Base de données occupée, en attente...", True))
                     try:
@@ -75,6 +78,7 @@ def _db_writer_thread():
                         lock_pid_str, lock_time_str, lock_hostname = content.split('|', 2)
                         if (time.time() - float(lock_time_str)) > LOCK_TIMEOUT_SECONDS or \
                            (lock_hostname == hostname and not psutil.pid_exists(int(lock_pid_str))):
+                            _log.warning(f"Suppression d'un verrou expiré ou appartenant à un processus mort. Verrou créé il y a {time.time() - float(lock_time_str):.1f}s par {lock_hostname}.")
                             os.remove(DB_LOCK_FILE)
                     except (IOError, IndexError, ValueError):
                         if os.path.exists(DB_LOCK_FILE): os.remove(DB_LOCK_FILE)
@@ -233,7 +237,8 @@ def get_db_connection():
     cursor = conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute("PRAGMA synchronous = NORMAL;")
-    cursor.execute("PRAGMA cache_size = -4096;")
+    cursor.execute("PRAGMA cache_size = -8192;")
+    cursor.execute("PRAGMA mmap_size = 268435456;")
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.close()
     return conn
