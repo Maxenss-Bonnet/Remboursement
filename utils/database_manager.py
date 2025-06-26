@@ -24,12 +24,8 @@ _log = logging.getLogger(__name__)
 
 def _is_network_available() -> bool:
     """Vérifie si le chemin de la BDD est accessible."""
-    path_to_check = os.path.dirname(DATABASE_FILE)
-    try:
-        os.listdir(path_to_check)
-        return True
-    except (OSError, IOError):
-        return False
+    from utils.network_monitor import is_path_accessible
+    return is_path_accessible(os.path.dirname(DATABASE_FILE))
 
 
 def _wait_for_network_reconnection():
@@ -38,7 +34,7 @@ def _wait_for_network_reconnection():
         return
 
     network_status_queue.put(False)
-    status_update_queue.put(("Connexion réseau perdue, en attente de rétablissement...", True))
+    status_update_queue.put(("Connexion réseau perdue, l'opération reprendra automatiquement...", True))
 
     while not _is_network_available():
         if _stop_queue_processor.is_set():
@@ -46,7 +42,7 @@ def _wait_for_network_reconnection():
         time.sleep(1)
 
     network_status_queue.put(True)
-    status_update_queue.put(("Connexion rétablie, reprise de l'opération...", True))
+    status_update_queue.put(("Connexion rétablie, reprise de l'opération en cours...", True))
 
 
 def _db_writer_thread():
@@ -141,7 +137,7 @@ def _db_writer_thread():
                 try:
                     with open(temp_flag_path, 'w') as f:
                         f.write(str(time.time()))
-                    os.rename(temp_flag_path, DB_REFRESH_FLAG_FILE)
+                    os.replace(temp_flag_path, DB_REFRESH_FLAG_FILE)
                 except IOError as e:
                     _log.error(f"Impossible de créer le fichier de signal de rafraîchissement : {e}", exc_info=True)
                     if os.path.exists(temp_flag_path):
@@ -180,7 +176,7 @@ def execute_in_queue(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         result_queue = queue.Queue(1)
-        _write_queue.put((func, args, kwargs, result_queue, 3)) # 3 tentatives
+        _write_queue.put((func, args, kwargs, result_queue, 3))
         success, result = result_queue.get()
 
         if not success:
@@ -200,20 +196,22 @@ def handle_db_locks(func):
                 return func(*args, **kwargs)
             except sqlite3.OperationalError as e:
                 error_str = str(e).lower()
-                if "locked" in error_str or "busy" in error_str or "disk i/o error" in error_str or "unable to open" in error_str:
+                is_network_error = "disk i/o error" in error_str or "unable to open" in error_str
+                is_lock_error = "locked" in error_str or "busy" in error_str
+
+                if is_network_error or is_lock_error:
                     if i < retries - 1:
                         wait_time = random.uniform(0.3, 0.8)
                         _log.warning(
-                            f"Base de données indisponible (lecture). Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour {func.__name__}...")
+                            f"Base de données indisponible. Erreur: '{error_str}'. Tentative {i + 1}/{retries} dans {wait_time:.2f}s pour {func.__name__}...")
 
-                        if "disk i/o error" in error_str or "unable to open" in error_str:
+                        if is_network_error:
                             network_status_queue.put(False)
 
                         time.sleep(wait_time)
 
-                        if "disk i/o error" in error_str or "unable to open" in error_str:
+                        if is_network_error:
                              network_status_queue.put(True)
-
                         continue
                     else:
                         _log.error(

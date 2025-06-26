@@ -16,7 +16,7 @@ from controllers.remboursement_controller import RemboursementController
 from controllers.password_reset_controller import PasswordResetController
 from controllers.user_controller import UserController
 from controllers.maintenance_controller import MaintenanceController
-from utils.ui_utils import ToastManager, LoadingOverlay
+from utils.ui_utils import ToastManager, LoadingOverlay, NetworkStatusBanner
 from utils.database_manager import create_tables, is_db_writer_busy, handle_db_locks
 from utils import global_task_tracker
 from utils.cache_manager import CacheManager
@@ -50,6 +50,7 @@ class AppController:
         self._status_update_job = None
         self._network_status_job = None
         self.network_monitor = NetworkMonitor()
+        self.network_status_banner = NetworkStatusBanner(self.root)
 
     def run_initialization(self):
         load_smtp_config()
@@ -169,8 +170,16 @@ class AppController:
         try:
             while not network_status_queue.empty():
                 is_connected = network_status_queue.get_nowait()
+                # Gérer la bannière globale
+                if is_connected:
+                    self.network_status_banner.hide_banner()
+                else:
+                    self.network_status_banner.show_banner()
+
+                # Mettre à jour les widgets sensibles au réseau dans la vue principale
                 if self.main_view and self.main_view.winfo_exists():
                     self.main_view.set_network_status(is_connected)
+
         except queue.Empty:
             pass
         finally:
@@ -323,6 +332,7 @@ class AppController:
             self.main_view = None
         self.login_view = LoginView(self.root, self.auth_controller, self)
         self.root.title("Application de Remboursement - Connexion")
+        self._start_all_background_checks() # Démarrer ici pour avoir la bannière sur l'écran de login
         self._preload_data()
 
     def show_main_view(self):

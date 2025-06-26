@@ -12,6 +12,7 @@ _log = logging.getLogger(__name__)
 POLLING_INTERVAL_MS_ACTIVE = 2500
 POLLING_INTERVAL_MS_IDLE = 30000
 IDLE_THRESHOLD_SECONDS = 120
+FLAG_MAX_AGE_SECONDS = 20
 
 
 class PollingMixin:
@@ -62,30 +63,39 @@ class PollingMixin:
     def _background_update_check(self):
         """Effectue les vérifications I/O dans un thread séparé pour ne pas bloquer l'UI."""
         try:
-            # On vérifie d'abord si le chemin principal est accessible avant toute opération
             if not is_path_accessible(os.path.dirname(DATABASE_FILE)):
                 return
 
-            # Vérification du fichier drapeau (flag file)
+            flag_found_and_processed = False
             if os.path.exists(DB_REFRESH_FLAG_FILE):
                 try:
                     with open(DB_REFRESH_FLAG_FILE, 'r') as f:
-                        flag_timestamp = float(f.read())
-                    os.remove(DB_REFRESH_FLAG_FILE)
-                    _log.info(f"Signal de rafraîchissement (drapeau) détecté. Rafraîchissement demandé.")
-                    if self.winfo_exists(): self.after(0, self._trigger_ui_refresh)
-                    return
-                except (IOError, OSError, ValueError):
-                    pass
+                        flag_timestamp = float(f.read().strip())
 
-            # Vérification de la date de modification de la BDD
-            current_mtime = os.path.getmtime(DATABASE_FILE)
-            if self._last_processed_db_mtime == 0:
-                self._last_processed_db_mtime = current_mtime
-            elif current_mtime > self._last_processed_db_mtime:
-                _log.info("Changement détecté sur le fichier BDD (mtime). Rafraîchissement demandé.")
-                self._last_processed_db_mtime = current_mtime
-                if self.winfo_exists(): self.after(0, self._trigger_ui_refresh)
+                    # Logique de rafraîchissement : si le drapeau est plus récent, on agit.
+                    if flag_timestamp > self._last_processed_db_mtime:
+                        _log.info(f"Nouveau signal (drapeau) détecté. Timestamp: {flag_timestamp}. Rafraîchissement.")
+                        if self.winfo_exists(): self.after(0, self._trigger_ui_refresh)
+                        self._last_processed_db_mtime = flag_timestamp
+                        flag_found_and_processed = True
+
+                    # Logique de nettoyage : si le drapeau est vieux, on le supprime.
+                    if time.time() - flag_timestamp > FLAG_MAX_AGE_SECONDS:
+                        _log.info(f"Nettoyage du drapeau de rafraîchissement obsolète (âge > {FLAG_MAX_AGE_SECONDS}s).")
+                        os.remove(DB_REFRESH_FLAG_FILE)
+
+                except (IOError, OSError, ValueError):
+                    pass # Ignore les erreurs de lecture/suppression, un autre processus peut être dessus.
+
+            # Logique de fallback : si aucun drapeau n'a été trouvé, on vérifie la date de modif du fichier BDD.
+            if not flag_found_and_processed and os.path.exists(DATABASE_FILE):
+                current_mtime = os.path.getmtime(DATABASE_FILE)
+                if self._last_processed_db_mtime == 0:
+                    self._last_processed_db_mtime = current_mtime
+                elif current_mtime > self._last_processed_db_mtime:
+                    _log.info("Changement détecté sur le fichier BDD (mtime). Rafraîchissement demandé.")
+                    self._last_processed_db_mtime = current_mtime
+                    if self.winfo_exists(): self.after(0, self._trigger_ui_refresh)
 
         except (OSError, IOError):
             _log.debug(f"Erreur d'accès réseau durant le polling (attendu si déconnecté).")

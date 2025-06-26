@@ -9,28 +9,26 @@ from utils.global_events import network_status_queue
 
 _log = logging.getLogger(__name__)
 
-FAILURE_THRESHOLD = 2  # Détection plus rapide
-CHECK_INTERVAL_SECONDS = 2.0  # Intervalle plus court
-ACCESS_TIMEOUT_SECONDS = 2.0  # Timeout pour l'opération réseau
+FAILURE_THRESHOLD = 2
+CHECK_INTERVAL_SECONDS = 1.5
+ACCESS_TIMEOUT_SECONDS = 1.0
+
 
 def is_path_accessible(path: str) -> bool:
     """
     Vérifie l'accès à un chemin réseau de manière non-bloquante avec un timeout.
+    Utilise os.path.exists qui est plus léger que os.listdir.
     """
     if not IS_DEPLOYMENT_MODE:
         return True
 
     executor = ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(os.listdir, path)
+    future = executor.submit(os.path.exists, path)
     try:
-        # Attend le résultat pour un maximum de ACCESS_TIMEOUT_SECONDS
-        future.result(timeout=ACCESS_TIMEOUT_SECONDS)
-        return True
+        return future.result(timeout=ACCESS_TIMEOUT_SECONDS)
     except (TimeoutError, IOError, OSError, PermissionError):
-        # Si le timeout est atteint ou une erreur d'accès survient, on considère le chemin inaccessible
         return False
     finally:
-        # S'assure que le thread de l'executor est bien terminé
         executor.shutdown(wait=False, cancel_futures=True)
 
 
@@ -46,6 +44,7 @@ class NetworkMonitor:
         """Démarre le thread de surveillance du réseau."""
         if self._thread is None or not self._thread.is_alive():
             self._stop_event.clear()
+            self._is_connected = is_path_accessible(SHARED_DATA_BASE_PATH)
             self._thread = threading.Thread(target=self._monitor_loop, daemon=True, name="NetworkMonitorThread")
             self._thread.start()
             _log.info(f"Moniteur réseau démarré (intervalle: {self._interval}s, seuil: {FAILURE_THRESHOLD} échecs).")
@@ -75,4 +74,6 @@ class NetworkMonitor:
                     _log.warning(f"Réseau non détecté : DÉCONNECTÉ (après {self._consecutive_failures} échecs)")
                     network_status_queue.put(False)
 
-            time.sleep(self._interval)
+            # Attente intelligente : si déconnecté, vérifie plus fréquemment.
+            sleep_interval = 0.75 if not self._is_connected else self._interval
+            self._stop_event.wait(sleep_interval)

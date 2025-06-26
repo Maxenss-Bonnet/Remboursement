@@ -3,6 +3,54 @@ import tkinter
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
 
+class NetworkStatusBanner(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.withdraw()
+        self.overrideredirect(True)
+        self.attributes("-topmost", True)
+        self.attributes("-disabled", True)
+        self.configure(fg_color="#A93226")
+
+        self.label = ctk.CTkLabel(self,
+                                  text="⚠️ Connexion réseau perdue. Les opérations en cours sont en pause...",
+                                  text_color="white",
+                                  font=ctk.CTkFont(weight="bold"))
+        self.label.place(relx=0.5, rely=0.5, anchor="center")
+        self.bind_id = self.master.bind("<Configure>", self._reposition_banner, add="+")
+
+    def _reposition_banner(self, event=None):
+        if not self.master.winfo_exists():
+            return
+
+        self.master.update_idletasks()
+        master_x = self.master.winfo_x()
+        master_width = self.master.winfo_width()
+        title_bar_height = self.master.winfo_rooty() - self.master.winfo_y()
+        banner_y = self.master.winfo_y() + title_bar_height
+
+        self.geometry(f"{master_width}x30+{master_x}+{banner_y}")
+
+    def show_banner(self, message: str | None = None):
+        if message:
+            self.label.configure(text=message)
+        self.deiconify()
+        self.lift()
+        self._reposition_banner()
+
+    def hide_banner(self):
+        self.withdraw()
+
+    def destroy(self):
+        try:
+            if self.master.winfo_exists() and self.bind_id:
+                self.master.unbind("<Configure>", self.bind_id)
+                self.bind_id = None
+        except tkinter.TclError:
+            pass
+        super().destroy()
+
+
 class DragDropFrame(ctk.CTkFrame):
     def __init__(self, master, drop_callback, text="Déposez un fichier ici", **kwargs):
         super().__init__(master, **kwargs)
@@ -34,13 +82,10 @@ class DragDropFrame(ctk.CTkFrame):
     def on_drop(self, event):
         self.on_leave(event)
         try:
-            # Utilise l'analyseur de listes de Tkinter, très robuste pour les chemins avec des espaces
             files = self.winfo_toplevel().tk.splitlist(event.data)
             if files:
-                # Les dialogues ne gèrent qu'un seul fichier, on prend donc le premier
                 self.drop_callback(files[0])
         except Exception:
-            # Solution de secours pour les cas simples si l'analyseur échoue
             path = event.data.strip('{}')
             if path:
                 self.drop_callback(path)

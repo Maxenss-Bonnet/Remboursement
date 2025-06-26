@@ -125,6 +125,7 @@ class RemboursementItemView(ctk.CTkFrame, TaskRunnerMixin):
         self.details_frame.grid_columnconfigure(0, weight=2, minsize=280)
         self.details_frame.grid_columnconfigure(1, weight=3, minsize=300)
         self.details_frame.grid_columnconfigure(2, weight=0, minsize=180)
+        self.details_frame.grid_rowconfigure(0, weight=1)
 
         self._build_basic_info_frame()
         self._build_history_frame()

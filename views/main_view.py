@@ -86,10 +86,9 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _creer_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=0)  # Top bar
-        self.grid_rowconfigure(1, weight=0)  # Network banner
-        self.grid_rowconfigure(2, weight=1)  # Main content
-        self.grid_rowconfigure(3, weight=0)  # Status bar
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=0)
 
         self.winfo_toplevel().bind("<F5>", lambda e: self.afficher_liste_demandes(force_refresh=True))
         self.winfo_toplevel().bind("<Any-KeyPress>", self._reset_idle_timer)
@@ -97,7 +96,6 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
         self.winfo_toplevel().bind("<Motion>", self._reset_idle_timer)
 
         self._create_top_bar()
-        self._create_network_banner()
         self._create_main_content_frame()
         self._create_status_bar()
 
@@ -128,34 +126,22 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
         self.network_sensitive_widgets.extend([btn_profil, btn_aide, btn_deco])
 
-    def _create_network_banner(self):
-        self.network_banner = ctk.CTkFrame(self, fg_color="#A93226", height=25, corner_radius=0)
-        label = ctk.CTkLabel(self.network_banner,
-                             text="⚠️ Connexion réseau perdue. Certaines fonctionnalités sont désactivées. Tentative de reconnexion en cours...",
-                             text_color="white", font=ctk.CTkFont(weight="bold"))
-        label.pack(expand=True, fill="both")
-
     def set_network_status(self, is_connected: bool):
-        """Affiche ou masque la bannière de déconnexion et active/désactive les widgets."""
-        if self.winfo_exists():
-            if is_connected:
-                if self.network_banner.winfo_ismapped():
-                    self.network_banner.grid_forget()
-            else:
-                if not self.network_banner.winfo_ismapped():
-                    self.network_banner.grid(row=1, column=0, sticky="ew")
-                    self.network_banner.lift()
+        """Active ou désactive les widgets sensibles à l'état du réseau."""
+        if not self.winfo_exists():
+            return
 
-            state = "normal" if is_connected else "disabled"
-            for widget in self.network_sensitive_widgets:
-                if widget and widget.winfo_exists():
-                    widget.configure(state=state)
+        state = "normal" if is_connected else "disabled"
+        for widget in self.network_sensitive_widgets:
+            if widget and widget.winfo_exists():
+                widget.configure(state=state)
 
-            self._update_ui_for_archive_mode()
+        # Assure que les contrôles d'archive sont correctement (dés)activés
+        self._update_ui_for_archive_mode()
 
     def _create_main_content_frame(self):
         main_content_frame = ctk.CTkFrame(self)
-        main_content_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
+        main_content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         main_content_frame.grid_columnconfigure(0, weight=1)
         main_content_frame.grid_rowconfigure(3, weight=1)
 
@@ -170,7 +156,7 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _create_status_bar(self):
         self.status_bar = ctk.CTkFrame(self, height=25, corner_radius=0)
-        self.status_bar.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
+        self.status_bar.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
         self.status_label = ctk.CTkLabel(self.status_bar, text="Prêt", font=ctk.CTkFont(size=12), anchor="w")
         self.status_label.pack(side="left", padx=10)
         self.status_progress = ctk.CTkProgressBar(self.status_bar, width=100, mode='indeterminate')
@@ -330,20 +316,14 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
 
     def _update_ui_for_archive_mode(self):
         is_disabled_by_archive = self.is_archive_mode
-        # On récupère l'état du bouton rafraîchir comme indicateur de l'état du réseau
         is_enabled_by_network = self.bouton_rafraichir.cget("state") == "normal"
 
-        # Un widget est désactivé si on est en mode archive OU si le réseau est coupé.
-        # Il n'est actif que si les deux conditions sont favorables.
         state_for_archive_sensitive_widgets = "normal" if is_enabled_by_network and not is_disabled_by_archive else "disabled"
 
-        # Appliquer l'état
         self.filter_menu.configure(state=state_for_archive_sensitive_widgets)
 
-        # La recherche doit toujours être possible, mais pas si le réseau est coupé.
         self.search_entry.configure(state="normal" if is_enabled_by_network else "disabled")
 
-        # Gérer la visibilité des widgets du mode archive
         if self.is_archive_mode:
             start, end = self.archive_date_range
             self.archive_mode_widgets["label"].configure(text=f"Mode Archive ({start} - {end})")
