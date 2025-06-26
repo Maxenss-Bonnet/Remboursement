@@ -269,22 +269,26 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
 
     def _extraire_infos_pdf(self, chemin_local_pdf):
         if not chemin_local_pdf.lower().endswith(".pdf"): return
-        try:
-            infos = self.remboursement_controller.extraire_info_facture_pdf(chemin_local_pdf)
-            if infos.get("nom"):
-                self.entries_demande["nom"].delete(0, "end");
-                self.entries_demande["nom"].insert(0, infos["nom"])
-            if infos.get("prenom"):
-                self.entries_demande["prenom"].delete(0, "end");
-                self.entries_demande["prenom"].insert(0,
-                                                      infos[
-                                                          "prenom"])
-            if infos.get("reference"):
-                self.entries_demande["reference_facture"].delete(0, "end");
-                self.entries_demande[
-                    "reference_facture"].insert(0, infos["reference"])
-        except Exception as e:
-            self.app_controller.show_toast(f"Erreur d'analyse du PDF : {e}", "error")
+
+        def task():
+            return self.remboursement_controller.extraire_info_facture_pdf(chemin_local_pdf)
+
+        def on_complete(infos, error):
+            if error:
+                self.app_controller.show_toast(f"Erreur d'analyse du PDF : {error}", "error")
+                return
+            if infos:
+                if infos.get("nom"):
+                    self.entries_demande["nom"].delete(0, "end");
+                    self.entries_demande["nom"].insert(0, infos["nom"])
+                if infos.get("prenom"):
+                    self.entries_demande["prenom"].delete(0, "end");
+                    self.entries_demande["prenom"].insert(0, infos["prenom"])
+                if infos.get("reference"):
+                    self.entries_demande["reference_facture"].delete(0, "end");
+                    self.entries_demande["reference_facture"].insert(0, infos["reference"])
+
+        self.run_task(task, on_complete, "Analyse du PDF...", show_overlay=False)
 
     def _soumettre_demande(self):
         if self.copy_operations_in_progress > 0:

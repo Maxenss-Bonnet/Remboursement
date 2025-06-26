@@ -103,8 +103,8 @@ class AppController:
         self.update_global_loading_text("Préparation de l'affichage...")
         self.root.update_idletasks()
 
-        if self.preloading_thread is not None:
-            self.preloading_thread.join()
+        if self.preloading_thread is not None and self.preloading_thread.is_alive():
+            self.preloading_thread.join(timeout=2.0)
 
         self.show_main_view()
         self.hide_global_loading()
@@ -123,13 +123,11 @@ class AppController:
         return global_task_tracker.is_busy() or is_db_writer_busy()
 
     def _start_all_background_checks(self):
-        """Démarre tous les processus de surveillance en arrière-plan."""
         self._start_status_updates_check()
         self._start_network_status_check()
         self.network_monitor.start()
 
     def _stop_all_background_checks(self):
-        """Arrête tous les processus de surveillance en arrière-plan."""
         self._stop_status_updates_check()
         self._stop_network_status_check()
         self.network_monitor.stop()
@@ -170,13 +168,11 @@ class AppController:
         try:
             while not network_status_queue.empty():
                 is_connected = network_status_queue.get_nowait()
-                # Gérer la bannière globale
                 if is_connected:
                     self.network_status_banner.hide_banner()
                 else:
                     self.network_status_banner.show_banner()
 
-                # Mettre à jour les widgets sensibles au réseau dans la vue principale
                 if self.main_view and self.main_view.winfo_exists():
                     self.main_view.set_network_status(is_connected)
 
@@ -224,27 +220,8 @@ class AppController:
                         pfp_cache[user.login] = self._create_placeholder_image(initial, pfp_size)
                 with self.pfp_cache_lock:
                     self.preloaded_pfp_cache = pfp_cache
+                _log.info("Pré-chargement des photos de profil terminé.")
 
-                if self.current_user:
-                    user_data = self.get_user_from_cache(self.current_user)
-                    if user_data:
-                        controller = self._remboursement_controller_factory(self.current_user)
-                        demandes, total = controller.get_demandes_filtrees_triees(
-                            user_roles=user_data.roles,
-                            filter_choice=user_data.default_filter,
-                            sort_choice="Date de création (récent)",
-                            search_term="",
-                            search_scope="Tout",
-                            is_archive_mode=False,
-                            archive_date_range=None,
-                            limit=20, offset=0
-                        )
-                        cache_key = f"{self.current_user}_{user_data.default_filter}_default"
-                        self.cache_manager.set_demand_query_cache(cache_key, (demandes, total))
-                        _log.info(
-                            f"Vue par défaut préchargée pour {self.current_user} avec {len(demandes)} demandes.")
-
-                _log.info("Pré-chargement des données terminé avec succès.")
             except Exception as e:
                 _log.error(f"Erreur durant le pré-chargement des données : {e}", exc_info=True)
                 with self.pfp_cache_lock:
@@ -301,7 +278,8 @@ class AppController:
 
     def _run_startup_tasks(self):
         def task():
-            _log.info("Lancement des tâches de démarrage...")
+            _log.info("Lancement des tâches de démarrage en arrière-plan...")
+            self.cache_manager.cleanup_old_cache_files()
             self._cleanup_orphaned_temp_folders()
             rc_temp = RemboursementController(utilisateur_actuel="system")
             rc_temp.archive_old_requests()
@@ -309,7 +287,7 @@ class AppController:
             _log.info(f"Statut de la sauvegarde automatique : {backup_status}")
             _log.info("Tâches de démarrage terminées.")
 
-        startup_thread = threading.Thread(target=task, daemon=True)
+        startup_thread = threading.Thread(target=task, daemon=True, name="StartupTasksThread")
         startup_thread.start()
 
     def _remboursement_controller_factory(self, nom_utilisateur: str) -> RemboursementController:
@@ -332,7 +310,7 @@ class AppController:
             self.main_view = None
         self.login_view = LoginView(self.root, self.auth_controller, self)
         self.root.title("Application de Remboursement - Connexion")
-        self._start_all_background_checks() # Démarrer ici pour avoir la bannière sur l'écran de login
+        self._start_all_background_checks()
         self._preload_data()
 
     def show_main_view(self):
@@ -370,5 +348,4 @@ class AppController:
                         "warning")
 
     def shutdown(self):
-        """Méthode à appeler lors de la fermeture pour nettoyer les ressources."""
         self._stop_all_background_checks()

@@ -2,6 +2,7 @@ import os
 import customtkinter as ctk
 import logging
 import math
+import threading
 from tkinter import messagebox, simpledialog
 
 from views.document_viewer import DocumentViewerWindow
@@ -164,6 +165,10 @@ class MainViewHelper:
                         widget.grid(row=i, column=0, pady=5, padx=5, sticky="ew")
                         if widget in widgets_to_animate_in:
                             widget.animate_in()
+
+                threading.Thread(
+                    target=lambda: self.app_controller.cache_manager.sync_proactive_cache(demandes_a_afficher),
+                    daemon=True).start()
 
             self.demandes_en_cache = {d.id_demande: d.model_dump() for d in demandes_a_afficher}
             self._update_pagination_controls()
