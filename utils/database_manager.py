@@ -236,6 +236,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.execute("PRAGMA busy_timeout = 5000;")
     cursor.execute("PRAGMA synchronous = NORMAL;")
     cursor.execute("PRAGMA cache_size = -8192;")
     cursor.execute("PRAGMA mmap_size = 268435456;")

@@ -308,8 +308,7 @@ def creer_demande_data(demande: Remboursement) -> Tuple[bool, str]:
 
 
 @execute_in_queue
-def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optional[str] = None,
-                               type_pj: Optional[str] = None) -> Tuple[bool, str]:
+def mettre_a_jour_demande_data(demande: Remboursement, nouveaux_pjs: Optional[List[Tuple[str, str]]] = None) -> Tuple[bool, str]:
     with db_connection() as conn:
         try:
             with conn:
@@ -337,36 +336,21 @@ def mettre_a_jour_demande_data(demande: Remboursement, nouveau_pj_relatif: Optio
                         (demande.id_demande, dernier_historique.statut, dernier_historique.date,
                          dernier_historique.par_utilisateur, dernier_historique.commentaire))
 
-                if nouveau_pj_relatif and type_pj:
-                    cursor.execute(
+                if nouveaux_pjs:
+                    pj_a_inserer = [
+                        (demande.id_demande, type_pj, path, demande.date_derniere_modification)
+                        for path, type_pj in nouveaux_pjs
+                    ]
+                    cursor.executemany(
                         "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
-                        (demande.id_demande, type_pj, nouveau_pj_relatif, demande.date_derniere_modification))
+                        pj_a_inserer
+                    )
+
             return True, "Demande mise à jour avec succès."
         except sqlite3.Error as e:
             _log.error(f"Erreur de base de données lors de la mise à jour de la demande {demande.id_demande}",
                        exc_info=True)
             return False, f"Erreur de base de données : {e}"
-
-
-@execute_in_queue
-def ajouter_piece_jointe_data(id_demande: str, chemin_relatif: str, type_pj: str) -> Tuple[bool, str]:
-    with db_connection() as conn:
-        try:
-            with conn:
-                cursor = conn.cursor()
-                now = datetime.datetime.now()
-                cursor.execute(
-                    "INSERT INTO pieces_jointes (id_demande, type_pj, chemin_relatif, date_ajout) VALUES (?, ?, ?, ?)",
-                    (id_demande, type_pj, chemin_relatif, now)
-                )
-                cursor.execute(
-                    "UPDATE remboursements SET date_derniere_modification = ? WHERE id_demande = ?",
-                    (now, id_demande)
-                )
-            return True, "Pièce jointe ajoutée."
-        except sqlite3.Error as e:
-            _log.error(f"Erreur BDD lors de l'ajout de la PJ pour la demande {id_demande}", exc_info=True)
-            return False, f"Erreur BDD lors de l'ajout de la PJ: {e}"
 
 
 @execute_in_queue

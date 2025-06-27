@@ -69,38 +69,40 @@ def _generic_workflow_action(demande, utilisateur: str, commentaire: str | None,
 def accepter_constat_trop_percu(id_demande: str, commentaire: str, utilisateur: str, chemin_pj_relatif: str) -> tuple[
     bool, str]:
     demande = obtenir_demande_par_id(id_demande)
+    pjs_a_ajouter = [(chemin_pj_relatif, 'trop_percu')]
     return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.accepter_constat_trop_percu_action,
-                                    nouveau_pj_relatif=chemin_pj_relatif, type_pj='trop_percu')
+                                    nouveaux_pjs=pjs_a_ajouter)
 
 
 def pneri_resoumettre_demande_corrigee(id_demande: str, commentaire: str, chemin_facture_rel: str | None,
                                        chemin_rib_rel: str | None, utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
     if not demande: return False, "Demande non trouvée."
-    if demande.statut != STATUT_REFUSEE_CONSTAT_TP: return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_CONSTAT_TP}'."
 
+    pjs_a_ajouter = []
     if chemin_facture_rel:
-        succes, msg = remboursement_data.ajouter_piece_jointe_data(id_demande, chemin_facture_rel, "facture")
-        if not succes: return False, f"Erreur BDD (facture): {msg}"
+        pjs_a_ajouter.append((chemin_facture_rel, "facture"))
     if chemin_rib_rel:
-        succes, msg = remboursement_data.ajouter_piece_jointe_data(id_demande, chemin_rib_rel, "rib")
-        if not succes: return False, f"Erreur BDD (RIB): {msg}"
+        pjs_a_ajouter.append((chemin_rib_rel, "rib"))
 
-    demande_a_jour = obtenir_demande_par_id(id_demande)
-    return _generic_workflow_action(demande_a_jour, utilisateur, commentaire,
-                                    remboursement_workflow.pneri_resoumettre_demande_action)
+    return _generic_workflow_action(demande, utilisateur, commentaire,
+                                    remboursement_workflow.pneri_resoumettre_demande_action,
+                                    nouveaux_pjs=pjs_a_ajouter)
 
 
 def mlupo_resoumettre_constat_corrige(id_demande: str, commentaire: str, chemin_pj_relatif: str | None,
                                       utilisateur: str) -> tuple[bool, str]:
     demande = obtenir_demande_par_id(id_demande)
     if not demande: return False, "Demande non trouvée."
-    if demande.statut != STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO: return False, f"La demande n'est pas au statut '{STATUT_REFUSEE_VALIDATION_CORRECTION_MLUPO}'."
+
+    pjs_a_ajouter = []
+    if chemin_pj_relatif:
+        pjs_a_ajouter.append((chemin_pj_relatif, 'trop_percu'))
 
     return _generic_workflow_action(demande, utilisateur, commentaire,
                                     remboursement_workflow.mlupo_resoumettre_constat_action,
-                                    nouveau_pj_relatif=chemin_pj_relatif, type_pj='trop_percu')
+                                    nouveaux_pjs=pjs_a_ajouter)
 
 
 def obtenir_demande_par_id(

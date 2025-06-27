@@ -26,8 +26,7 @@ def accepter_constat_trop_percu_action(demande: Remboursement, utilisateur: str,
 
     succes, msg = remboursement_data.mettre_a_jour_demande_data(
         demande,
-        nouveau_pj_relatif=kwargs.get('nouveau_pj_relatif'),
-        type_pj=kwargs.get('type_pj')
+        nouveaux_pjs=kwargs.get('nouveaux_pjs')
     )
     if succes:
         nom_patient = f"{demande.prenom} {demande.nom}".strip()
@@ -162,7 +161,10 @@ def pneri_resoumettre_demande_action(demande: Remboursement, utilisateur: str, n
         commentaire=f"Demande corrigée et resoumise: {nouveau_commentaire}"
     ))
 
-    succes, msg = remboursement_data.mettre_a_jour_demande_data(demande)
+    succes, msg = remboursement_data.mettre_a_jour_demande_data(
+        demande,
+        nouveaux_pjs=kwargs.get('nouveaux_pjs')
+    )
     if succes:
         nom_patient = f"{demande.prenom} {demande.nom}".strip()
         return True, f"Demande pour {nom_patient} corrigée et resoumise."
@@ -187,8 +189,7 @@ def mlupo_resoumettre_constat_action(demande: Remboursement, utilisateur: str, n
 
     succes, msg = remboursement_data.mettre_a_jour_demande_data(
         demande,
-        nouveau_pj_relatif=kwargs.get('nouveau_pj_relatif'),
-        type_pj=kwargs.get('type_pj')
+        nouveaux_pjs=kwargs.get('nouveaux_pjs')
     )
     if succes:
         nom_patient = f"{demande.prenom} {demande.nom}".strip()
