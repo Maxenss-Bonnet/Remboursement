@@ -19,7 +19,7 @@ def copy_with_progress(source_path: str, dest_path: str, progress_callback: Call
             return
 
         copied_size = 0
-        chunk_size = 1024 * 1024  # 1 MB
+        chunk_size = 4 * 1024 * 1024  # 4 MB
 
         with open(source_path, 'rb') as src_file:
             with open(dest_path, 'wb') as dest_file:
