@@ -240,6 +240,7 @@ def get_db_connection():
     cursor.execute("PRAGMA cache_size = -8192;")
     cursor.execute("PRAGMA mmap_size = 268435456;")
     cursor.execute("PRAGMA foreign_keys = ON;")
+    cursor.execute("PRAGMA temp_store = MEMORY;")
     cursor.close()
     return conn
 

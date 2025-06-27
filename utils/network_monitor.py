@@ -9,9 +9,9 @@ from utils.global_events import network_status_queue
 
 _log = logging.getLogger(__name__)
 
-FAILURE_THRESHOLD = 2
-CHECK_INTERVAL_SECONDS = 1.5
-ACCESS_TIMEOUT_SECONDS = 1.0
+FAILURE_THRESHOLD = 3
+CHECK_INTERVAL_SECONDS = 2.0
+ACCESS_TIMEOUT_SECONDS = 1.5
 
 
 def is_path_accessible(path: str) -> bool:
