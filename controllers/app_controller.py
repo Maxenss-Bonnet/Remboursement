@@ -57,7 +57,8 @@ class AppController:
         ensure_shared_dirs_exist()
         self._ensure_database_is_ready_and_healthy()
         self._load_user_cache()
-        self._run_startup_tasks()
+        # Les tâches de maintenance sont maintenant lancées après l'affichage de l'UI
+        # self._run_startup_tasks()
 
     def show_initial_view(self):
         self.show_login_view()
@@ -275,6 +276,10 @@ class AppController:
 
     def _run_startup_tasks(self):
         def task():
+            # Attend quelques secondes après le démarrage pour ne pas impacter les performances
+            _log.info("Les tâches de maintenance démarreront dans 20 secondes...")
+            time.sleep(20)
+
             _log.info("Lancement des tâches de démarrage en arrière-plan...")
             self.cache_manager.cleanup_old_cache_files()
             self._cleanup_orphaned_temp_folders()
@@ -309,6 +314,7 @@ class AppController:
         self.root.title("Application de Remboursement - Connexion")
         self._start_all_background_checks()
         self._preload_data()
+        self._run_startup_tasks()  # Lancement des tâches de fond après l'affichage de la fenêtre de connexion
 
     def show_main_view(self):
         self.main_view = MainView(

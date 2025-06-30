@@ -5,7 +5,7 @@ import tkinter
 import threading
 import queue
 import logging
-import time # Ajoutez cet import
+import time
 from tkinter import messagebox
 from tkinterdnd2 import TkinterDnD
 
@@ -108,14 +108,21 @@ class MainApplication(TkinterDnD.Tk):
         result_queue = queue.Queue()
 
         def checker_task():
-            max_retries = 5
+            max_retries = 15
+            retry_delay = 1
+
             for i in range(max_retries):
                 if is_path_accessible(SHARED_DATA_BASE_PATH):
                     result_queue.put(True)
                     return
+
+                # Met à jour le message dans le splash screen
+                self.loading_label.configure(text=f"Réseau indisponible. Réessai ({i + 1}/{max_retries})...")
+
                 if i < max_retries - 1:
-                    time.sleep(1) # Attendre 1 seconde avant de réessayer
-            result_queue.put(False) # Toutes les tentatives ont échoué
+                    time.sleep(retry_delay)
+
+            result_queue.put(False)
 
         threading.Thread(target=checker_task, daemon=True).start()
         self._process_network_check_result(result_queue)
@@ -185,7 +192,6 @@ class MainApplication(TkinterDnD.Tk):
         self.wait_window(dialog)
         # Réaffiche la fenêtre d'erreur si l'utilisateur a juste fermé le dialogue sans valider
         self.deiconify()
-
 
     def center_window(self):
         self.update_idletasks()
