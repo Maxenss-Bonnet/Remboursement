@@ -2,8 +2,9 @@ import os
 import customtkinter as ctk
 import threading
 import queue
-from PIL import Image
+from PIL import Image, ImageGrab
 import fitz
+import tempfile
 
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
@@ -79,13 +80,16 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
 
         facture_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         facture_frame.pack(fill="x", pady=(5, 0), padx=10)
-        facture_frame.columnconfigure(1, weight=1)
+        facture_frame.columnconfigure(2, weight=1)
         self.btn_sel_facture = ctk.CTkButton(facture_frame, text="Nlle Facture",
                                              command=lambda: self._sel_new_pj("facture"), state="disabled")
-        self.btn_sel_facture.grid(row=0, column=0, padx=(0, 10))
+        self.btn_sel_facture.grid(row=0, column=0, padx=(0, 5))
+        ctk.CTkButton(facture_frame, text="Coller",
+                      command=lambda: self._coller_pj("facture"), state="disabled").grid(row=0, column=1, padx=(0, 10))
+
         self.lbl_facture_sel = ctk.CTkLabel(facture_frame, textvariable=self.chemin_facture_var,
                                             text_color="gray", anchor="w", wraplength=300)
-        self.lbl_facture_sel.grid(row=0, column=1, sticky="ew")
+        self.lbl_facture_sel.grid(row=0, column=2, sticky="ew")
 
         drop_zone_facture = DragDropFrame(form_frame,
                                           drop_callback=lambda p: self._sel_new_pj("facture", file_path=p),
@@ -105,13 +109,15 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
 
         rib_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         rib_frame.pack(fill="x", pady=(5, 0), padx=10)
-        rib_frame.columnconfigure(1, weight=1)
+        rib_frame.columnconfigure(2, weight=1)
         self.btn_sel_rib = ctk.CTkButton(rib_frame, text="Nouveau RIB",
                                          command=lambda: self._sel_new_pj("rib"), state="disabled")
-        self.btn_sel_rib.grid(row=0, column=0, padx=(0, 10))
+        self.btn_sel_rib.grid(row=0, column=0, padx=(0, 5))
+        ctk.CTkButton(rib_frame, text="Coller",
+                      command=lambda: self._coller_pj("rib"), state="disabled").grid(row=0, column=1, padx=(0, 10))
         self.lbl_rib_sel = ctk.CTkLabel(rib_frame, textvariable=self.chemin_rib_var, text_color="gray",
                                         anchor="w", wraplength=300)
-        self.lbl_rib_sel.grid(row=0, column=1, sticky="ew")
+        self.lbl_rib_sel.grid(row=0, column=2, sticky="ew")
 
         drop_zone_rib = DragDropFrame(form_frame,
                                       drop_callback=lambda p: self._sel_new_pj("rib", file_path=p),
@@ -257,6 +263,22 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
 
         self.run_task(task, on_complete, show_overlay=False)
 
+    def _coller_pj(self, type_pj: str):
+        try:
+            image = ImageGrab.grabclipboard()
+            if not isinstance(image, Image.Image):
+                self.app_controller.show_toast("Aucune image valide dans le presse-papiers.", "info")
+                return
+
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix="pasted_")
+            image.save(temp_file, "PNG")
+            temp_file.close()
+
+            self._sel_new_pj(type_pj, temp_file.name)
+
+        except Exception as e:
+            self.app_controller.show_toast(f"Erreur lors du collage : {e}", "error")
+
     def _sel_new_pj(self, type_pj: str, file_path: str = None):
         if file_path:
             chemin_local = file_path
@@ -307,6 +329,12 @@ class ResoumissionDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
                 self.copy_progress_queue.put(("done", type_pj, new_path))
             except Exception as e:
                 self.copy_progress_queue.put(("error", type_pj, str(e)))
+            finally:
+                if "pasted_" in chemin_local:
+                    try:
+                        os.unlink(chemin_local)
+                    except OSError:
+                        pass
 
         threading.Thread(target=copy_task, daemon=True).start()
 

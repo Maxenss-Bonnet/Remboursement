@@ -3,8 +3,9 @@ import customtkinter as ctk
 import threading
 import shutil
 import queue
-from PIL import Image
+from PIL import Image, ImageGrab
 import fitz
+import tempfile
 
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
@@ -79,7 +80,9 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         facture_file_frame.grid(row=5, column=1, sticky="ew", pady=5, padx=10)
         facture_file_frame.columnconfigure(1, weight=1)
         ctk.CTkButton(facture_file_frame, text="Choisir", width=80,
-                      command=lambda: self._selectionner_pj("facture")).pack(side="left", padx=(0, 10))
+                      command=lambda: self._selectionner_pj("facture")).pack(side="left", padx=(0, 5))
+        ctk.CTkButton(facture_file_frame, text="Coller", width=80,
+                      command=lambda: self._coller_pj_depuis_presse_papiers("facture")).pack(side="left", padx=(0, 10))
         ctk.CTkLabel(facture_file_frame, textvariable=self.chemin_facture_var, wraplength=250).pack(side="left",
                                                                                                     fill="x",
                                                                                                     expand=True)
@@ -91,7 +94,9 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
         rib_file_frame.grid(row=7, column=1, sticky="ew", pady=5, padx=10)
         rib_file_frame.columnconfigure(1, weight=1)
         ctk.CTkButton(rib_file_frame, text="Choisir", width=80, command=lambda: self._selectionner_pj("rib")).pack(
-            side="left", padx=(0, 10))
+            side="left", padx=(0, 5))
+        ctk.CTkButton(rib_file_frame, text="Coller", width=80,
+                      command=lambda: self._coller_pj_depuis_presse_papiers("rib")).pack(side="left", padx=(0, 10))
         ctk.CTkLabel(rib_file_frame, textvariable=self.chemin_rib_var, wraplength=250).pack(side="left", fill="x",
                                                                                             expand=True)
         DragDropFrame(form_frame, drop_callback=lambda p: self._selectionner_pj("rib", p),
@@ -195,6 +200,24 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
 
         self.run_task(task, on_complete, show_overlay=False)
 
+    def _coller_pj_depuis_presse_papiers(self, type_pj: str):
+        try:
+            image = ImageGrab.grabclipboard()
+            if not isinstance(image, Image.Image):
+                self.app_controller.show_toast("Aucune image trouvée dans le presse-papiers.", "info")
+                return
+
+            # Sauvegarder l'image dans un fichier temporaire
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix="pasted_")
+            image.save(temp_file, "PNG")
+            temp_file.close()
+
+            # Utiliser le chemin du fichier temporaire pour le reste du processus
+            self._selectionner_pj(type_pj, temp_file.name)
+
+        except Exception as e:
+            self.app_controller.show_toast(f"Erreur lors du collage : {e}", "error")
+
     def _selectionner_pj(self, type_pj: str, file_path: str = None):
         if file_path:
             chemin_local = file_path
@@ -239,6 +262,14 @@ class CreationDemandeDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin):
                 self.copy_progress_queue.put("done")
             except Exception as e:
                 self.copy_progress_queue.put(f"error: {e}")
+            finally:
+                # Supprimer le fichier temporaire si c'était un collage
+                if "pasted_" in chemin_local:
+                    try:
+                        os.unlink(chemin_local)
+                    except OSError:
+                        pass
+
 
         threading.Thread(target=copy_task, daemon=True).start()
 

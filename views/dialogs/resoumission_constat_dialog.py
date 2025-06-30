@@ -2,8 +2,9 @@ import os
 import customtkinter as ctk
 import threading
 import queue
-from PIL import Image
+from PIL import Image, ImageGrab
 import fitz
+import tempfile
 
 from .comment_dialog import CommentDialog
 from views.mixins.task_runner_mixin import TaskRunnerMixin
@@ -82,13 +83,15 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
 
         pj_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         pj_frame.pack(fill="x", padx=10, pady=(5, 0))
-        pj_frame.columnconfigure(1, weight=1)
-        self.btn_sel_pj = ctk.CTkButton(pj_frame, text="Choisir Nouvelle Preuve TP", command=self._sel_new_pj_tp,
+        pj_frame.columnconfigure(2, weight=1)
+        self.btn_sel_pj = ctk.CTkButton(pj_frame, text="Choisir Preuve", command=self._sel_new_pj_tp,
                                         state="disabled")
-        self.btn_sel_pj.grid(row=0, column=0, padx=(0, 10))
+        self.btn_sel_pj.grid(row=0, column=0, padx=(0, 5))
+        ctk.CTkButton(pj_frame, text="Coller", command=self._coller_pj, state="disabled").grid(row=0, column=1, padx=(0, 10))
+
         self.lbl_pj_sel = ctk.CTkLabel(pj_frame, textvariable=self.chemin_pj_var, text_color="gray", anchor="w",
                                        wraplength=250)
-        self.lbl_pj_sel.grid(row=0, column=1, sticky="ew")
+        self.lbl_pj_sel.grid(row=0, column=2, sticky="ew")
 
         drop_zone = DragDropFrame(form_frame, drop_callback=self._sel_new_pj_tp,
                                   text="Déposez la nouvelle preuve ici")
@@ -183,6 +186,22 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
 
         self.run_task(task, on_complete, show_overlay=False)
 
+    def _coller_pj(self):
+        try:
+            image = ImageGrab.grabclipboard()
+            if not isinstance(image, Image.Image):
+                self.app_controller.show_toast("Aucune image valide dans le presse-papiers.", "info")
+                return
+
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix="pasted_")
+            image.save(temp_file, "PNG")
+            temp_file.close()
+
+            self._sel_new_pj_tp(temp_file.name)
+
+        except Exception as e:
+            self.app_controller.show_toast(f"Erreur lors du collage : {e}", "error")
+
     def _sel_new_pj_tp(self, file_path: str = None):
         if file_path:
             chemin_local = file_path
@@ -217,6 +236,12 @@ class ResoumissionConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin
                 self.copy_progress_queue.put(("done", new_path))
             except Exception as e:
                 self.copy_progress_queue.put(f"error: {e}")
+            finally:
+                if "pasted_" in chemin_local:
+                    try:
+                        os.unlink(chemin_local)
+                    except OSError:
+                        pass
 
         threading.Thread(target=copy_task, daemon=True).start()
 

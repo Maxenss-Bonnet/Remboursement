@@ -2,8 +2,9 @@ import os
 import customtkinter as ctk
 import threading
 import queue
-from PIL import Image
+from PIL import Image, ImageGrab
 import fitz
+import tempfile
 
 from views.mixins.task_runner_mixin import TaskRunnerMixin
 from views.mixins.animation_mixin import AnimationMixin
@@ -56,9 +57,11 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
         file_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         file_frame.pack(pady=(0, 5), padx=10, fill="x")
         file_frame.columnconfigure(1, weight=1)
-        ctk.CTkButton(file_frame, text="Choisir Fichier...", command=self._select_pj).grid(row=0, column=0,
+        ctk.CTkButton(file_frame, text="Choisir...", command=self._select_pj).grid(row=0, column=0,
+                                                                                           padx=(0, 5))
+        ctk.CTkButton(file_frame, text="Coller", command=self._coller_pj).grid(row=0, column=1,
                                                                                            padx=(0, 10))
-        ctk.CTkLabel(file_frame, textvariable=self.chemin_pj_var, wraplength=250).grid(row=0, column=1,
+        ctk.CTkLabel(file_frame, textvariable=self.chemin_pj_var, wraplength=250).grid(row=0, column=2,
                                                                                         sticky="ew")
 
         DragDropFrame(form_frame, drop_callback=self._select_pj, text="Déposez la preuve ici").pack(pady=5,
@@ -135,6 +138,22 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
 
         self.run_task(task, on_complete, show_overlay=False)
 
+    def _coller_pj(self):
+        try:
+            image = ImageGrab.grabclipboard()
+            if not isinstance(image, Image.Image):
+                self.app_controller.show_toast("Aucune image valide dans le presse-papiers.", "info")
+                return
+
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix="pasted_")
+            image.save(temp_file, "PNG")
+            temp_file.close()
+
+            self._select_pj(temp_file.name)
+
+        except Exception as e:
+            self.app_controller.show_toast(f"Erreur lors du collage : {e}", "error")
+
     def _select_pj(self, file_path: str = None):
         if file_path:
             chemin_local = file_path
@@ -168,6 +187,12 @@ class AcceptationConstatDialog(ctk.CTkToplevel, TaskRunnerMixin, AnimationMixin)
                 self.copy_progress_queue.put(("done", new_path))
             except Exception as e:
                 self.copy_progress_queue.put(f"error: {e}")
+            finally:
+                if "pasted_" in chemin_local:
+                    try:
+                        os.unlink(chemin_local)
+                    except OSError:
+                        pass
 
         threading.Thread(target=copy_task, daemon=True).start()
 
