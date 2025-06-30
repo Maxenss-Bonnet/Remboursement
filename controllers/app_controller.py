@@ -103,9 +103,6 @@ class AppController:
         self.update_global_loading_text("Préparation de l'affichage...")
         self.root.update_idletasks()
 
-        if self.preloading_thread is not None and self.preloading_thread.is_alive():
-            self.preloading_thread.join(timeout=2.0)
-
         self.show_main_view()
         self.hide_global_loading()
 

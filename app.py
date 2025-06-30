@@ -5,6 +5,7 @@ import tkinter
 import threading
 import queue
 import logging
+import time # Ajoutez cet import
 from tkinter import messagebox
 from tkinterdnd2 import TkinterDnD
 
@@ -107,8 +108,14 @@ class MainApplication(TkinterDnD.Tk):
         result_queue = queue.Queue()
 
         def checker_task():
-            is_accessible = is_path_accessible(SHARED_DATA_BASE_PATH)
-            result_queue.put(is_accessible)
+            max_retries = 5
+            for i in range(max_retries):
+                if is_path_accessible(SHARED_DATA_BASE_PATH):
+                    result_queue.put(True)
+                    return
+                if i < max_retries - 1:
+                    time.sleep(1) # Attendre 1 seconde avant de réessayer
+            result_queue.put(False) # Toutes les tentatives ont échoué
 
         threading.Thread(target=checker_task, daemon=True).start()
         self._process_network_check_result(result_queue)
