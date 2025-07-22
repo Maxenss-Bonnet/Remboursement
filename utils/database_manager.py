@@ -14,12 +14,53 @@ import psutil
 from config.settings import SHARED_DATA_BASE_PATH, DATABASE_FILE, DB_LOCK_FILE, DB_REFRESH_FLAG_FILE
 from utils.global_events import status_update_queue, network_status_queue
 
-
 LOCK_TIMEOUT_SECONDS = 25.0
 
 _write_queue = queue.Queue()
 _stop_queue_processor = threading.Event()
 _log = logging.getLogger(__name__)
+
+
+def cleanup_stale_lock_on_startup():
+    """
+    Vérifie et supprime un fichier de verrouillage périmé au démarrage de l'application.
+    A appeler avant toute initialisation de BDD.
+    """
+    _log.info("Vérification de l'existence d'un fichier de verrouillage périmé...")
+    if not os.path.exists(DB_LOCK_FILE):
+        _log.info("Aucun fichier de verrouillage trouvé. Démarrage normal.")
+        return
+
+    try:
+        with open(DB_LOCK_FILE, 'r') as f:
+            content = f.read().strip()
+
+        lock_pid_str, lock_time_str, lock_hostname = content.split('|', 2)
+        lock_pid = int(lock_pid_str)
+        lock_time = float(lock_time_str)
+
+        is_stale = (time.time() - lock_time) > LOCK_TIMEOUT_SECONDS
+        is_dead = not psutil.pid_exists(lock_pid)
+
+        if is_stale or is_dead:
+            reason = "expiré" if is_stale else "appartenant à un processus mort"
+            _log.warning(
+                f"Suppression d'un verrou {reason}. Verrou créé il y a {time.time() - lock_time:.1f}s par PID {lock_pid} sur {lock_hostname}.")
+            os.remove(DB_LOCK_FILE)
+            _log.info("Fichier de verrouillage périmé supprimé avec succès.")
+        else:
+            _log.info(
+                f"Fichier de verrouillage valide trouvé, appartenant au PID {lock_pid} sur {lock_hostname}. L'application attendra sa libération.")
+
+    except (IOError, ValueError, IndexError) as e:
+        _log.error(
+            f"Erreur lors de la lecture du fichier de verrouillage '{DB_LOCK_FILE}'. Il sera supprimé par précaution. Erreur: {e}")
+        try:
+            os.remove(DB_LOCK_FILE)
+        except OSError as remove_err:
+            _log.error(f"Impossible de supprimer le fichier de verrouillage problématique : {remove_err}")
+    except Exception as e:
+        _log.error(f"Erreur inattendue lors du nettoyage du verrou au démarrage : {e}", exc_info=True)
 
 
 def _is_network_available() -> bool:
@@ -77,8 +118,9 @@ def _db_writer_thread():
                             content = f.read().strip()
                         lock_pid_str, lock_time_str, lock_hostname = content.split('|', 2)
                         if (time.time() - float(lock_time_str)) > LOCK_TIMEOUT_SECONDS or \
-                           (lock_hostname == hostname and not psutil.pid_exists(int(lock_pid_str))):
-                            _log.warning(f"Suppression d'un verrou expiré ou appartenant à un processus mort. Verrou créé il y a {time.time() - float(lock_time_str):.1f}s par {lock_hostname}.")
+                                (lock_hostname == hostname and not psutil.pid_exists(int(lock_pid_str))):
+                            _log.warning(
+                                f"Suppression d'un verrou expiré ou appartenant à un processus mort. Verrou créé il y a {time.time() - float(lock_time_str):.1f}s par {lock_hostname}.")
                             os.remove(DB_LOCK_FILE)
                     except (IOError, IndexError, ValueError):
                         if os.path.exists(DB_LOCK_FILE): os.remove(DB_LOCK_FILE)
@@ -112,7 +154,8 @@ def _db_writer_thread():
                 except sqlite3.OperationalError as e:
                     if "disk I/O error" in str(e) or "unable to open" in str(e) or "database is locked" in str(e):
                         retries -= 1
-                        _log.warning(f"Erreur I/O disque sur '{func_name}'. Connexion probablement perdue. Nouvel essai... ({retries} restants)")
+                        _log.warning(
+                            f"Erreur I/O disque sur '{func_name}'. Connexion probablement perdue. Nouvel essai... ({retries} restants)")
                         status_update_queue.put((f"Erreur réseau, nouvel essai dans 2s...", True))
                         time.sleep(2)
                     else:
@@ -129,7 +172,8 @@ def _db_writer_thread():
 
             if not task_completed and retries == 0:
                 _log.error(f"Échec final de la tâche '{func_name}' après plusieurs tentatives.")
-                result_queue.put((False, Exception(f"Échec de l'opération BDD pour {func_name} après plusieurs tentatives.")))
+                result_queue.put(
+                    (False, Exception(f"Échec de l'opération BDD pour {func_name} après plusieurs tentatives.")))
 
         finally:
             if lock_acquired:
@@ -178,6 +222,7 @@ def is_db_writer_busy() -> bool:
 
 def execute_in_queue(func):
     """Décorateur pour exécuter une fonction dans la file d'attente d'écriture de la BDD."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         result_queue = queue.Queue(1)
@@ -193,6 +238,7 @@ def execute_in_queue(func):
 
 def handle_db_locks(func):
     """Décorateur pour gérer les lectures concurrentes et les problèmes de connexion."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         retries = 5
@@ -216,19 +262,20 @@ def handle_db_locks(func):
                         time.sleep(wait_time)
 
                         if is_network_error:
-                             network_status_queue.put(True)
+                            network_status_queue.put(True)
                         continue
                     else:
                         _log.error(
                             f"La base de données est restée indisponible après plusieurs tentatives pour {func.__name__}.")
-                        raise ConnectionError("La base de données est inaccessible. Vérifiez la connexion réseau.") from e
+                        raise ConnectionError(
+                            "La base de données est inaccessible. Vérifiez la connexion réseau.") from e
                 else:
                     raise e
             except Exception as e:
                 _log.error(f"Erreur inattendue dans handle_db_locks pour {func.__name__}", exc_info=True)
                 raise e
-    return wrapper
 
+    return wrapper
 
 
 def get_db_connection():
@@ -262,71 +309,210 @@ def create_tables():
         cursor = conn.cursor()
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS utilisateurs (
-            login TEXT PRIMARY KEY,
-            hashed_password TEXT NOT NULL,
-            email TEXT UNIQUE,
-            theme_color TEXT,
-            default_filter TEXT,
-            profile_picture_path TEXT
-        )""")
+                       CREATE TABLE IF NOT EXISTS utilisateurs
+                       (
+                           login
+                           TEXT
+                           PRIMARY
+                           KEY,
+                           hashed_password
+                           TEXT
+                           NOT
+                           NULL,
+                           email
+                           TEXT
+                           UNIQUE,
+                           theme_color
+                           TEXT,
+                           default_filter
+                           TEXT,
+                           profile_picture_path
+                           TEXT
+                       )""")
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS roles (
-            role_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            role_name TEXT UNIQUE NOT NULL
-        )""")
+                       CREATE TABLE IF NOT EXISTS roles
+                       (
+                           role_id
+                           INTEGER
+                           PRIMARY
+                           KEY
+                           AUTOINCREMENT,
+                           role_name
+                           TEXT
+                           UNIQUE
+                           NOT
+                           NULL
+                       )""")
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS utilisateur_roles (
-            login TEXT,
-            role_id INTEGER,
-            PRIMARY KEY (login, role_id),
-            FOREIGN KEY (login) REFERENCES utilisateurs (login) ON DELETE CASCADE,
-            FOREIGN KEY (role_id) REFERENCES roles (role_id) ON DELETE CASCADE
-        )""")
+                       CREATE TABLE IF NOT EXISTS utilisateur_roles
+                       (
+                           login
+                           TEXT,
+                           role_id
+                           INTEGER,
+                           PRIMARY
+                           KEY
+                       (
+                           login,
+                           role_id
+                       ),
+                           FOREIGN KEY
+                       (
+                           login
+                       ) REFERENCES utilisateurs
+                       (
+                           login
+                       ) ON DELETE CASCADE,
+                           FOREIGN KEY
+                       (
+                           role_id
+                       ) REFERENCES roles
+                       (
+                           role_id
+                       )
+                         ON DELETE CASCADE
+                           )""")
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS remboursements (
-                                                      id_demande TEXT PRIMARY KEY,
-                                                      nom TEXT,
-                                                      prenom TEXT,
-                                                      reference_facture TEXT NOT NULL,
-                                                      reference_facture_dossier TEXT,
-                                                      description TEXT,
-                                                      montant_demande REAL NOT NULL,
-                                                      statut TEXT NOT NULL,
-                                                      cree_par TEXT,
-                                                      date_creation TEXT NOT NULL,
-                                                      derniere_modification_par TEXT,
-                                                      date_derniere_modification TEXT NOT NULL,
-                                                      date_paiement_effectue TEXT,
-                                                      is_archived INTEGER NOT NULL DEFAULT 0,
-                                                      FOREIGN KEY (cree_par) REFERENCES utilisateurs (login) ON DELETE SET NULL,
-            FOREIGN KEY (derniere_modification_par) REFERENCES utilisateurs (login)ON DELETE SET NULL
-        )""")
+                       CREATE TABLE IF NOT EXISTS remboursements
+                       (
+                           id_demande
+                           TEXT
+                           PRIMARY
+                           KEY,
+                           nom
+                           TEXT,
+                           prenom
+                           TEXT,
+                           reference_facture
+                           TEXT
+                           NOT
+                           NULL,
+                           reference_facture_dossier
+                           TEXT,
+                           description
+                           TEXT,
+                           montant_demande
+                           REAL
+                           NOT
+                           NULL,
+                           statut
+                           TEXT
+                           NOT
+                           NULL,
+                           cree_par
+                           TEXT,
+                           date_creation
+                           TEXT
+                           NOT
+                           NULL,
+                           derniere_modification_par
+                           TEXT,
+                           date_derniere_modification
+                           TEXT
+                           NOT
+                           NULL,
+                           date_paiement_effectue
+                           TEXT,
+                           is_archived
+                           INTEGER
+                           NOT
+                           NULL
+                           DEFAULT
+                           0,
+                           FOREIGN
+                           KEY
+                       (
+                           cree_par
+                       ) REFERENCES utilisateurs
+                       (
+                           login
+                       ) ON DELETE SET NULL,
+                           FOREIGN KEY
+                       (
+                           derniere_modification_par
+                       ) REFERENCES utilisateurs
+                       (
+                           login
+                       )
+                         ON DELETE SET NULL
+                           )""")
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS historique (
-            historique_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_demande TEXT NOT NULL,
-            statut TEXT,
-            date TEXT NOT NULL,
-            par_utilisateur TEXT,
-            commentaire TEXT,
-            FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE,
-            FOREIGN KEY (par_utilisateur) REFERENCES utilisateurs (login) ON DELETE SET NULL
-        )""")
+                       CREATE TABLE IF NOT EXISTS historique
+                       (
+                           historique_id
+                           INTEGER
+                           PRIMARY
+                           KEY
+                           AUTOINCREMENT,
+                           id_demande
+                           TEXT
+                           NOT
+                           NULL,
+                           statut
+                           TEXT,
+                           date
+                           TEXT
+                           NOT
+                           NULL,
+                           par_utilisateur
+                           TEXT,
+                           commentaire
+                           TEXT,
+                           FOREIGN
+                           KEY
+                       (
+                           id_demande
+                       ) REFERENCES remboursements
+                       (
+                           id_demande
+                       ) ON DELETE CASCADE,
+                           FOREIGN KEY
+                       (
+                           par_utilisateur
+                       ) REFERENCES utilisateurs
+                       (
+                           login
+                       )
+                         ON DELETE SET NULL
+                           )""")
 
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS pieces_jointes (
-                                                      pj_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                      id_demande TEXT NOT NULL,
-                                                      type_pj TEXT NOT NULL,
-                                                      chemin_relatif TEXT NOT NULL,
-                                                      date_ajout TEXT NOT NULL,
-                                                      FOREIGN KEY (id_demande) REFERENCES remboursements (id_demande) ON DELETE CASCADE
-        )""")
+                       CREATE TABLE IF NOT EXISTS pieces_jointes
+                       (
+                           pj_id
+                           INTEGER
+                           PRIMARY
+                           KEY
+                           AUTOINCREMENT,
+                           id_demande
+                           TEXT
+                           NOT
+                           NULL,
+                           type_pj
+                           TEXT
+                           NOT
+                           NULL,
+                           chemin_relatif
+                           TEXT
+                           NOT
+                           NULL,
+                           date_ajout
+                           TEXT
+                           NOT
+                           NULL,
+                           FOREIGN
+                           KEY
+                       (
+                           id_demande
+                       ) REFERENCES remboursements
+                       (
+                           id_demande
+                       ) ON DELETE CASCADE
+                           )""")
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_statut ON remboursements (statut);")
         cursor.execute(
@@ -343,7 +529,8 @@ def create_tables():
             "CREATE INDEX IF NOT EXISTS idx_remboursements_filtre_statut ON remboursements (is_archived, statut, date_derniere_modification DESC);")
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_remboursements_recherche ON remboursements (nom, prenom, reference_facture);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_montant_demande ON remboursements (montant_demande);")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_remboursements_montant_demande ON remboursements (montant_demande);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_remboursements_date_creation ON remboursements (date_creation);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_historique_id_demande_date ON historique (id_demande, date);")
         cursor.execute(

@@ -11,7 +11,7 @@ from tkinterdnd2 import TkinterDnD
 
 from controllers.app_controller import AppController
 from config.settings import SHARED_DATA_BASE_PATH, get_application_base_path
-from utils.database_manager import stop_db_writer_thread
+from utils.database_manager import stop_db_writer_thread, cleanup_stale_lock_on_startup
 from utils.logging_config import setup_logging
 from utils.network_monitor import is_path_accessible
 from views.path_config_dialog import PathConfigDialog
@@ -28,6 +28,9 @@ class MainApplication(TkinterDnD.Tk):
         self.configure(background="gray14")
         self.title("Application de Gestion")
         self.shutdown_window = None
+        self.force_close_button = None
+        self.force_close_label = None
+        self._after_job_id = None
 
         try:
             icon_path = os.path.join(get_application_base_path(), "assets", "app_icon.ico")
@@ -49,21 +52,55 @@ class MainApplication(TkinterDnD.Tk):
 
     def on_attempt_close(self, is_restart: bool = False):
         if self.app_controller and self.app_controller.is_application_busy():
-            if not self.shutdown_window or not self.shutdown_window.winfo_exists():
-                self.shutdown_window = ctk.CTkToplevel(self)
-                self.shutdown_window.title("Fermeture")
-                self.shutdown_window.geometry("350x120")
-                self.shutdown_window.transient(self)
-                self.shutdown_window.grab_set()
-                self.shutdown_window.protocol("WM_DELETE_WINDOW", lambda: None)
-                label = ctk.CTkLabel(self.shutdown_window,
-                                     text="Finalisation des opérations en cours...\nVeuillez patienter.",
-                                     font=ctk.CTkFont(size=14))
-                label.pack(expand=True, padx=20, pady=20)
-                self.shutdown_window.update()
+            if self.shutdown_window is None or not self.shutdown_window.winfo_exists():
+                self.show_shutdown_window()
+            self._check_busy_status(is_restart)
+        else:
+            self._perform_shutdown(is_restart)
 
-            self.after(500, lambda: self.on_attempt_close(is_restart))
-            return
+    def show_shutdown_window(self):
+        self.shutdown_window = ctk.CTkToplevel(self)
+        self.shutdown_window.title("Fermeture")
+        self.shutdown_window.geometry("450x220")
+        self.shutdown_window.transient(self)
+        self.shutdown_window.grab_set()
+        self.shutdown_window.protocol("WM_DELETE_WINDOW", lambda: None)
+        self.shutdown_window.resizable(False, False)
+
+        main_label = ctk.CTkLabel(self.shutdown_window,
+                                  text="Finalisation des opérations en cours...\nVeuillez patienter.",
+                                  font=ctk.CTkFont(size=14))
+        main_label.pack(pady=(20, 10), padx=20)
+
+        self.force_close_label = ctk.CTkLabel(self.shutdown_window,
+                                              text="La fermeture prend un temps anormalement long, un blocage est possible.\nSi cela persiste, vous pouvez forcer la fermeture.",
+                                              font=ctk.CTkFont(size=12, slant="italic"),
+                                              text_color="gray60")
+
+        self.force_close_button = ctk.CTkButton(self.shutdown_window, text="Forcer la Fermeture",
+                                                fg_color="red", hover_color="#C00000",
+                                                command=self._force_quit)
+
+        self.after(30000, self._show_force_close_widgets)
+        self.shutdown_window.update()
+
+    def _show_force_close_widgets(self):
+        if self.shutdown_window and self.shutdown_window.winfo_exists():
+            if self.force_close_label:
+                self.force_close_label.pack(pady=(10, 5), padx=20)
+            if self.force_close_button:
+                self.force_close_button.pack(pady=10, padx=20)
+
+    def _check_busy_status(self, is_restart: bool):
+        if self.app_controller and self.app_controller.is_application_busy():
+            self._after_job_id = self.after(500, lambda: self._check_busy_status(is_restart))
+        else:
+            self._perform_shutdown(is_restart)
+
+    def _perform_shutdown(self, is_restart: bool):
+        if self._after_job_id:
+            self.after_cancel(self._after_job_id)
+            self._after_job_id = None
 
         if self.shutdown_window and self.shutdown_window.winfo_exists():
             self.shutdown_window.destroy()
@@ -77,6 +114,11 @@ class MainApplication(TkinterDnD.Tk):
             self._restart_app()
         else:
             self.destroy()
+            sys.exit(0)
+
+    def _force_quit(self):
+        logging.warning("L'application a été forcée de quitter par l'utilisateur.")
+        sys.exit(1)
 
     def _create_loading_splash_screen(self) -> tuple[ctk.CTkToplevel, ctk.CTkLabel]:
         loading_window = ctk.CTkToplevel(self)
@@ -116,7 +158,6 @@ class MainApplication(TkinterDnD.Tk):
                     result_queue.put(True)
                     return
 
-                # Met à jour le message dans le splash screen
                 self.loading_label.configure(text=f"Réseau indisponible. Réessai ({i + 1}/{max_retries})...")
 
                 if i < max_retries - 1:
@@ -185,12 +226,9 @@ class MainApplication(TkinterDnD.Tk):
             side="left", padx=10)
 
     def _open_path_config_dialog(self):
-        # Cache la fenêtre d'erreur pendant que la config est ouverte
         self.withdraw()
         dialog = PathConfigDialog(master=self, restart_callback=self._restart_app)
-        # attend que la fenêtre de dialogue soit fermée
         self.wait_window(dialog)
-        # Réaffiche la fenêtre d'erreur si l'utilisateur a juste fermé le dialogue sans valider
         self.deiconify()
 
     def center_window(self):
@@ -225,5 +263,11 @@ class MainApplication(TkinterDnD.Tk):
 
 if __name__ == "__main__":
     setup_logging()
+
+    try:
+        cleanup_stale_lock_on_startup()
+    except Exception as e:
+        logging.critical(f"Erreur critique lors du nettoyage du verrou au démarrage : {e}", exc_info=True)
+
     app = MainApplication()
     app.mainloop()
