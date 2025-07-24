@@ -3,6 +3,8 @@
 
 ---
 
+**Titre (Anglais) :** Development of Management Tools
+
 **Stagiaire :** Maxence Bonnet  
 **Formation :** 1ère Année Ingénieur – Informatique et Cybersécurité (ICS)  
 **École :** CPE Lyon  
@@ -11,6 +13,13 @@
 **Entreprise d'accueil :** Natécia (Groupe Noalys)  
 **Maître de stage :** Juliette Durousset  
 **Période :** [Date de début] – [Date de fin]
+
+**Destinataires :**
+*   **Maître de stage :** Juliette Durousset
+*   **Tuteur école :** Juliette Durousset
+*   **École :** CPE Lyon
+
+**Mots-clés :** Développement applicatif, Flutter, Python, Automatisation de workflow, Intelligence Artificielle
 
 ---
 
@@ -202,23 +211,23 @@ Pour garantir la maintenabilité et la scalabilité de l'application, une archit
 ```mermaid
 graph TD
     subgraph Vue
-        A[Interface Utilisateur (CustomTkinter)]
+        A["Interface Utilisateur (CustomTkinter)"]
     end
     subgraph Contrôleur
-        B[Logique Applicative (app_controller.py)]
+        B["Logique Applicative (app_controller.py)"]
     end
     subgraph Modèle
-        C[Logique Métier (remboursement_model.py)]
-        D[Accès aux Données (database_manager.py)]
-        E[Base de données SQLite]
+        C["Logique Métier (remboursement_model.py)"]
+        D["Accès aux Données (database_manager.py)"]
+        E["Base de données SQLite"]
     end
 
-    A --Interactions--> B;
-    B --Met à jour--> C;
-    C --Notifie--> B;
-    B --Met à jour--> A;
-    C --Utilise--> D;
-    D --Communique avec--> E;
+    A --"Interactions"--> B;
+    B --"Met à jour"--> C;
+    C --"Notifie"--> B;
+    B --"Met à jour"--> A;
+    C --"Utilise"--> D;
+    D --"Communique avec"--> E;
 ```
 *   **Modèle :** Gère les données et la logique métier. Il interagit directement avec la base de données SQLite.
 *   **Vue :** Responsable de l'affichage de l'interface graphique. Elle est construite avec la bibliothèque Python `CustomTkinter`.
