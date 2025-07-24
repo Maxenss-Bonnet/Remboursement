@@ -197,6 +197,12 @@ class MainView(ctk.CTkFrame, TaskRunnerMixin, PollingMixin):
                                      command=self.helper.open_archive_dialog)
         btn_archives.pack(side="left", pady=5, padx=10)
         self.network_sensitive_widgets.append(btn_archives)
+        
+        btn_email_reminder = ctk.CTkButton(actions_bar_frame, text="Envoyer un rappel e-mail", 
+                                          command=self.helper.open_email_reminder_dialog,
+                                          fg_color="#1976D2", hover_color="#1565C0")
+        btn_email_reminder.pack(side="left", pady=5, padx=10)
+        self.network_sensitive_widgets.append(btn_email_reminder)
 
         if self.est_admin():
             admin_buttons_frame = ctk.CTkFrame(actions_bar_frame, fg_color="transparent")

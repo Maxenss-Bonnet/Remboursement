@@ -61,3 +61,55 @@ def envoyer_email_reset(destinataire_email: str, nom_utilisateur: str, code_rese
     except Exception as e:
         print(f"Une erreur générale est survenue lors de l'envoi de l'email : {e}")
         return False
+
+def envoyer_rappel_remboursement(destinataire_email: str, nom_destinataire: str, message: str) -> tuple[bool, str]:
+    """Envoie un email de rappel pour les demandes de remboursement en attente."""
+    if not SMTP_CONFIG:
+        return False, "Configuration SMTP non chargée. Impossible d'envoyer l'email."
+    if not SMTP_CONFIG.get('email_sender') or not SMTP_CONFIG.get('password'):
+        return False, "Email expéditeur ou mot de passe manquant dans la configuration SMTP."
+    
+    sujet = "Rappel - Demandes de remboursement en attente"
+    
+    # Convertir le message en HTML
+    message_html = message.replace('\n', '<br>')
+    corps_html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; font-size: 14px;">
+            {message_html}
+        </body>
+    </html>
+    """
+    
+    msg = EmailMessage()
+    msg['Subject'] = sujet
+    msg['From'] = SMTP_CONFIG['email_sender']
+    msg['To'] = destinataire_email
+    msg.set_content(message)  # Version texte brut
+    msg.add_alternative(corps_html, subtype='html')  # Version HTML
+    
+    try:
+        context = ssl.create_default_context()
+        server = None
+        if SMTP_CONFIG.get('use_ssl', False):
+            server = smtplib.SMTP_SSL(SMTP_CONFIG['server'], SMTP_CONFIG['port'], context=context)
+        else:
+            server = smtplib.SMTP(SMTP_CONFIG['server'], SMTP_CONFIG['port'])
+            if SMTP_CONFIG.get('use_tls', True):
+                server.starttls(context=context)
+        
+        server.login(SMTP_CONFIG['email_sender'], SMTP_CONFIG['password'])
+        server.send_message(msg)
+        server.quit()
+        print(f"Email de rappel envoyé avec succès à {destinataire_email}.")
+        return True, "Email envoyé avec succès."
+    except smtplib.SMTPAuthenticationError:
+        return False, "Erreur d'authentification SMTP. Vérifiez votre email et mot de passe d'application."
+    except smtplib.SMTPServerDisconnected:
+        return False, "Déconnecté du serveur SMTP. Réessayez plus tard."
+    except smtplib.SMTPConnectError:
+        return False, f"Impossible de se connecter au serveur SMTP : {SMTP_CONFIG['server']}:{SMTP_CONFIG['port']}"
+    except ConnectionRefusedError:
+        return False, f"Connexion refusée par le serveur SMTP : {SMTP_CONFIG['server']}:{SMTP_CONFIG['port']}"
+    except Exception as e:
+        return False, f"Une erreur est survenue lors de l'envoi de l'email : {e}"

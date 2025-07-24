@@ -289,6 +289,11 @@ class MainViewHelper:
                              self.view.user_data.model_dump(),
                              on_save_callback=self.view._on_profile_saved)
         self.view.wait_window(dialog)
+    
+    def open_email_reminder_dialog(self):
+        from views.dialogs.email_reminder_dialog import EmailReminderDialog
+        dialog = EmailReminderDialog(self.view, self.app_controller, self.remboursement_controller)
+        self.view.wait_window(dialog)
 
     def ouvrir_fenetre_creation_demande(self):
         from views.dialogs.creation_demande_dialog import CreationDemandeDialog
