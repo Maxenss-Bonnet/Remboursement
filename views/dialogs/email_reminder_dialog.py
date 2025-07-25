@@ -213,26 +213,68 @@ class EmailReminderDialog(ctk.CTkToplevel, AnimationMixin, TaskRunnerMixin):
             role_str = "Validateur Chef"
         elif "comptable_fournisseur" in selected_user.roles:
             role_str = "Comptable Fournisseur"
+        # Cas spécifique pour le créateur original de la demande
+        elif any(demande.cree_par == selected_user.login for demande in all_demandes):
+            role_str = "Créateur de la demande"
         elif "demandeur" in selected_user.roles:
             role_str = "Demandeur"
         elif "admin" in selected_user.roles:
             role_str = "Administrateur"
+
+        # --- Génération du message ---
+        sender_name = self.master.nom_utilisateur
         
-        # Générer le message
-        message = f"""Bonjour {selected_user.login},
+        # En-tête du message
+        professional_message_header = f"""Bonjour {selected_user.login},
 
-Vous êtes responsable du traitement des demandes de remboursement en tant que {role_str}.
-Il y a actuellement {demandes_en_attente} demande(s) en attente à votre étape du processus.
+Ce message est un rappel concernant les {demandes_en_attente} demande(s) de remboursement nécessitant votre attention en tant que {role_str}.
 
-Merci d'en prendre connaissance dès que possible.
+Voici le détail des demandes en attente :"""
+
+        # Pied de page du message
+        professional_message_footer = f"""
+
+Nous vous remercions de bien vouloir traiter ces demandes dans les meilleurs délais.
 
 Cordialement,
 L'Application de Gestion des Remboursements"""
+
+        # Assembler le message final sans le tableau texte
+        final_message = f"{professional_message_header}{professional_message_footer}"
         
         # Mettre à jour la zone de texte
         self.message_textbox.delete("1.0", "end")
-        self.message_textbox.insert("1.0", message)
+        self.message_textbox.insert("1.0", final_message)
     
+    def _get_structured_demandes_data(self):
+        """Récupère une liste de dictionnaires des demandes en attente pour l'email."""
+        selected_option = self.recipient_var.get()
+        if not selected_option or selected_option not in self.user_dict:
+            return []
+            
+        selected_user = self.user_dict[selected_option]
+        
+        all_demandes, _ = self.remboursement_controller.get_demandes_filtrees_triees(
+            user_roles=selected_user.roles,
+            filter_choice="En attente de mon action",
+            sort_choice="Date de création (récent)",
+            search_term="",
+            search_scope="Tout",
+            is_archive_mode=False,
+            archive_date_range=None
+        )
+
+        demandes_data = []
+        for demande in all_demandes:
+            if demande.is_active_for(selected_user.roles, selected_user.login):
+                demandes_data.append({
+                    "id": demande.id_demande[:13],
+                    "date": demande.date_creation.strftime('%d-%m-%Y'),
+                    "patient": f"{demande.nom} {demande.prenom}",
+                    "montant": f"{demande.montant_demande:.2f} €"
+                })
+        return demandes_data
+
     def _send_reminder(self):
         """Envoie le rappel par email."""
         selected_option = self.recipient_var.get()
@@ -254,11 +296,15 @@ L'Application de Gestion des Remboursements"""
         # Désactiver le bouton pendant l'envoi
         self.send_button.configure(state="disabled")
         
+        # Récupérer les données structurées des demandes
+        demandes_details = self._get_structured_demandes_data()
+
         def task():
             return self.remboursement_controller.envoyer_rappel_email(
                 destinataire_email=selected_user.email,
                 nom_destinataire=selected_user.login,
-                message=message
+                message=message,
+                demandes_details=demandes_details
             )
         
         def on_complete(result, error):

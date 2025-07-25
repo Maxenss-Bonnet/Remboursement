@@ -211,10 +211,10 @@ class RemboursementController:
     def admin_manual_archive(self, demande_id: str):
         return remboursement_model.archiver_demande_par_id(demande_id)
     
-    def envoyer_rappel_email(self, destinataire_email: str, nom_destinataire: str, message: str) -> tuple[bool, str]:
+    def envoyer_rappel_email(self, destinataire_email: str, nom_destinataire: str, message: str, demandes_details: list[dict]) -> tuple[bool, str]:
         """Envoie un rappel par email à un utilisateur."""
         from utils import email_utils
-        return email_utils.envoyer_rappel_remboursement(destinataire_email, nom_destinataire, message)
+        return email_utils.envoyer_rappel_remboursement(destinataire_email, nom_destinataire, message, demandes_details)
 
     def get_viewable_attachment_path(self, demande_id: str, relative_path: str) -> tuple[str | None, str | None]:
         demande = self.get_demande(demande_id)
