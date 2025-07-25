@@ -172,6 +172,15 @@ class MainApplication(TkinterDnD.Tk):
         try:
             is_accessible = result_queue.get_nowait()
             if is_accessible:
+                self.loading_label.configure(text="Vérification des verrous de base de données...")
+                self.loading_window.update_idletasks()
+                
+                # Vérifier et nettoyer les fichiers de verrouillage périmés maintenant que le réseau est accessible
+                try:
+                    cleanup_stale_lock_on_startup()
+                except Exception as e:
+                    logging.critical(f"Erreur critique lors du nettoyage du verrou au démarrage : {e}", exc_info=True)
+                
                 self.loading_label.configure(text="Démarrage de l'application...")
                 self.loading_window.update_idletasks()
                 self.app_controller = AppController(self)
@@ -263,11 +272,6 @@ class MainApplication(TkinterDnD.Tk):
 
 if __name__ == "__main__":
     setup_logging()
-
-    try:
-        cleanup_stale_lock_on_startup()
-    except Exception as e:
-        logging.critical(f"Erreur critique lors du nettoyage du verrou au démarrage : {e}", exc_info=True)
 
     app = MainApplication()
     app.mainloop()
