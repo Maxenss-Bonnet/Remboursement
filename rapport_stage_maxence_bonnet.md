@@ -23,7 +23,10 @@
 
 ---
 
-<!-- LOGOS DE L'ENTREPRISE ET DE L'ÉCOLE À AJOUTER MANUELLEMENT ICI -->
+<div align="center">
+<img src="https://www.cpe.fr/wp-content/themes/cpe/assets/images/logo-cpe.svg" alt="Logo CPE Lyon" width="200"/>
+<img src="https://media.licdn.com/dms/image/C4E0BAQEe4n23XGn9iA/company-logo_200_200/0/1631311037229?e=2147483647&v=beta&t=3Z-A_2j-B-v_9YjZ-H_9Q8jY6g_7w_3Z-A_2j-B-v" alt="Logo Natécia" width="200"/>
+</div>
 
 ---
 
@@ -152,6 +155,57 @@ graph TD
 
 *Le workflow ci-dessus illustre le parcours d'un justificatif, de sa capture à sa réception par le service comptable.*
 
+#### Figure 1.1 : Diagramme de Contexte C4 de l'application "Notes de Frais"
+```mermaid
+C4Context
+  title "Diagramme de Contexte du Système de Notes de Frais"
+  Enterprise_Boundary(natecia, "Natécia") {
+    Person(employee, "Employé", "Utilisateur de l'application mobile.")
+    Person(pdg, "PDG", "Utilisateur de la version avancée de l'application.")
+    System(accounting, "Service Comptable", "Destinataire des rapports de notes de frais.")
+
+    System_Ext(gemini, "Google Gemini API", "Service externe d'IA pour l'extraction de données.")
+    System_Ext(google_sheets, "Google Sheets API", "Service externe pour l'export des données (version PDG).")
+    System_Ext(email_service, "Service d'E-mail", "Service pour l'envoi des rapports PDF.")
+
+    System(expense_app, "Application Notes de Frais", "Application mobile (Flutter) pour la soumission des notes de frais.")
+  }
+
+  Rel(employee, expense_app, "Soumet des notes de frais")
+  Rel(pdg, expense_app, "Soumet des notes de frais et exporte vers Google Sheets")
+  Rel(expense_app, gemini, "Utilise pour l'analyse des justificatifs")
+  Rel(expense_app, email_service, "Envoie les rapports PDF à")
+  Rel(email_service, accounting, "Reçoit les rapports")
+  Rel(expense_app, google_sheets, "Écrit les données des dépenses")
+```
+
+#### Figure 1.2 : Diagramme de Conteneurs C4 de l'application "Notes de Frais"
+```mermaid
+C4Container
+  title "Diagramme de Conteneurs de l'Application Notes de Frais"
+
+  Person(employee, "Employé / PDG", "Utilise son smartphone pour soumettre des notes de frais.")
+  System_Ext(gemini_api, "API Google Gemini", "Fournit l'extraction de données par IA.")
+  System_Ext(google_sheets_api, "API Google Sheets", "Permet l'export des données pour les PDG.")
+  System_Ext(email_service, "Service d'E-mail", "Envoie les notifications et rapports.")
+
+  System_Boundary(mobile_app, "Application Mobile (Flutter)") {
+    Container(flutter_app, "Application Flutter", "Dart", "Fournit l'interface utilisateur, la logique de capture et de validation.")
+    ContainerDb(hive_db, "Base de données Hive", "NoSQL (Dart)", "Stocke localement l'historique des notes de frais sur l'appareil.")
+  }
+  
+  System_Boundary(backend, "Système Comptable") {
+      Container(accounting_system, "Service Comptable", "Système interne", "Reçoit et traite les rapports de frais.")
+  }
+
+  Rel(employee, flutter_app, "Utilise")
+  Rel(flutter_app, hive_db, "Lit et écrit dans")
+  Rel(flutter_app, gemini_api, "Fait des appels API pour l'analyse d'images", "HTTPS/JSON")
+  Rel(flutter_app, google_sheets_api, "Fait des appels API pour l'export de données", "HTTPS/JSON")
+  Rel(flutter_app, email_service, "Envoie un e-mail avec PDF en pièce jointe")
+  Rel(email_service, accounting_system, "Délivre l'e-mail")
+```
+
 <!-- Insérer ici une capture d'écran de l'interface principale -->
 `![Capture - Interface de l'application "Notes de Frais"](./captures/ndf_main.png)`
 
@@ -232,6 +286,49 @@ graph TD
 *   **Modèle :** Gère les données et la logique métier. Il interagit directement avec la base de données SQLite.
 *   **Vue :** Responsable de l'affichage de l'interface graphique. Elle est construite avec la bibliothèque Python `CustomTkinter`.
 *   **Contrôleur :** Reçoit les actions de l'utilisateur depuis la Vue, les traite en faisant appel au Modèle, et met à jour la Vue en conséquence.
+
+#### Figure 2.1 : Diagramme de Contexte C4 de l'application "Gestion des Remboursements"
+```mermaid
+C4Context
+  title "Diagramme de Contexte du Système de Gestion des Remboursements"
+  Enterprise_Boundary(natecia_admin, "Administration Natécia") {
+    Person(demander, "Demandeur", "Employé du service facturation qui initie une demande de remboursement.")
+    Person(accountant, "Comptable", "Personne en charge de la vérification et du paiement des demandes (Trésorerie & Fournisseur).")
+    Person(validator, "Validateur Chef", "Manager ou directeur qui approuve les demandes validées par la comptabilité.")
+    
+    System(reimbursement_app, "Application Gestion des Rembourseaments", "Application de bureau (Python/CustomTkinter) pour le suivi du workflow.")
+    
+    System_Ext(file_system, "Lecteur Réseau Partagé", "Héberge la base de données SQLite et les pièces jointes.")
+  }
+
+  Rel(demander, reimbursement_app, "Crée et soumet des demandes")
+  Rel(accountant, reimbursement_app, "Vérifie, accepte/rejette et marque comme payées les demandes")
+  Rel(validator, reimbursement_app, "Valide ou rejette les constats acceptés")
+  Rel_Back(reimbursement_app, file_system, "Lit/Écrit dans la base de données et stocke les fichiers")
+```
+
+#### Figure 2.2 : Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"
+```mermaid
+C4Container
+  title "Diagramme de Conteneurs de l'Application Gestion des Remboursements"
+
+  Person(user, "Utilisateur (Demandeur, Comptable, Validateur)", "Interagit avec l'application via son poste de travail.")
+
+  System_Boundary(reimbursement_system, "Application de Bureau") {
+    Container(desktop_app, "Application Desktop", "Python/CustomTkinter", "Fournit l'interface utilisateur et la logique de workflow pour la gestion des rembourseaments.")
+    Container(database_manager, "Gestionnaire de Base de Données", "Python", "Module responsable de toutes les interactions avec la base de données (CRUD, locking).")
+  }
+
+  System_Boundary(storage, "Stockage Partagé") {
+    ContainerDb(sqlite_db, "Base de Données", "SQLite", "Base de données relationnelle stockée sur un fichier .db.")
+    Container(file_storage, "Stockage de Fichiers", "Dossier sur lecteur réseau", "Stocke les pièces jointes (RIB, factures, etc.).")
+  }
+
+  Rel(user, desktop_app, "Utilise")
+  Rel(desktop_app, database_manager, "Délègue les opérations de base de données à")
+  Rel(database_manager, sqlite_db, "Lit et écrit dans la", "SQL")
+  Rel(desktop_app, file_storage, "Enregistre et récupère les pièces jointes")
+```
 
 ### Fonctionnement et Workflow de Validation
 
