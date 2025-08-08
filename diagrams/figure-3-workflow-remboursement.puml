@@ -1,0 +1,21 @@
+@startuml
+skinparam shadowing false
+
+[*] --> Creee : par Demandeur
+Creee --> Constat_Accepte : par Compta. Tresorerie
+Creee --> Rejetee_Creation : par Compta. Tresorerie
+Rejetee_Creation --> Creee : par Demandeur (resoumission)
+
+Constat_Accepte --> Validee : par Validateur Chef
+Constat_Accepte --> Rejetee_Constat : par Validateur Chef
+Rejetee_Constat --> Constat_Accepte : par Compta. Tresorerie (resoumission)
+
+Validee --> Payee : par Compta. Fournisseur
+Payee --> Cloturee
+
+state Cloturee {
+  [*] --> Archivee
+}
+@enduml
+
+

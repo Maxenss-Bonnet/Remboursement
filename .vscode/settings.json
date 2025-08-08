@@ -1,0 +1,12 @@
+{
+    "json.schemas": [],
+    "markdown-pdf.type": "pdf",
+    "markdown-pdf.outputDirectory": "output",
+    "markdown-pdf.styles": [
+        "style.css"
+    ],
+    "markdown-pdf.includeDefaultStyles": true,
+    "markdown-pdf.highlight": true,
+    "markdown-pdf.breaks": true,
+    "markdown-pdf.emoji": true
+}

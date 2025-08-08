@@ -1,0 +1,17 @@
+@startuml
+skinparam shadowing false
+
+actor "Demandeur" as demander
+actor "Comptable" as accountant
+actor "Validateur Chef" as validator
+
+component "Application Gestion des Remboursements" as reimbursement_app
+folder "Lecteur Réseau Partagé\n(DB + pièces jointes)" as file_system
+
+demander --> reimbursement_app : Crée/Soumet demandes
+accountant --> reimbursement_app : Vérifie/Accepte/Rejette/Paye
+validator --> reimbursement_app : Valide/Rejette
+reimbursement_app --> file_system : Lit/Écrit (DB + fichiers)
+@enduml
+
+

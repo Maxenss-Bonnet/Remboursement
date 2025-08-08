@@ -1,0 +1,24 @@
+@startuml
+skinparam shadowing false
+
+package "Vue" {
+  [Interface Utilisateur\n(CustomTkinter)] as A
+}
+package "Contrôleur" {
+  [Logique Applicative\n(app_controller.py)] as B
+}
+package "Modèle" {
+  [Logique Métier\n(remboursement_model.py)] as C
+  [Accès aux Données\n(database_manager.py)] as D
+  database "Base de données SQLite" as E
+}
+
+A --> B : Interactions
+B --> C : Met à jour
+C --> B : Notifie
+B --> A : Met à jour
+C --> D : Utilise
+D --> E : Communique avec
+@enduml
+
+

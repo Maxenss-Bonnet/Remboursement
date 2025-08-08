@@ -1,0 +1,25 @@
+@startuml
+skinparam shadowing false
+skinparam ArrowColor #555
+
+rectangle "A. Accueil - Caméra/Import" as A
+rectangle "B. Traitement des images" as B
+rectangle "C. Analyse par Google Gemini" as C
+rectangle "D. Écran de validation" as D
+rectangle "E. Sauvegarde locale - Hive" as E
+rectangle "F. Envoi par e-mail" as F
+rectangle "G. Génération Rapport PDF" as G
+rectangle "H. Service comptable" as H
+rectangle "I. Copie à l'employé" as I
+
+A --> B : Capture/Import
+B --> C : Envoi à l'API
+C --> D : Données extraites
+D --> E : Correction/Validation
+E --> F : Depuis l'historique
+F --> G
+G --> H
+F --> I
+@enduml
+
+

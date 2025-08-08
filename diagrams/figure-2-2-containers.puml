@@ -1,0 +1,22 @@
+@startuml
+skinparam shadowing false
+
+actor "Utilisateur (Demandeur, Comptable, Validateur)" as user
+
+package "Application de Bureau" {
+  component "Application Desktop\n(Python/CustomTkinter)" as desktop_app
+  component "Gestionnaire de Base de Données\n(utils/database_manager.py)" as database_manager
+}
+
+package "Stockage Partagé" {
+  database "Base de Données\nSQLite (.db)" as sqlite_db
+  folder "Stockage de Fichiers\n(PJ: RIB, factures, etc.)" as file_storage
+}
+
+user --> desktop_app : Utilise
+desktop_app --> database_manager : Délègue CRUD/locking
+database_manager --> sqlite_db : SQL (transactions/verrous)
+desktop_app --> file_storage : Sauve/Récupère PJ
+@enduml
+
+

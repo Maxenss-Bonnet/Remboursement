@@ -1,0 +1,397 @@
+/*
+  Rapport de Stage — Style PDF Professionnel
+  Conçu pour Markdown PDF (yzane) — Hiérarchie claire, lisibilité, esthétique moderne
+
+  Sections:
+  - Variables de thème
+  - Mise en page (impression & pagination)
+  - Typographie (corps & titres)
+  - Éléments de contenu (liens, listes, hr)
+  - Éléments visuels (images, figures, blockquotes)
+  - Tableaux
+  - Code (inline & blocs)
+  - Aides utilitaires
+*/
+
+/* =============================================
+   Variables de thème
+   ============================================= */
+:root {
+  --color-text: #2d2d2d;
+  --color-muted: #6b7280;        /* gris neutre */
+  --color-accent: #1e88e5;       /* bleu corporate */
+  --color-accent-dark: #1565c0;  /* bleu plus sombre */
+  --color-border: #e5e7eb;       /* gris clair */
+  --color-soft: #f7fafc;         /* fond très léger */
+  --color-code-bg: #f6f8fa;      /* fond code */
+  --color-quote-bg: #f3f7fc;     /* fond blockquote */
+}
+
+/* =============================================
+   Mise en page & Pagination
+   ============================================= */
+@page {
+  margin: 20mm 20mm 22mm 20mm; /* marges pro */
+}
+
+@page :first {
+  margin-top: 20mm; /* resserré pour éviter un grand vide */
+}
+
+/* Pied de page avec compteur de page */
+body::after {
+  content: "Rapport de Stage — Maxence Bonnet  |  Page " counter(page);
+  position: fixed;
+  bottom: 8mm;
+  right: 20mm;
+  font: 9pt "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  color: var(--color-muted);
+}
+
+/* Éviter les veuves/orphelines et les coupures malheureuses */
+p, blockquote, pre, table, ul, ol, figure {
+  page-break-inside: avoid;
+}
+
+h1, h2, h3 {
+  page-break-after: avoid;
+}
+
+/* Commencer chaque chapitre (H1) sur une nouvelle page, sauf le tout premier */
+h1:not(:first-of-type) {
+  page-break-before: always;
+}
+
+/* Faire commencer les grandes sections sur une nouvelle page (hors Glossaire/Bibliographie/Annexes) */
+a[id="resume"] + h2,
+a[id="introduction"] + h2,
+a[id^="chapitre-"] + h2,
+a[id="conclusion"] + h2,
+a[id="remerciements"] + h2 {
+  page-break-before: always;
+}
+/* Exceptions: pas de saut obligatoire pour ces sections */
+a[id="glossaire"] + h2,
+a[id="bibliographie"] + h2,
+a[id="annexes"] + h2 {
+  page-break-before: auto !important;
+  break-before: auto !important;
+}
+
+/* =============================================
+   Typographie
+   ============================================= */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-size: 11pt;     /* taille confortable pour un A4 */
+  line-height: 1.6;    /* aération */
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  hyphens: auto;
+}
+
+/* Hiérarchie des titres avec police de caractère dédiée */
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Montserrat", "Poppins", "Segoe UI", "Noto Sans", Arial, sans-serif;
+  color: var(--color-accent-dark);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+h1 {
+  font-size: 26pt;
+  line-height: 1.25;
+  margin: 28pt 0 12pt 0;
+  color: var(--color-accent);
+}
+
+/* Style spécifique au premier H1 (page de garde) */
+h1:first-of-type {
+  text-align: center;
+  font-size: 32pt;
+  margin-top: 6vh;    /* réduit pour supprimer le grand vide */
+  margin-bottom: 8pt;
+}
+
+h2 {
+  font-size: 18pt;
+  line-height: 1.35;
+  margin: 24pt 0 10pt 0;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 6pt;
+  page-break-before: always;
+}
+
+h3 {
+  font-size: 14pt;
+  line-height: 1.4;
+  margin: 18pt 0 8pt 0;
+}
+
+h4 { font-size: 12pt; margin: 14pt 0 6pt 0; }
+h5 { font-size: 11pt; margin: 12pt 0 6pt 0; }
+h6 { font-size: 10pt; margin: 10pt 0 6pt 0; font-weight: 600; color: var(--color-muted); }
+
+p {
+  margin: 0 0 9pt 0;
+}
+
+/* =============================================
+   Liens, listes, séparateurs
+   ============================================= */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(30,136,229,0.35);
+}
+
+a:hover { border-bottom-color: rgba(30,136,229,0.6); }
+
+ul, ol {
+  margin: 0 0 10pt 0;
+  padding-left: 18pt;
+}
+
+li {
+  margin: 4pt 0;
+}
+
+hr {
+  border: none;
+  border-top: 2px solid var(--color-border);
+  margin: 14pt 0;
+}
+
+/* =============================================
+   Images, Figures, Légendes
+   ============================================= */
+img {
+  display: block;
+  margin: 10pt auto;
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.08);
+}
+
+/* Gestion des logos en page de garde */
+div[align="center"]{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16pt;
+  margin: 12pt auto 0;
+}
+div[align="center"] img {
+  display: block;
+  margin: 0;
+  box-shadow: none; /* logos sans ombre */
+  border: none;
+  max-height: 22mm;
+  width: auto;
+  background: transparent;
+  filter: drop-shadow(0 0 1px rgba(0,0,0,0.18));
+}
+/* Améliore la visibilité du logo Natécia s'il est clair/translucide */
+div[align="center"] img[src*="Logo_Natecia"],
+div[align="center"] img[alt*="Natécia"]{
+  background: #f0f3f7; /* fond clair pour rendre visible un logo blanc */
+  border-radius: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(0,0,0,0.08);
+  filter: none;
+}
+
+figure {
+  margin: 10pt auto;
+  text-align: center;
+}
+
+figcaption {
+  font-size: 9.5pt;
+  color: var(--color-muted);
+  margin-top: 4pt;
+  font-style: italic;
+}
+
+/* =============================================
+   Redimensionnement des figures/captures
+   ============================================= */
+figure img{
+  max-width: 92%;
+  max-height: 150mm;
+  object-fit: contain;
+}
+/* Captures mobiles (ndf_/pdg_ et alt contenant Capture) réduites davantage */
+figure img[src*="ndf_"],
+figure img[src*="pdg_"],
+figure img[alt*="Capture"],
+figure img[alt*="capture"]{
+  max-width: 60%;
+  max-height: 120mm;
+}
+
+/* Antifragmentation: ne jamais couper une figure (image + légende) entre 2 pages */
+figure,
+figure.mobile-shot,
+.mobile-grid,
+.mobile-grid figure {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  -webkit-region-break-inside: avoid;
+  -moz-page-break-inside: avoid;
+}
+figcaption { break-inside: avoid; page-break-inside: avoid; }
+
+/* Grille: figures mobiles en 2 colonnes */
+.mobile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12pt;
+  align-items: start;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.mobile-grid figure { margin: 0; }
+.mobile-grid img { max-width: 100%; }
+figure.mobile-shot { display: block; width: 100%; margin: 0; }
+figure.mobile-shot img { max-width: 100%; }
+
+/* =============================================
+   Blockquotes
+   ============================================= */
+blockquote {
+  margin: 10pt 0;
+  padding: 10pt 12pt;
+  background: var(--color-quote-bg);
+  border-left: 4px solid var(--color-accent);
+  color: #1f2937;
+  border-radius: 4px;
+}
+
+/* =============================================
+   Tableaux
+   ============================================= */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10pt 0 12pt 0;
+  font-size: 10pt;
+}
+
+thead th {
+  background: #eef5fe;
+  color: #0f172a;
+  font-weight: 700;
+  border-bottom: 2px solid var(--color-accent);
+  padding: 8px 10px;
+}
+
+tbody td, tbody th {
+  border: 1px solid var(--color-border);
+  padding: 7px 9px;
+}
+
+tbody tr:nth-child(odd) {
+  background: #fafbfd;
+}
+
+tbody tr:hover {
+  background: #f2f6fc;
+}
+
+caption {
+  caption-side: bottom;
+  text-align: left;
+  color: var(--color-muted);
+  font-size: 9.5pt;
+  margin-top: 6pt;
+}
+
+/* =============================================
+   Code (inline et blocs)
+   ============================================= */
+code, pre, kbd, samp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+code {
+  background: var(--color-code-bg);
+  border: 1px solid #eaecef;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 0.95em;
+}
+
+pre {
+  background: var(--color-code-bg);
+  border: 1px solid #eaecef;
+  border-radius: 6px;
+  padding: 10pt 12pt;
+  overflow: auto;
+  font-size: 10pt;
+  line-height: 1.5;
+  margin: 10pt 0 12pt 0;
+}
+
+pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  white-space: pre;
+}
+
+/* =============================================
+   Utilitaires & divers
+   ============================================= */
+.page-break { page-break-before: always; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-muted { color: var(--color-muted); }
+
+/* Petites indications visuelles sous les H2 */
+h2::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin-top: 6px;
+  background: linear-gradient(90deg, var(--color-accent), rgba(21,101,192,0.25));
+}
+
+/* Ajustements spécifiques pour la page de garde (premiers éléments) */
+h1:first-of-type + hr { display: none; }
+h1:first-of-type + hr + p { text-align: center; color: var(--color-muted); }
+
+/* Gestion fine des coupures */
+table, pre, blockquote, figure { break-inside: avoid; }
+
+/* Sommaire pro (lisible, cliquable) — 2 colonnes, style sobre */
+h2 + ul {
+  font-size: 10.5pt;
+  line-height: 1.35;
+  columns: 2;
+  column-gap: 24pt;
+  column-fill: balance;
+  margin-top: 8pt;
+  padding: 10pt 12pt 8pt 16pt;
+  background: linear-gradient(180deg, #f7fbff, #f5f7fb);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+h2 + ul li { margin: 3pt 0; break-inside: avoid; }
+h2 + ul ul { font-size: 10pt; line-height: 1.3; margin: 0 0 4pt 12pt; padding-left: 12pt; }
+h2 + ul a { color: #1f2937; border-bottom: none; text-decoration: none; }
+h2 + ul a:hover { color: var(--color-accent-dark); }
+

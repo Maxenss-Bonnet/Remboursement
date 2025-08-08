@@ -1,0 +1,20 @@
+@startuml
+skinparam shadowing false
+
+actor "Employé" as employee
+actor "PDG" as pdg
+component "Service Comptable" as accounting
+cloud "Google Gemini API" as gemini
+cloud "Google Sheets API" as google_sheets
+component "Service d'E-mail" as email_service
+component "Application Notes de Frais" as expense_app
+
+employee --> expense_app : Soumet des notes de frais
+pdg --> expense_app : Soumet des notes de frais et exporte vers Google Sheets
+expense_app --> gemini : Analyse de justificatifs
+expense_app --> email_service : Envoi rapports PDF
+email_service --> accounting : Réception e-mails
+expense_app --> google_sheets : Écrit les données des dépenses
+@enduml
+
+

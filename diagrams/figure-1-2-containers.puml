@@ -1,0 +1,26 @@
+@startuml
+skinparam shadowing false
+
+actor "Employé / PDG" as employee
+cloud "API Google Gemini" as gemini_api
+cloud "API Google Sheets" as google_sheets_api
+component "Service d'E-mail" as email_service
+
+package "Application Mobile (Flutter)" {
+  component "Application Flutter\n(UI/Logic)" as flutter_app
+  database "Base de données Hive\n(NoSQL)" as hive_db
+}
+
+package "Système Comptable" {
+  component "Service Comptable" as accounting_system
+}
+
+employee --> flutter_app : Utilise
+flutter_app --> hive_db : Lit et écrit
+flutter_app --> gemini_api : HTTPS/JSON
+flutter_app --> google_sheets_api : HTTPS/JSON
+flutter_app --> email_service : Envoie e-mail + PDF
+email_service --> accounting_system : Délivre l'e-mail
+@enduml
+
+
