@@ -343,49 +343,29 @@ L'application matérialise un processus métier strict où une demande de rembou
 </figure>
 *Ce diagramme illustre les différents états d'une demande et les rôles habilités à la faire transiter d'un état à l'autre.*
 
-<!-- Insérer ici une capture d'écran du tableau de bord principal de l'application -->
-<figure>
-<img src="./captures/remboursement_dashboard.png" alt="Tableau de bord des demandes" />
-<figcaption>Tableau de bord des demandes</figcaption>
-</figure>
+
 
 #### Captures complémentaires — Application Desktop
 
-> À insérer — Écran de connexion  
-> Fichier recommandé : `./captures/remboursement_login.png`  
-> Contenu attendu : écran d'identification avec champs utilisateur/mot de passe et messages d'erreur éventuels.
+<figure>
+  <img src="./captures/remboursement_login.png" alt="Écran de connexion (identifiant, mot de passe, erreurs)" />
+  <figcaption>Capture — Écran de connexion (identifiant, mot de passe, messages d'erreur possibles).</figcaption>
+  </figure>
 
-<!-- ![Capture - Connexion](./captures/remboursement_login.png) -->
+<figure>
+  <img src="./captures/remboursement_new_request.png" alt="Création d'une nouvelle demande (identité, montant, motif)" />
+  <figcaption>Capture — Création d'une nouvelle demande (identité, montant, motif).</figcaption>
+</figure>
 
-> À insérer — Création d'une nouvelle demande  
-> Fichier recommandé : `./captures/remboursement_new_request.png`  
-> Contenu attendu : formulaire de création, champs principaux (identité, montant, motif).
+<figure>
+  <img src="./captures/remboursement_attach_files.png" alt="Gestion des pièces jointes (RIB, facture, justificatifs)" />
+  <figcaption>Capture — Gestion des pièces jointes (RIB, facture, justificatifs).</figcaption>
+</figure>
 
-<!-- ![Capture - Nouvelle demande](./captures/remboursement_new_request.png) -->
-
-> À insérer — Détails d'une demande  
-> Fichier recommandé : `./captures/remboursement_details.png`  
-> Contenu attendu : vue détaillée (historique, pièces jointes, statut).
-
-<!-- ![Capture - Détails de la demande](./captures/remboursement_details.png) -->
-
-> À insérer — Pièces jointes (RIB, facture)  
-> Fichier recommandé : `./captures/remboursement_attach_files.png`  
-> Contenu attendu : interface d'ajout/visualisation des fichiers.
-
-<!-- ![Capture - Pièces jointes](./captures/remboursement_attach_files.png) -->
-
-> À insérer — Étape de validation par rôle  
-> Fichier recommandé : `./captures/remboursement_role_validation.png`  
-> Contenu attendu : action de validation/refus par un rôle (Comptable/Valideur), messages d'état.
-
-<!-- ![Capture - Validation par rôle](./captures/remboursement_role_validation.png) -->
-
-> À insérer — Confirmation de paiement  
-> Fichier recommandé : `./captures/remboursement_payment_confirm.png`  
-> Contenu attendu : transition finale avec confirmation et horodatage.
-
-<!-- ![Capture - Confirmation de paiement](./captures/remboursement_payment_confirm.png) -->
+<figure>
+  <img src="./captures/remboursement_payment_confirm.png" alt="Confirmation de paiement avec horodatage" />
+  <figcaption>Capture — Confirmation de paiement (transition finale avec horodatage).</figcaption>
+</figure>
 
 <a id="ch3-bdd-reseau"></a>
 ### Gestion de la Base de Données sur Réseau
@@ -489,11 +469,8 @@ Enfin, je remercie CPE Lyon de m'avoir offert l'opportunité de réaliser ce sta
 *   Application PDG
     * `./captures/pdg_sheets_row.png`
 *   Application Desktop (Remboursements)
-    * `./captures/remboursement_login.png`
-    * `./captures/remboursement_dashboard.png`
-    * `./captures/remboursement_new_request.png`
-    * `./captures/remboursement_details.png`
-    * `./captures/remboursement_attach_files.png`
-    * `./captures/remboursement_role_validation.png`
-    * `./captures/remboursement_payment_confirm.png`
+  * `./captures/remboursement_login.png`
+  * `./captures/remboursement_new_request.png`
+  * `./captures/remboursement_attach_files.png`
+  * `./captures/remboursement_payment_confirm.png`
 -->
