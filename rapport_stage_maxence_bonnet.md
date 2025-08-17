@@ -12,7 +12,7 @@
 
 **Entreprise d'accueil :** Natécia (Groupe Noalys)  
 **Maître de stage :** Juliette Durousset  
-**Période :** [Date de début] – [Date de fin]
+**Période :** 2 Septembre 2024 – 27 Septembre 2024
 
 **Destinataires :**
 *   **Maître de stage :** Juliette Durousset
@@ -100,7 +100,7 @@ Je suis Maxence Bonnet, un étudiant de 22 ans en première année de cycle ing�
 <a id="presentation-entreprise-natecia"></a>
 ### Présentation de l'Entreprise : Natécia
 
-Natécia est une clinique privée lyonnaise spécialisée dans la santé de la femme, de la mère et de l'enfant. En tant que membre du groupe Noalys, elle s'inscrit dans un réseau d'établissements de santé reconnus pour la qualité de leurs soins. Le stage s'est déroulé au sein du service administratif de la clinique, où un besoin de modernisation des outils informatiques a été identifié pour optimiser les tâches de gestion interne.
+Natécia est une clinique privée lyonnaise spécialisée dans la santé de la femme, de la mère et de l'enfant. En tant que membre du groupe Noalys, elle s'inscrit dans un réseau d'établissements de santé reconnus pour la qualité de leurs soins, complétant l'hôpital privé Natécia. Le stage s'est déroulé au sein du service administratif de la clinique, où un besoin de modernisation des outils informatiques a été identifié pour optimiser les tâches de gestion interne.
 
 <figure>
 <img src="./captures/natecia_site_home.png" alt="Présentation visuelle de Natécia (page d'accueil du site ou bâtiment)" />
@@ -115,6 +115,7 @@ Le point de départ de ce stage était un constat simple : les processus de gest
 *   **Risques d'erreurs** de saisie et de perte de justificatifs.
 *   **Manque de traçabilité** et de vision centralisée sur l'état des demandes.
 *   **Processus de validation long** et complexe, impliquant de multiples intervenants.
+*   **Impact économique important** bloquant les demandes en cours.
 
 L'objectif du stage était donc de répondre à ces problématiques en développant des solutions logicielles sur mesure, capables d'automatiser et de sécuriser ces workflows.
 
@@ -133,7 +134,7 @@ Ce rapport s'articule en trois chapitres principaux, chacun dédié à l'un des 
 
 Le premier projet visait à dématérialiser entièrement le processus de soumission des notes de frais pour les collaborateurs de Natécia. Le cahier des charges fonctionnel était le suivant :
 *   Permettre la capture de justificatifs via l'appareil photo ou l'import de fichiers (images, PDF).
-*   Extraire automatiquement les informations clés (marchand, date, montant, TVA) grâce à une IA.
+*   Extraire automatiquement les informations clés (marchand, date, montant, TVA) grâce à une IA pour automatiser la saisie de remboursement des documents, la gestion des notes de frais étant auparavant précaires.
 *   Permettre à l'utilisateur de vérifier et corriger les données extraites.
 *   Gérer les notes de frais kilométriques.
 *   Conserver un historique des notes soumises et en attente.
@@ -239,7 +240,7 @@ Une autre difficulté a été la gestion du **traitement asynchrone** pour l'env
 <a id="ch1-resultats"></a>
 ### Résultats Obtenus
 
-L'application développée est fonctionnelle et répond à toutes les exigences du cahier des charges. Elle a été testée par plusieurs utilisateurs (Benoit Gonnet, Philippe NERI) qui ont salué sa simplicité d'utilisation et le gain de temps réalisé. Le processus de soumission d'une note de frais, qui prenait auparavant plusieurs minutes de saisie manuelle, est désormais réalisable en moins d'une minute.
+L'application développée est fonctionnelle et répond à toutes les exigences du cahier des charges. Elle a été testée par plusieurs utilisateurs (Benoit Gonnet, Philippe NERI) qui ont salué sa simplicité d'utilisation et le gain de temps réalisé. Le processus de soumission d'une note de frais, qui prenait auparavant plusieurs minutes de saisie manuelle, est désormais réalisable en moins d'une minute. Les justificatifs ne sont plus perdus et peuvent être rapidement consultés dans un format dématérialisé, simplifiant son archivage.
 
 ---
 
@@ -283,7 +284,7 @@ La version "PDG" est également fonctionnelle. L'intégration avec Google Sheets
 <a id="ch3-analyse-du-besoin"></a>
 ### Analyse du Besoin
 
-Le troisième projet adressait une problématique différente : la gestion des demandes de remboursement de trop-perçus clients. Ce processus, critique pour la satisfaction client et la rigueur comptable, était entièrement géré par e-mail, ce qui entraînait des retards et un manque de visibilité.
+Le troisième projet adressait une problématique différente : la gestion des demandes de remboursement de trop-perçus clients. Ce processus, critique pour la satisfaction client et la rigueur comptable, était entièrement géré par e-mail, ce qui entraînait des retards et un manque de visibilité. Cette principale problématique - l'absence de visibilité de la demande en ne pouvant pas savoir où en était son demande - devait être adressée par l'outil.
 
 Le besoin était de créer une application de bureau centralisée, avec :
 *   Une gestion des utilisateurs basée sur des rôles (Demandeur, Comptable, Validateur, etc.).
