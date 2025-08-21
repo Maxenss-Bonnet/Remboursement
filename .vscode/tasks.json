@@ -19,6 +19,47 @@
                 "panel": "shared"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "📄 Export PDF - Rapport de Stage",
+            "type": "shell",
+            "command": "echo",
+            "args": [
+                "Pour exporter en PDF: 1. Ouvrir rapport_stage_maxence_bonnet.md, 2. F1 > 'markdown-pdf: Export (pdf)', 3. Fichier genere dans output/"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "🌐 Export HTML - Pour Word",
+            "type": "shell", 
+            "command": "echo",
+            "args": [
+                "Pour exporter en HTML (compatible Word): 1. Ouvrir rapport_stage_maxence_bonnet.md, 2. F1 > 'markdown-pdf: Export (html)', 3. Ouvrir le HTML dans Word, 4. Enregistrer en .docx"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always", 
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "🔍 Ouvrir Guide Conversion",
+            "type": "shell",
+            "command": "code",
+            "args": ["README_CONVERSION.md"],
+            "group": "build"
         }
     ]
 } 

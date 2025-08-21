@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>rapport_stage_maxence_bonnet.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/*
+
+github.com style (c) Vasily Polovnyov <vast@whiteants.net>
+
+*/
+
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0.5em;
+  color: #333;
+  background: #f8f8f8;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #998;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #333;
+  font-weight: bold;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #008080;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #d14;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #900;
+  font-weight: bold;
+}
+
+.hljs-subst {
+  font-weight: normal;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #458;
+  font-weight: bold;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+  color: #000080;
+  font-weight: normal;
+}
+
+.hljs-regexp,
+.hljs-link {
+  color: #009926;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #990073;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #0086b3;
+}
+
+.hljs-meta {
+  color: #999;
+  font-weight: bold;
+}
+
+.hljs-deletion {
+  background: #fdd;
+}
+
+.hljs-addition {
+  background: #dfd;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+</style>
+<link rel="stylesheet" href="file:///c%3A/Users/maxen/.vscodeProject/Remboursement/style.css" type="text/css">
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="rapport-de-stage-%E2%80%93-d%C3%A9veloppement-doutils-de-gestion">Rapport de Stage – Développement d'Outils de Gestion</h1>
+<hr>
+<p><strong>Titre (Anglais) :</strong> Development of Management Tools</p>
+<p><strong>Stagiaire :</strong> Maxence Bonnet<br>
+<strong>Formation :</strong> 1ère Année Ingénieur – Informatique et Cybersécurité (ICS)<br>
+<strong>École :</strong> CPE Lyon<br>
+<strong>Année Universitaire :</strong> 2024—2025</p>
+<p><strong>Entreprise d'accueil :</strong> Natécia (Groupe Noalys)<br>
+<strong>Maître de stage :</strong> Juliette Durousset<br>
+<strong>Période :</strong> 2 Septembre 2024 – 27 Septembre 2024</p>
+<p><strong>Destinataires :</strong></p>
+<ul>
+<li><strong>Maître de stage :</strong> Juliette Durousset</li>
+<li><strong>Tuteur école :</strong> Juliette Durousset</li>
+<li><strong>École :</strong> CPE Lyon</li>
+</ul>
+<p><strong>Mots-clés :</strong> Développement applicatif, Flutter, Python, Automatisation de workflow, Intelligence Artificielle</p>
+<hr>
+<div align="center">
+<img src="./captures/Logo_CPE.jpg" alt="Logo CPE Lyon" width="200"/>
+<img src="./captures/Logo_Natecia.png" alt="Logo Natécia" width="200"/>
+</div>
+<hr>
+<h2 id="r%C3%A9sum%C3%A9">Résumé</h2>
+<p>Ce rapport présente les travaux réalisés durant mon stage de première année au sein de la clinique Natécia (Groupe Noalys). L'objectif principal de ce stage était d'améliorer et de fluidifier les processus internes de gestion des notes de frais et des demandes de remboursement par la conception et le développement de trois applications logicielles distinctes.</p>
+<p>Face à des procédures manuelles chronophages et sources d'erreurs, la mission a consisté à :</p>
+<ol>
+<li><strong>Développer une application mobile multi-plateforme (iOS/Android) en Flutter/Dart</strong> pour permettre aux employés de soumettre leurs notes de frais de manière dématérialisée. L'application intègre une analyse par Intelligence Artificielle (Google Gemini) pour l'extraction automatique des données depuis les justificatifs.</li>
+<li><strong>Adapter cette application pour les dirigeants (PDG)</strong>, avec des fonctionnalités avancées, notamment l'export direct des données vers Google Sheets pour un suivi comptable optimisé.</li>
+<li><strong>Créer une application de bureau en Python</strong> pour la gestion centralisée du workflow de validation des demandes de remboursement de trop-perçus, impliquant plusieurs services (facturation, comptabilité, direction).</li>
+</ol>
+<p>Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du besoin à la livraison des solutions fonctionnelles. Il expose les choix architecturaux et technologiques (Flutter, Python, SQLite), les défis rencontrés – notamment l'apprentissage en autonomie de nouvelles technologies et l'intégration d'une base de données sur un lecteur réseau – et les résultats obtenus. Les solutions développées ont permis de moderniser les processus, d'améliorer la traçabilité et de réduire significativement le temps de traitement administratif.</p>
+<hr>
+<h2 id="sommaire">Sommaire</h2>
+<ul>
+<li><a href="#r%C3%A9sum%C3%A9">Résumé</a></li>
+<li><a href="#introduction">Introduction</a>
+<ul>
+<li><a href="#pr%C3%A9sentation-du-stagiaire">Présentation du Stagiaire</a></li>
+<li><a href="#pr%C3%A9sentation-de-lentreprise--nat%C3%A9cia">Présentation de l'Entreprise : Natécia</a></li>
+<li><a href="#contexte-et-enjeux-du-stage">Contexte et Enjeux du Stage</a></li>
+<li><a href="#structure-du-rapport">Structure du Rapport</a></li>
+</ul>
+</li>
+<li><a href="#d%C3%A9veloppement--chapitre-1--application-mobile-notes-de-frais-employ%C3%A9">Développement – Chapitre 1 : Application Mobile &quot;Notes de Frais Employé&quot;</a>
+<ul>
+<li><a href="#analyse-du-besoin">Analyse du Besoin</a></li>
+<li><a href="#d%C3%A9marche-adopt%C3%A9e-et-solutions-envisag%C3%A9es">Démarche Adoptée et Solutions Envisagées</a></li>
+<li><a href="#justification-des-choix-techniques">Justification des Choix Techniques</a></li>
+<li><a href="#fonctionnement-de-lapplication">Fonctionnement de l'Application</a>
+<ul>
+<li><a href="#figure-1--sch%C3%A9ma-du-workflow">Figure 1 : Schéma du workflow</a></li>
+<li><a href="#figure-11--diagramme-de-contexte-c4">Figure 1.1 : Diagramme de Contexte C4</a></li>
+<li><a href="#figure-12--diagramme-de-conteneurs-c4">Figure 1.2 : Diagramme de Conteneurs C4</a></li>
+</ul>
+</li>
+<li><a href="#fonctions-cl%C3%A9s-issues-du-code">Fonctions Clés Issues du Code</a></li>
+<li><a href="#difficult%C3%A9s-rencontr%C3%A9es">Difficultés Rencontrées</a></li>
+<li><a href="#r%C3%A9sultats-obtenus">Résultats Obtenus</a></li>
+</ul>
+</li>
+<li><a href="#d%C3%A9veloppement--chapitre-2--application-mobile-notes-de-frais-pdg">Développement – Chapitre 2 : Application Mobile &quot;Notes de Frais PDG&quot;</a>
+<ul>
+<li><a href="#analyse-du-besoin-sp%C3%A9cifique">Analyse du Besoin Spécifique</a></li>
+<li><a href="#adaptations-et-fonctionnalit%C3%A9s-cl%C3%A9s">Adaptations et Fonctionnalités Clés</a></li>
+<li><a href="#r%C3%A9sultats">Résultats</a></li>
+</ul>
+</li>
+<li><a href="#d%C3%A9veloppement--chapitre-3--application-desktop-gestion-des-remboursements">Développement – Chapitre 3 : Application Desktop &quot;Gestion des Remboursements&quot;</a>
+<ul>
+<li><a href="#analyse-du-besoin-1">Analyse du Besoin</a></li>
+<li><a href="#architecture-logicielle-mvc">Architecture Logicielle MVC</a>
+<ul>
+<li><a href="#figure-2--sch%C3%A9ma-darchitecture">Figure 2 : Schéma d'architecture</a></li>
+<li><a href="#figure-21--diagramme-de-contexte-c4">Figure 2.1 : Diagramme de Contexte C4</a></li>
+<li><a href="#figure-22--diagramme-de-conteneurs-c4">Figure 2.2 : Diagramme de Conteneurs C4</a></li>
+</ul>
+</li>
+<li><a href="#fonctions-cl%C3%A9s-issues-du-code-1">Fonctions Clés Issues du Code</a></li>
+<li><a href="#fonctionnement-et-workflow-de-validation">Fonctionnement et Workflow de Validation</a>
+<ul>
+<li><a href="#figure-3--diagramme-du-workflow">Figure 3 : Diagramme du workflow</a></li>
+</ul>
+</li>
+<li><a href="#gestion-de-la-base-de-donn%C3%A9es-sur-r%C3%A9seau">Gestion de la Base de Données sur Réseau</a></li>
+<li><a href="#r%C3%A9sultats-obtenus-1">Résultats Obtenus</a></li>
+</ul>
+</li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#r%C3%A9capitulatif-des-livrables">Récapitulatif des Livrables</a></li>
+<li><a href="#limites-et-perspectives-d%C3%A9volution">Limites et Perspectives d'Évolution</a></li>
+</ul>
+</li>
+<li><a href="#remerciements">Remerciements</a></li>
+<li><a href="#glossaire">Glossaire</a></li>
+<li><a href="#bibliographie">Bibliographie</a></li>
+<li><a href="#annexes">Annexes</a>
+<ul>
+<li><a href="#liens-vers-les-d%C3%A9p%C3%B4ts-de-code-source">Liens vers les dépôts de code source</a></li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="introduction">Introduction</h2>
+<h3 id="pr%C3%A9sentation-du-stagiaire">Présentation du Stagiaire</h3>
+<p>Je suis Maxence Bonnet, un étudiant de 22 ans en première année de cycle ingénieur en Informatique et Cybersécurité (ICS) à CPE Lyon. Mon parcours académique a débuté par un Baccalauréat STI2D spécialité SIN (Systèmes d'Information et Numérique), suivi d'un BTS SNIR (Systèmes Numériques, option Informatique et Réseaux). Cette formation m'a permis d'acquérir de solides compétences en développement logiciel et en administration système, que j'ai souhaité mettre en pratique dans un contexte professionnel concret.</p>
+<h3 id="pr%C3%A9sentation-de-lentreprise--nat%C3%A9cia">Présentation de l'Entreprise : Natécia</h3>
+<p>Natécia est une clinique privée lyonnaise spécialisée dans la santé de la femme, de la mère et de l'enfant. En tant que membre du groupe Noalys, elle s'inscrit dans un réseau d'établissements de santé reconnus pour la qualité de leurs soins, complétant l'hôpital privé Natécia. Le stage s'est déroulé au sein du service administratif de la clinique, où un besoin de modernisation des outils informatiques a été identifié pour optimiser les tâches de gestion interne.</p>
+<figure>
+<img src="./captures/natecia_site_home.png" alt="Présentation visuelle de Natécia (page d'accueil du site ou bâtiment)" />
+<figcaption>Capture – Présentation visuelle de Natécia (page d'accueil du site ou bâtiment avec logo).</figcaption>
+</figure>
+<h3 id="contexte-et-enjeux-du-stage">Contexte et Enjeux du Stage</h3>
+<p>Le point de départ de ce stage était un constat simple : les processus de gestion des notes de frais et des demandes de remboursement étaient majoritairement manuels, reposant sur des échanges d'e-mails et des documents papier. Cette méthode de travail présentait plusieurs inconvénients majeurs :</p>
+<ul>
+<li><strong>Perte de temps</strong> pour les employés et les services comptables.</li>
+<li><strong>Risques d'erreurs</strong> de saisie et de perte de justificatifs.</li>
+<li><strong>Manque de traçabilité</strong> et de vision centralisée sur l'état des demandes.</li>
+<li><strong>Processus de validation long</strong> et complexe, impliquant de multiples intervenants.</li>
+<li><strong>Impact économique important</strong> bloquant les demandes en cours.</li>
+</ul>
+<p>L'objectif du stage était donc de répondre à ces problématiques en développant des solutions logicielles sur mesure, capables d'automatiser et de sécuriser ces workflows.</p>
+<h3 id="structure-du-rapport">Structure du Rapport</h3>
+<p>Ce rapport s'articule en trois chapitres principaux, chacun dédié à l'un des projets développés. Nous commencerons par les deux applications mobiles de notes de frais, puis nous aborderons l'application de bureau pour la gestion des remboursements. Chaque chapitre décrira la démarche suivie, les choix techniques effectués et les résultats obtenus. Enfin, une conclusion générale dressera le bilan du stage, ses apports et les perspectives d'évolution des outils créés.</p>
+<hr>
+<h2 id="d%C3%A9veloppement-%E2%80%93-chapitre-1--application-mobile-%22notes-de-frais-employ%C3%A9%22">Développement – Chapitre 1 : Application Mobile &quot;Notes de Frais Employé&quot;</h2>
+<h3 id="analyse-du-besoin">Analyse du Besoin</h3>
+<p>Le premier projet visait à dématérialiser entièrement le processus de soumission des notes de frais pour les collaborateurs de Natécia. Le cahier des charges fonctionnel était le suivant :</p>
+<ul>
+<li>Permettre la capture de justificatifs via l'appareil photo ou l'import de fichiers (images, PDF).</li>
+<li>Extraire automatiquement les informations clés (marchand, date, montant, TVA) grâce à une IA pour automatiser la saisie de remboursement des documents, la gestion des notes de frais étant auparavant précaires.</li>
+<li>Permettre à l'utilisateur de vérifier et corriger les données extraites.</li>
+<li>Gérer les notes de frais kilométriques.</li>
+<li>Conserver un historique des notes soumises et en attente.</li>
+<li>Générer un rapport PDF et l'envoyer par e-mail au service comptable avec les justificatifs en pièces jointes.</li>
+<li>Fonctionner sur iOS et Android.</li>
+</ul>
+<h3 id="d%C3%A9marche-adopt%C3%A9e-et-solutions-envisag%C3%A9es">Démarche Adoptée et Solutions Envisagées</h3>
+<p>Face au besoin d'une application multi-plateforme, le choix s'est naturellement porté sur un framework de développement cross-platform. Après étude, <strong>Flutter</strong> a été retenu pour sa performance, son écosystème riche et sa facilité de prise en main.</p>
+<p>Pour l'extraction de données, la solution d'une <strong>API d'Intelligence Artificielle</strong> a été privilégiée par rapport à une simple technologie OCR, afin d'obtenir une analyse sémantique du document (catégorisation de la dépense) et un indice de confiance sur les données extraites.</p>
+<h3 id="justification-des-choix-techniques">Justification des Choix Techniques</h3>
+<ul>
+<li><strong>Langage :</strong> Dart (via Flutter) pour le développement mobile.</li>
+<li><strong>Framework UI :</strong> Flutter pour sa capacité à produire des interfaces natives compilées pour iOS et Android à partir d'une seule base de code.</li>
+<li><strong>Gestion de l'état :</strong> <code>Riverpod</code>, pour une gestion d'état réactive, robuste et scalable.</li>
+<li><strong>Analyse IA :</strong> API <code>Google Gemini</code>, pour ses capacités avancées en analyse de documents et extraction d'informations structurées.</li>
+<li><strong>Stockage local :</strong> Base de données NoSQL <code>Hive</code>, très performante et bien intégrée à l'écosystème Flutter, pour stocker l'historique des notes de frais.</li>
+<li><strong>Envoi d'e-mails :</strong> Bibliothèque <code>mailer</code> pour l'envoi des rapports en tâche de fond.</li>
+</ul>
+<h3 id="fonctionnement-de-lapplication">Fonctionnement de l'Application</h3>
+<p>L'application suit un workflow utilisateur simple et intuitif.</p>
+<h4 id="figure-1--sch%C3%A9ma-du-workflow-de-lapplication-%22notes-de-frais%22">Figure 1 : Schéma du workflow de l'application &quot;Notes de Frais&quot;</h4>
+<figure>
+<img alt="Figure 1 - Workflow Notes de Frais" src="./diagrams-out/figure-1-workflow.svg" />
+<figcaption>Figure 1 : Schéma du workflow de l'application "Notes de Frais"</figcaption>
+</figure>
+<p><em>Le workflow ci-dessus illustre le parcours d'un justificatif, de sa capture à sa réception par le service comptable.</em></p>
+<h4 id="figure-11--diagramme-de-contexte-c4-de-lapplication-%22notes-de-frais%22">Figure 1.1 : Diagramme de Contexte C4 de l'application &quot;Notes de Frais&quot;</h4>
+<figure>
+<img alt="Figure 1.1 - Contexte Notes de Frais" src="./diagrams-out/figure-1-1-context.svg" />
+<figcaption>Figure 1.1 : Diagramme de Contexte C4 de l'application "Notes de Frais"</figcaption>
+</figure>
+<h4 id="figure-12--diagramme-de-conteneurs-c4-de-lapplication-%22notes-de-frais%22">Figure 1.2 : Diagramme de Conteneurs C4 de l'application &quot;Notes de Frais&quot;</h4>
+<figure>
+<img alt="Figure 1.2 - Conteneurs Notes de Frais" src="./diagrams-out/figure-1-2-containers.svg" />
+<figcaption>Figure 1.2 : Diagramme de Conteneurs C4 de l'application "Notes de Frais"</figcaption>
+</figure>
+<!-- Insérer ici une capture d'écran de l'interface principale -->
+<figure>
+<img src="./captures/ndf_main.png" alt="Interface de l'application Notes de Frais" />
+<figcaption>Interface de l'application "Notes de Frais"</figcaption>
+</figure>
+<h4 id="captures-compl%C3%A9mentaires-%E2%80%93-application-employ%C3%A9">Captures complémentaires – Application Employé</h4>
+<div class="mobile-grid">
+  <figure class="mobile-shot">
+    <img src="./captures/ndf_capture.png" alt="Capture/Import de justificatifs (caméra ou sélecteur multi‑fichiers)" />
+    <figcaption>Capture – Écran de capture/import de justificatifs (caméra ou sélecteur multi‑fichiers).</figcaption>
+  </figure>
+  <figure class="mobile-shot">
+    <img src="./captures/ndf_ai_review.png" alt="Analyse IA et vérification/correction des données extraites (marchand, date, montant, TVA, confiance)" />
+    <figcaption>Capture – Analyse IA et vérification/correction des données extraites (marchand, date, montant, TVA, indicateurs de confiance).</figcaption>
+  </figure>
+  <figure class="mobile-shot">
+    <img src="./captures/ndf_km.png" alt="Notes kilométriques (distance, barème, calcul)" />
+    <figcaption>Capture – Notes kilométriques (distance, barème, calcul et récapitulatif).</figcaption>
+  </figure>
+  <figure class="mobile-shot">
+    <img src="./captures/ndf_history.png" alt="Historique des notes (statuts envoyée/en attente, filtres)" />
+    <figcaption>Capture – Historique des notes (statuts envoyée/en attente, filtres).</figcaption>
+  </figure>
+  <figure class="mobile-shot">
+    <img src="./captures/ndf_pdf_sample.png" alt="Aperçu PDF généré (tableau, totaux HT/TVA/TTC, logo)" />
+    <figcaption>Capture – Aperçu d'une page du PDF généré (tableau, totaux HT/TVA/TTC, logo).</figcaption>
+  </figure>
+  <figure class="mobile-shot">
+    <img src="./captures/ndf_send.png" alt="Envoi et confirmation du rapport" />
+    <figcaption>Capture – Envoi et confirmation du rapport.</figcaption>
+  </figure>
+</div>
+<h3 id="fonctions-cl%C3%A9s-issues-du-code">Fonctions Clés Issues du Code</h3>
+<ul>
+<li><code>lib/services/ai_service.dart::extractExpenseDataFromFiles</code> : appel à Google Gemini avec prompt structuré, extraction JSON et indices de confiance.</li>
+<li><code>lib/services/pdf_service.dart::generateExpenseReportPdf</code> : génération d'un PDF A4 (tables, totaux HT/TVA/TTC, polices embarquées, logo, sections d'observations).</li>
+<li><code>lib/services/email_service.dart::sendExpenseBatchEmail</code> : envoi HTML avec PJ (PDF récap + justificatifs renommés), objet et CC salarié.</li>
+<li><code>lib/services/background_task_service.dart::processQueue</code> : écoute réseau, reprise des envois, nettoyage fichiers, marquage <code>isSent</code>.</li>
+<li><code>lib/views/camera_view.dart</code> : cycle de vie caméra, capture/import multi‑fichiers, navigation vers traitement.</li>
+</ul>
+<h3 id="difficult%C3%A9s-rencontr%C3%A9es">Difficultés Rencontrées</h3>
+<p>La principale difficulté de ce projet a été <strong>l'apprentissage en totale autonomie du framework Flutter et du langage Dart</strong>. Cela a nécessité un investissement initial important pour comprendre les concepts de widgets, de gestion d'état et l'écosystème de publication.</p>
+<p>Une autre difficulté a été la gestion du <strong>traitement asynchrone</strong> pour l'envoi des e-mails, afin que l'application reste fluide et puisse gérer les envois même en cas de connectivité réseau intermittente.</p>
+<h3 id="r%C3%A9sultats-obtenus">Résultats Obtenus</h3>
+<p>L'application développée est fonctionnelle et répond à toutes les exigences du cahier des charges. Elle a été testée par plusieurs utilisateurs (Benoit Gonnet, Philippe NERI) qui ont salué sa simplicité d'utilisation et le gain de temps réalisé. Le processus de soumission d'une note de frais, qui prenait auparavant plusieurs minutes de saisie manuelle, est désormais réalisable en moins d'une minute. Les justificatifs ne sont plus perdus et peuvent être rapidement consultés dans un format dématérialisé, simplifiant son archivage.</p>
+<hr>
+<h2 id="d%C3%A9veloppement-%E2%80%93-chapitre-2--application-mobile-%22notes-de-frais-pdg%22">Développement – Chapitre 2 : Application Mobile &quot;Notes de Frais PDG&quot;</h2>
+<h3 id="analyse-du-besoin-sp%C3%A9cifique">Analyse du Besoin Spécifique</h3>
+<p>Une version de l'application a été spécifiquement demandée pour les dirigeants de l'entreprise. Bien que partageant 90% des fonctionnalités de la version &quot;Employé&quot;, elle devait intégrer une fonctionnalité clé supplémentaire : <strong>l'export des données vers une feuille de calcul Google Sheets partagée</strong>, en plus de l'envoi par e-mail.</p>
+<p>L'objectif était de permettre un suivi financier en temps réel et de faciliter l'agrégation des données à des fins de reporting.</p>
+<h3 id="adaptations-et-fonctionnalit%C3%A9s-cl%C3%A9s">Adaptations et Fonctionnalités Clés</h3>
+<p>Le projet a donc consisté à dupliquer la base de code existante (via une branche Git distincte, <code>Switch</code>) et à y intégrer l'API Google Sheets.</p>
+<ul>
+<li><strong>Authentification Google :</strong> Mise en place d'un flux d'authentification OAuth 2.0 pour permettre à l'application d'accéder aux services Google au nom de l'utilisateur.</li>
+<li><strong>API Google Sheets :</strong> Utilisation des bibliothèques <code>googleapis</code> et <code>googleapis_auth</code> pour écrire une nouvelle ligne dans un Google Sheet spécifié à chaque note de frais validée.</li>
+</ul>
+<p>Le reste de l'application (capture, analyse IA, stockage local) est resté identique, garantissant une maintenance aisée des deux versions.</p>
+<h4 id="captures-d%C3%A9cran-%E2%80%93-application-pdg">Captures d'écran – Application PDG</h4>
+<figure>
+<img src="./captures/pdg_sheets_row.png" alt="Résultat d'export : ligne ajoutée dans Google Sheets" />
+<figcaption>Capture – Résultat d'export : ligne ajoutée dans Google Sheets (toutes les colonnes pertinentes renseignées).</figcaption>
+</figure>
+<h3 id="r%C3%A9sultats">Résultats</h3>
+<p>La version &quot;PDG&quot; est également fonctionnelle. L'intégration avec Google Sheets apporte une plus-value significative en termes de suivi et d'analyse des dépenses, offrant une vision consolidée et instantanée qui n'existait pas auparavant.</p>
+<hr>
+<h2 id="d%C3%A9veloppement-%E2%80%93-chapitre-3--application-desktop-%22gestion-des-remboursements%22">Développement – Chapitre 3 : Application Desktop &quot;Gestion des Remboursements&quot;</h2>
+<h3 id="analyse-du-besoin">Analyse du Besoin</h3>
+<p>Le troisième projet adressait une problématique différente : la gestion des demandes de remboursement de trop-perçus clients. Ce processus, critique pour la satisfaction client et la rigueur comptable, était entièrement géré par e-mail, ce qui entraînait des retards et un manque de visibilité. Cette principale problématique - l'absence de visibilité de la demande en ne pouvant pas savoir où en était son demande - devait être adressée par l'outil.</p>
+<p>Le besoin était de créer une application de bureau centralisée, avec :</p>
+<ul>
+<li>Une gestion des utilisateurs basée sur des rôles (Demandeur, Comptable, Validateur, etc.).</li>
+<li>Un workflow de validation en plusieurs étapes.</li>
+<li>La possibilité de joindre des documents (RIB, facture).</li>
+<li>Un historique complet et immuable de chaque demande.</li>
+<li>Une base de données unique, partagée et accessible depuis un lecteur réseau.</li>
+</ul>
+<h3 id="architecture-logicielle-mvc">Architecture Logicielle MVC</h3>
+<p>Pour garantir la maintenabilité et la scalabilité de l'application, une architecture <strong>Modèle-Vue-Contrôleur (MVC)</strong> a été mise en œuvre.</p>
+<h4 id="figure-2--sch%C3%A9ma-darchitecture-de-lapplication-%22gestion-des-remboursements%22">Figure 2 : Schéma d'architecture de l'application &quot;Gestion des Remboursements&quot;</h4>
+<figure>
+<img alt="Figure 2 - Architecture Remboursements" src="./diagrams-out/figure-2-architecture.svg" />
+<figcaption>Figure 2 : Schéma d'architecture de l'application "Gestion des Remboursements"</figcaption>
+</figure>
+*   **Modèle :** Gère les données et la logique métier. Il interagit directement avec la base de données SQLite.
+*   **Vue :** Responsable de l'affichage de l'interface graphique. Elle est construite avec la bibliothèque Python `CustomTkinter`.
+*   **Contrôleur :** Reçoit les actions de l'utilisateur depuis la Vue, les traite en faisant appel au Modèle, et met à jour la Vue en conséquence.
+<h4 id="figure-21--diagramme-de-contexte-c4-de-lapplication-%22gestion-des-remboursements%22">Figure 2.1 : Diagramme de Contexte C4 de l'application &quot;Gestion des Remboursements&quot;</h4>
+<figure>
+<img alt="Figure 2.1 - Contexte Remboursements" src="./diagrams-out/figure-2-1-context.svg" />
+<figcaption>Figure 2.1 : Diagramme de Contexte C4 de l'application "Gestion des Remboursements"</figcaption>
+</figure>
+<h4 id="figure-22--diagramme-de-conteneurs-c4-de-lapplication-%22gestion-des-remboursements%22">Figure 2.2 : Diagramme de Conteneurs C4 de l'application &quot;Gestion des Remboursements&quot;</h4>
+<figure>
+<img alt="Figure 2.2 - Conteneurs Remboursements" src="./diagrams-out/figure-2-2-containers.svg" />
+<figcaption>Figure 2.2 : Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"</figcaption>
+</figure>
+<h3 id="fonctions-cl%C3%A9s-issues-du-code">Fonctions Clés Issues du Code</h3>
+<ul>
+<li><code>models/remboursement_model.py::creer_nouvelle_demande</code> : création demande, organisation des pièces (RIB/Facture/TP), historique initial.</li>
+<li><code>models/remboursement_workflow.py</code> : transitions (accepter/refuser constat, valider/refuser, confirmer paiement, resoumission) avec historisation.</li>
+<li><code>models/remboursement_data.py::charger_demandes_data</code> : filtrage multi‑critères, pagination, reconstruction modèle + historiques + PJ.</li>
+<li><code>controllers/remboursement_controller.py</code> : pont UI/métier, copie versionnée des PJ, extraction d'archive ZIP à la volée, actions admin.</li>
+<li><code>controllers/app_controller.py</code> : cycle de vie app, cache utilisateurs, tâches de démarrage (archivage, sauvegarde), bannière réseau, vérifs BDD.</li>
+</ul>
+<h3 id="fonctionnement-et-workflow-de-validation">Fonctionnement et Workflow de Validation</h3>
+<p>L'application matérialise un processus métier strict où une demande de remboursement passe par plusieurs statuts, chaque transition étant conditionnée par l'action d'un utilisateur avec le rôle approprié.</p>
+<h4 id="figure-3--diagramme-du-workflow-de-validation-des-remboursements">Figure 3 : Diagramme du workflow de validation des remboursements</h4>
+<figure>
+<img alt="Figure 3 - Workflow Validation Remboursements" src="./diagrams-out/figure-3-workflow-remboursement.svg" />
+<figcaption>Figure 3 : Diagramme du workflow de validation des remboursements</figcaption>
+</figure>
+*Ce diagramme illustre les différents états d'une demande et les rôles habilités à la faire transiter d'un état à l'autre.*
+<h4 id="captures-compl%C3%A9mentaires-%E2%80%93-application-desktop">Captures complémentaires – Application Desktop</h4>
+<figure>
+  <img src="./captures/remboursement_login.png" alt="Écran de connexion (identifiant, mot de passe, erreurs)" />
+  <figcaption>Capture – Écran de connexion (identifiant, mot de passe, messages d'erreur possibles).</figcaption>
+  </figure>
+<figure>
+  <img src="./captures/remboursement_new_request.png" alt="Création d'une nouvelle demande (identité, montant, motif)" />
+  <figcaption>Capture – Création d'une nouvelle demande (identité, montant, motif).</figcaption>
+</figure>
+<figure>
+  <img src="./captures/remboursement_attach_files.png" alt="Gestion des pièces jointes (RIB, facture, justificatifs)" />
+  <figcaption>Capture – Gestion des pièces jointes (RIB, facture, justificatifs).</figcaption>
+</figure>
+<figure>
+  <img src="./captures/remboursement_payment_confirm.png" alt="Confirmation de paiement avec horodatage" />
+  <figcaption>Capture – Confirmation de paiement (transition finale avec horodatage).</figcaption>
+</figure>
+<h3 id="gestion-de-la-base-de-donn%C3%A9es-sur-r%C3%A9seau">Gestion de la Base de Données sur Réseau</h3>
+<p>Une contrainte forte du projet était l'utilisation d'une base de données <strong>SQLite locale, mais située sur un disque réseau partagé</strong> pour être accessible par tous les utilisateurs. Cette contrainte a introduit des défis de performance et de concurrence d'accès. Des mécanismes de <code>verrouillage de fichier</code> (file locking) et une gestion rigoureuse des transactions ont été mis en place dans le <code>database_manager.py</code> pour éviter la corruption de la base de données lorsque plusieurs utilisateurs effectuent des opérations simultanément.</p>
+<h3 id="r%C3%A9sultats-obtenus">Résultats Obtenus</h3>
+<p>L'application a été déployée et est utilisée par les différents services concernés (Marie LUPO, Pascale DIOP). Elle a permis de :</p>
+<ul>
+<li><strong>Standardiser</strong> le processus de demande de remboursement.</li>
+<li><strong>Réduire de plus de 50%</strong> le temps de traitement moyen d'une demande.</li>
+<li><strong>Garantir une traçabilité complète</strong> de toutes les actions.</li>
+<li><strong>Centraliser</strong> tous les documents et informations en un seul point.</li>
+</ul>
+<hr>
+<h2 id="conclusion">Conclusion</h2>
+<h3 id="r%C3%A9capitulatif-des-livrables">Récapitulatif des Livrables</h3>
+<p>Ce stage a abouti à la livraison de trois applications entièrement fonctionnelles qui répondent aux problématiques de gestion initiales de Natécia :</p>
+<ol>
+<li><strong>Une application mobile &quot;Notes de Frais&quot;</strong> pour les employés.</li>
+<li><strong>Une version &quot;PDG&quot;</strong> de cette application avec des fonctionnalités de reporting étendues.</li>
+<li><strong>Une application de bureau &quot;Gestion des Remboursements&quot;</strong> pour centraliser et sécuriser le workflow de validation.</li>
+</ol>
+<p>Ces outils ont été conçus pour être robustes, sécurisés et évolutifs.</p>
+<h3 id="limites-et-perspectives-d%C3%A9volution">Limites et Perspectives d'Évolution</h3>
+<p>Bien que fonctionnels, les projets présentent des axes d'amélioration :</p>
+<ul>
+<li><strong>Synchronisation Cloud :</strong> Pour les applications mobiles, une synchronisation des données (historique) sur un service Cloud permettrait à l'utilisateur de retrouver ses données en changeant de téléphone.</li>
+<li><strong>Déploiement centralisé :</strong> Pour l'application de bureau, un mécanisme de mise à jour automatique simplifierait la maintenance.</li>
+<li><strong>Tests Unitaires :</strong> Le développement de suites de tests unitaires et d'intégration plus complètes permettrait de renforcer la fiabilité du code.</li>
+<li><strong>Serveur distant :</strong> À terme, la migration de la base de données SQLite vers un vrai serveur de base de données (PostgreSQL, MySQL) serait bénéfique pour les performances et la scalabilité.</li>
+</ul>
+<hr>
+<h2 id="remerciements">Remerciements</h2>
+<p>Je tiens à exprimer ma profonde gratitude à ma maître de stage, <strong>Mme Juliette Durousset</strong>, pour sa confiance, sa disponibilité et ses précieux conseils tout au long de cette période.</p>
+<p>Je remercie également l'ensemble des collaborateurs qui ont contribué au succès de ces projets par leurs retours et leur participation aux phases de test, notamment <strong>M. Benoit Gonnet</strong>, <strong>M. Philippe NERI</strong>, <strong>Mme Pascale DIOP</strong> et <strong>Mme Marie LUPO</strong>.</p>
+<p>Enfin, je remercie CPE Lyon de m'avoir offert l'opportunité de réaliser ce stage enrichissant qui a été une excellente introduction au monde professionnel de l'ingénierie logicielle.</p>
+<hr>
+<h2 id="glossaire">Glossaire</h2>
+<ul>
+<li><strong>API :</strong> Application Programming Interface. Interface de programmation applicative.</li>
+<li><strong>Flutter :</strong> Framework de développement d'interface utilisateur open-source créé par Google.</li>
+<li><strong>Dart :</strong> Langage de programmation optimisé pour le développement d'applications sur de multiples plateformes.</li>
+<li><strong>Gemini :</strong> Famille de modèles d'IA multimodaux développée par Google.</li>
+<li><strong>Hive :</strong> Base de données NoSQL clé-valeur, légère et rapide, écrite en Dart.</li>
+<li><strong>MVC :</strong> Modèle-Vue-Contrôleur. Patron d'architecture logicielle.</li>
+<li><strong>OCR :</strong> Optical Character Recognition. Reconnaissance optique de caractères.</li>
+<li><strong>SQLite :</strong> Système de gestion de base de données relationnelle contenu dans une bibliothèque C.</li>
+</ul>
+<hr>
+<h2 id="bibliographie">Bibliographie</h2>
+<ul>
+<li>Documentation officielle de Flutter : <a href="https://flutter.dev/docs">https://flutter.dev/docs</a></li>
+<li>Documentation de l'API Google Gemini : <a href="https://ai.google.dev/docs">https://ai.google.dev/docs</a></li>
+<li>Documentation de la bibliothèque Python CustomTkinter : <a href="https://customtkinter.com/documentation">https://customtkinter.com/documentation</a></li>
+<li>Documentation de la base de données Hive pour Flutter : <a href="https://docs.hivedb.dev/">https://docs.hivedb.dev/</a></li>
+</ul>
+<hr>
+<h2 id="annexes">Annexes</h2>
+<h3 id="liens-vers-les-d%C3%A9p%C3%B4ts-de-code-source">Liens vers les dépôts de code source</h3>
+<ul>
+<li><strong>Projet Notes de Frais (Employé &amp; PDG) :</strong> <a href="https://github.com/Maxenss-Bonnet/notes_de_frais">https://github.com/Maxenss-Bonnet/notes_de_frais</a>
+<ul>
+<li>Branche Employé : <code>Employer</code></li>
+<li>Branche PDG : <code>Switch</code></li>
+</ul>
+</li>
+<li><strong>Projet Gestion des Remboursements :</strong> <a href="https://github.com/Maxenss-Bonnet/Remboursement/tree/Main">https://github.com/Maxenss-Bonnet/Remboursement/tree/Main</a></li>
+</ul>
+
+</body>
+</html>
