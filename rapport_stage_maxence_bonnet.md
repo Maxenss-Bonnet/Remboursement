@@ -23,8 +23,8 @@
 ---
 
 <div align="center">
-<img src="./captures/Logo_CPE.jpg" alt="Logo CPE Lyon" width="200"/>
-<img src="./captures/Logo_Natecia.png" alt="Logo Natécia" width="200"/>
+<img src="./captures/Logo_CPE.jpg" alt="Logo CPE Lyon" width="300"/>
+<img src="./captures/Logo_Natecia.png" alt="Logo Natécia" width="300"/>
 </div>
 
 ---

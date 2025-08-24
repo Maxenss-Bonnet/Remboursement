@@ -682,13 +682,13 @@ h2:nth-of-type(2) {
 /* SOMMAIRE ULTRA COMPACT - TIENT SUR UNE PAGE */
 h2:nth-of-type(2) + ul {
   /* Hauteur strictement limitée */
-  max-height: 180mm !important;
-  margin: 4pt 0;
-  padding: 8pt;
+  max-height: 160mm !important;
+  margin: 2pt 0;
+  padding: 6pt;
   
   /* 2 colonnes très compactes */
   columns: 2;
-  column-gap: 20pt;
+  column-gap: 15pt;
   column-fill: balance;
   
   /* Style simplifié pour compacité */
@@ -700,9 +700,9 @@ h2:nth-of-type(2) + ul {
   page-break-inside: avoid !important;
   break-inside: avoid !important;
   
-  /* Police compacte */
-  font-size: 8.5pt;
-  line-height: 1.25;
+  /* Police encore plus compacte */
+  font-size: 7.5pt;
+  line-height: 1.2;
   font-family: var(--font-secondary);
   
   /* Protection contre les coupures dans le sommaire */
@@ -713,10 +713,10 @@ h2:nth-of-type(2) + ul {
 
 /* SECTIONS PRINCIPALES - TRÈS COMPACTES */
 h2:nth-of-type(2) + ul > li {
-  margin: 3pt 0;
-  padding: 2pt 4pt;
+  margin: 1.5pt 0;
+  padding: 1pt 3pt;
   background: rgba(255, 255, 255, 0.6);
-  border-radius: 3px;
+  border-radius: 2px;
   border-left: 2px solid var(--color-accent);
   list-style: none;
   break-inside: avoid;
@@ -756,16 +756,16 @@ h2:nth-of-type(2) + ul > li > a:hover {
 
 /* SOUS-SECTIONS - TRÈS COMPACTES */
 h2:nth-of-type(2) + ul ul {
-  margin: 2pt 0 0 0;
-  padding-left: 12pt; /* Indentation réduite */
-  font-size: 7.5pt;
+  margin: 1pt 0 0 0;
+  padding-left: 8pt; /* Indentation encore plus réduite */
+  font-size: 6.5pt;
   border-left: 1px dotted var(--color-accent-light);
 }
 
 /* SOUS-SECTIONS - ULTRA COMPACTES */
 h2:nth-of-type(2) + ul ul li {
-  margin: 1pt 0;
-  padding: 1pt 2pt;
+  margin: 0.5pt 0;
+  padding: 0.5pt 1pt;
   background: transparent;
   list-style: none;
   break-inside: avoid;
@@ -930,12 +930,12 @@ hr {
 /* =============================================
    CORRECTION IMAGES : Tailles plus lisibles
    ============================================= */
-/* IMAGES STANDARDISÉES */
+/* IMAGES STANDARDISÉES - PLUS GRANDES */
 img {
   display: block;
   margin: var(--spacing-sm) auto;
-  max-width: 40%; /* Largeur standardisée */
-  max-height: 40mm; /* Hauteur standardisée */
+  max-width: 60%; /* Largeur augmentée */
+  max-height: 55mm; /* Hauteur augmentée */
   height: auto;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
@@ -955,14 +955,14 @@ img:hover {
   box-shadow: var(--shadow-lg);
 }
 
-/* Diagrammes et figures - STANDARDISÉS */
+/* Diagrammes et figures - PLUS GRANDS */
 img[src*="figure-"],
 img[src*="diagram"],
 img[alt*="Figure"],
 img[alt*="Diagramme"],
 img[alt*="Schéma"] {
-  max-width: 80% !important;
-  max-height: 60mm !important;
+  max-width: 95% !important;
+  max-height: 80mm !important;
   width: auto !important;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -971,14 +971,14 @@ img[alt*="Schéma"] {
   box-shadow: var(--shadow-sm);
 }
 
-/* Captures d'écran - STANDARDISÉES */
+/* Captures d'écran - PLUS GRANDES */
 img[src*="ndf_"],
 img[src*="pdg_"],
 img[src*="remboursement_"],
 img[alt*="Capture"],
 img[alt*="capture"] {
-  max-width: 40% !important;
-  max-height: 30mm !important;
+  max-width: 65% !important;
+  max-height: 45mm !important;
   border: 1px solid var(--color-accent-light);
   border-radius: 4px;
   box-shadow: var(--shadow-sm);
@@ -987,16 +987,30 @@ img[alt*="capture"] {
   margin: var(--spacing-xs) auto;
 }
 
-/* Google Sheets capture - STANDARDISÉE */
+/* Google Sheets capture - PLUS GRANDE */
 img[src*="pdg_sheets"],
 img[src*="sheets_row"],
 img[alt*="Google Sheets"],
 img[alt*="export"] {
-  max-width: 70% !important;
-  max-height: 40mm !important;
+  max-width: 85% !important;
+  max-height: 50mm !important;
   border: 1px solid var(--color-accent);
   background: white;
   padding: 2pt;
+}
+
+/* Interface principale application - MÊME TAILLE QUE CAPTURES */
+img[src*="ndf_main"],
+img[alt*="Interface de l'application"],
+img[alt*="Interface de l'application \"Notes de Frais\""] {
+  max-width: 65% !important;
+  max-height: 45mm !important;
+  border: 1px solid var(--color-accent-light);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  background: var(--color-bg-primary);
+  display: block;
+  margin: var(--spacing-xs) auto;
 }
 
 /* Images de présentation - STANDARDISÉES */
@@ -1008,21 +1022,21 @@ img[alt*="Présentation"] {
   border: 1px solid var(--color-border);
 }
 
-/* LOGOS PAGE DE GARDE - COMPACTS */
+/* LOGOS PAGE DE GARDE - PLUS GRANDS */
 div[align="center"] {
   display: flex;
   justify-content: space-evenly;
   align-items: center;
   flex-wrap: wrap;
-  gap: 40pt; /* Espacement réduit */
+  gap: 40pt;
   margin: var(--spacing-md) auto var(--spacing-md);
-  padding: var(--spacing-sm); /* Padding réduit */
+  padding: var(--spacing-sm);
 }
 
 div[align="center"] img {
   display: block;
   margin: 0;
-  max-height: 18mm; /* Taille réduite pour compacité */
+  max-height: 25mm; /* Taille augmentée pour meilleure visibilité */
   width: auto;
   border-radius: 6px;
   transition: transform 0.3s ease;
@@ -1185,10 +1199,10 @@ figure:has(img[src*="diagram"]) figcaption {
   position: relative;
 }
 
-/* Images dans la grille mobile - STANDARDISÉES */
+/* Images dans la grille mobile - PLUS GRANDES */
 .mobile-grid img {
   max-width: 100% !important;
-  max-height: 25mm !important;
+  max-height: 35mm !important;
   border-radius: 3px;
   border: 1px solid var(--color-border-light);
   page-break-inside: avoid !important;
@@ -1708,52 +1722,52 @@ h3[id*="fonctions-cles"] + ul::before {
     page-break-after: avoid !important;
   }
   
-  /* Sommaire impression - 2 colonnes professionnelles */
+  /* Sommaire impression - 2 colonnes ultra compactes */
   h2:nth-of-type(2) + ul {
-    max-height: 240mm;
-    margin: var(--spacing-md) 0;
-    padding: var(--spacing-lg);
+    max-height: 200mm;
+    margin: var(--spacing-sm) 0;
+    padding: var(--spacing-md);
     columns: 2;
-    column-gap: var(--spacing-2xl);
+    column-gap: var(--spacing-lg);
     column-fill: balance;
     background: white;
     border: 1px solid #333;
     border-radius: 4px;
     page-break-inside: avoid !important;
-    font-size: 10pt;
-    line-height: 1.3;
+    font-size: 8pt;
+    line-height: 1.2;
     /* Suppression des effets pour impression */
     box-shadow: none !important;
   }
   
   h2:nth-of-type(2) + ul > li {
-    margin: var(--spacing-sm) 0;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    margin: var(--spacing-xs) 0;
+    padding: 1pt var(--spacing-xs);
     background: rgba(255, 255, 255, 0.7);
-    border-radius: 6px;
-    border-left: 3px solid var(--color-accent);
+    border-radius: 4px;
+    border-left: 2px solid var(--color-accent);
     break-inside: avoid;
     list-style: none;
   }
   
   h2:nth-of-type(2) + ul ul {
-    margin: var(--spacing-xs) 0 0 var(--spacing-sm);
-    font-size: 8.5pt;
+    margin: 1pt 0 0 var(--spacing-xs);
+    font-size: 7pt;
   }
   
   h2:nth-of-type(2) + ul ul li {
-    margin: 2pt 0;
-    padding: 2pt 4pt;
+    margin: 1pt 0;
+    padding: 1pt 2pt;
     background: rgba(255, 255, 255, 0.5);
-    border-radius: 4px;
+    border-radius: 2px;
     break-inside: avoid;
     list-style: none;
   }
 
-  /* Images standardisées pour impression */
+  /* Images plus grandes pour impression */
   img {
-    max-width: 40% !important;
-    max-height: 35mm !important;
+    max-width: 60% !important;
+    max-height: 50mm !important;
     page-break-inside: avoid !important;
     border: 1px solid #000 !important;
     background: white !important;
@@ -1761,16 +1775,16 @@ h3[id*="fonctions-cles"] + ul::before {
     margin: 6pt auto !important;
   }
   
-  /* Diagrammes légèrement plus grands */
+  /* Diagrammes beaucoup plus grands */
   img[src*="figure-"],
   img[src*="diagram"] {
-    max-width: 70% !important;
-    max-height: 50mm !important;
+    max-width: 90% !important;
+    max-height: 70mm !important;
   }
   
-  /* Logos page de garde */
+  /* Logos page de garde - plus grands */
   div[align="center"] img {
-    max-height: 15mm !important;
+    max-height: 22mm !important;
   }
 
   /* Grille mobile très compacte pour l'impression */
@@ -1782,7 +1796,7 @@ h3[id*="fonctions-cles"] + ul::before {
   }
 
   .mobile-grid img {
-    max-height: 40mm !important;
+    max-height: 50mm !important;
   }
 
   .mobile-grid::before {
