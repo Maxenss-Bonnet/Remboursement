@@ -61,17 +61,17 @@
   --spacing-2xl: 32pt;
   --spacing-3xl: 48pt;
 
-  /* Tailles de police hiérarchiques */
-  --font-size-h1: 32pt;
-  --font-size-h1-title: 36pt;
-  --font-size-h2: 22pt;
-  --font-size-h3: 17pt;
-  --font-size-h4: 14pt;
-  --font-size-h5: 12pt;
-  --font-size-h6: 10pt;
-  --font-size-body: 11pt;
-  --font-size-small: 10pt;
-  --font-size-caption: 9.5pt;
+  /* Tailles de police optimisées pour compacité */
+  --font-size-h1: 24pt;
+  --font-size-h1-title: 28pt;
+  --font-size-h2: 18pt;
+  --font-size-h3: 14pt;
+  --font-size-h4: 12pt;
+  --font-size-h5: 10pt;
+  --font-size-h6: 9pt;
+  --font-size-body: 9.5pt;
+  --font-size-small: 8.5pt;
+  --font-size-caption: 8pt;
 
   /* Hauteurs de ligne optimisées */
   --line-height-tight: 1.2;
@@ -118,7 +118,7 @@ body::after {
   
   /* Optimisations pour la conversion Word via Puppeteer */
   body {
-    font-size: 11pt !important;
+    font-size: 9.5pt !important;
     line-height: 1.5 !important;
     -webkit-font-smoothing: subpixel-antialiased;
   }
@@ -583,7 +583,7 @@ p + p {
 /* Paragraphes d'introduction avec style distinctif */
 h2 + p:first-of-type,
 h3 + p:first-of-type {
-  font-size: 11.5pt;
+  font-size: 10pt;
   color: var(--color-text-light);
   margin-bottom: var(--spacing-lg);
   font-weight: 500;
@@ -637,8 +637,8 @@ a[href^="#"]:hover {
 /* Titre du sommaire */
 h2:nth-of-type(2) {
   text-align: center;
-  font-size: 28pt;
-  margin: var(--spacing-md) 0 var(--spacing-sm) 0; /* Marges réduites */
+  font-size: 22pt;
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
   color: var(--color-accent);
   font-weight: 700;
   border-bottom: 2px solid var(--color-accent);
@@ -669,7 +669,7 @@ h2:nth-of-type(2) + ul {
   /* Supprimé page-break-after: always pour éviter la page vide */
   
   /* Police et espacement - RÉDUITE pour afficher tout le contenu */
-  font-size: 13pt;
+  font-size: 11pt;
   line-height: 1.4;
 }
 
@@ -701,7 +701,7 @@ h2:nth-of-type(2) + ul > li > a:hover {
 h2:nth-of-type(2) + ul ul {
   margin: var(--spacing-xs) 0 0 var(--spacing-sm);
   padding-left: var(--spacing-sm);
-  font-size: 9pt;
+  font-size: 8.5pt;
 }
 
 /* Éléments de sous-niveau */
@@ -865,14 +865,14 @@ img:hover {
   box-shadow: var(--shadow-lg);
 }
 
-/* CORRECTION : Diagrammes et figures techniques - BEAUCOUP PLUS GRANDS */
+/* CORRECTION : Diagrammes et figures techniques - TAILLE OPTIMISÉE */
 img[src*="figure-"],
 img[src*="diagram"],
 img[alt*="Figure"],
 img[alt*="Diagramme"],
 img[alt*="Schéma"] {
   max-width: 100% !important;
-  max-height: 200mm !important; /* Augmenté significativement */
+  max-height: 150mm !important; /* Réduit pour compacité */
   width: auto !important;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -881,14 +881,14 @@ img[alt*="Schéma"] {
   box-shadow: var(--shadow-md);
 }
 
-/* CORRECTION : Captures d'écran - Taille plus lisible */
+/* CORRECTION : Captures d'écran - Taille optimisée */
 img[src*="ndf_"],
 img[src*="pdg_"],
 img[src*="remboursement_"],
 img[alt*="Capture"],
 img[alt*="capture"] {
-  max-width: 50% !important;
-  max-height: 120mm !important; /* Augmenté pour meilleure lisibilité */
+  max-width: 45% !important;
+  max-height: 90mm !important; /* Réduit pour compacité */
   border: 1px solid var(--color-accent-light);
   border-radius: 8px;
   box-shadow: var(--shadow-md);
@@ -897,13 +897,13 @@ img[alt*="capture"] {
   margin: var(--spacing-md) auto;
 }
 
-/* CORRECTION SPÉCIALE : Google Sheets capture - BEAUCOUP PLUS GRANDE */
+/* CORRECTION SPÉCIALE : Google Sheets capture - TAILLE OPTIMISÉE */
 img[src*="pdg_sheets"],
 img[src*="sheets_row"],
 img[alt*="Google Sheets"],
 img[alt*="export"] {
-  max-width: 95% !important;
-  max-height: 150mm !important;
+  max-width: 80% !important;
+  max-height: 120mm !important;
   border: 2px solid var(--color-accent);
   background: white;
   padding: var(--spacing-sm);
@@ -912,7 +912,7 @@ img[alt*="export"] {
 /* Images de présentation (logos, sites) */
 img[src*="natecia_site"],
 img[alt*="Présentation"] {
-  max-width: 85%;
+  max-width: 70%;
   border-radius: 8px;
   border: 1px solid var(--color-border);
 }
@@ -935,7 +935,7 @@ div[align="center"] {
 div[align="center"] img {
   display: block;
   margin: 0;
-  max-height: 40mm; /* Taille encore augmentée pour plus de visibilité */
+  max-height: 30mm; /* Taille optimisée pour compacité */
   width: auto;
   /* Suppression de tous les fonds et bordures décoratives */
   border-radius: 8px;
@@ -1037,7 +1037,7 @@ figure:has(img[src*="diagram"]) {
 figure:has(img[src*="figure-"]) img,
 figure:has(img[src*="diagram"]) img {
   max-width: 100% !important;
-  max-height: 220mm !important;
+  max-height: 160mm !important;
   width: auto !important;
 }
 
@@ -1098,10 +1098,10 @@ figure:has(img[src*="diagram"]) figcaption {
   position: relative;
 }
 
-/* Images dans la grille mobile - OPTIMISÉES */
+/* Images dans la grille mobile - COMPACTES */
 .mobile-grid img {
   max-width: 100% !important;
-  max-height: 120mm !important; /* Augmenté pour meilleure visibilité */
+  max-height: 85mm !important; /* Réduit pour compacité */
   border-radius: 6px;
   border: 1px solid var(--color-border-light);
   page-break-inside: avoid !important;
@@ -1118,11 +1118,11 @@ figure:has(img[src*="diagram"]) figcaption {
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 
-/* Légendes dans la grille mobile - plus lisibles */
+/* Légendes dans la grille mobile - optimisées */
 .mobile-grid figcaption {
-  font-size: 9.5pt !important; /* Légèrement augmenté */
+  font-size: 8pt !important; /* Réduit pour compacité */
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm); /* Augmenté */
+  padding: var(--spacing-sm);
   background: var(--color-bg-accent);
   border-radius: 4px;
   color: var(--color-text-light);
@@ -1187,7 +1187,7 @@ thead th {
   border-bottom: 2px solid var(--color-accent);
   padding: var(--spacing-sm) var(--spacing-md);
   text-align: left;
-  font-size: 9pt;
+  font-size: 8.5pt;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -1529,7 +1529,7 @@ h3[id*="fonctions-cles"] + ul::before {
   left: var(--spacing-md);
   background: var(--color-bg-primary);
   padding: var(--spacing-xs) var(--spacing-sm);
-  font-size: 9pt;
+  font-size: 8.5pt;
   font-weight: 600;
   color: var(--color-accent-dark);
   border-radius: 4px;
@@ -1569,14 +1569,14 @@ h3[id*="fonctions-cles"] + ul::before {
   /* SOMMAIRE IMPRESSION SIMPLE */
   h2:nth-of-type(2) {
     text-align: center;
-    font-size: 28pt;
+    font-size: 22pt;
     margin: var(--spacing-md) 0 var(--spacing-sm) 0;
     color: var(--color-accent);
     page-break-after: avoid !important;
   }
   
   h2:nth-of-type(2) + ul {
-    max-height: 240mm;
+    max-height: 220mm;
     margin: var(--spacing-md) 0;
     padding: var(--spacing-md);
     columns: 2;
@@ -1587,7 +1587,7 @@ h3[id*="fonctions-cles"] + ul::before {
     border-radius: 12px;
     page-break-inside: avoid !important;
     /* Supprimé page-break-after: always pour éviter la page vide */
-    font-size: 13pt;
+    font-size: 11pt;
     line-height: 1.4;
   }
   
@@ -1603,7 +1603,7 @@ h3[id*="fonctions-cles"] + ul::before {
   
   h2:nth-of-type(2) + ul ul {
     margin: var(--spacing-xs) 0 0 var(--spacing-sm);
-    font-size: 9pt;
+    font-size: 8.5pt;
   }
   
   h2:nth-of-type(2) + ul ul li {
@@ -1621,7 +1621,7 @@ h3[id*="fonctions-cles"] + ul::before {
   figure:has(img[src*="figure-"]) img,
   figure:has(img[src*="diagram"]) img {
     max-width: 100% !important;
-    max-height: 200mm !important;
+    max-height: 140mm !important;
     page-break-inside: avoid !important;
   }
 
@@ -1629,15 +1629,15 @@ h3[id*="fonctions-cles"] + ul::before {
   img[src*="ndf_"],
   img[src*="pdg_"],
   img[src*="remboursement_"] {
-    max-width: 50% !important;
-    max-height: 120mm !important;
+    max-width: 45% !important;
+    max-height: 85mm !important;
   }
 
   /* Capture Google Sheets spéciale */
   img[src*="pdg_sheets"],
   img[src*="sheets_row"] {
-    max-width: 95% !important;
-    max-height: 150mm !important;
+    max-width: 80% !important;
+    max-height: 110mm !important;
   }
 
   /* Grille mobile pour l'impression */
@@ -1649,7 +1649,7 @@ h3[id*="fonctions-cles"] + ul::before {
   }
 
   .mobile-grid img {
-    max-height: 120mm !important;
+    max-height: 85mm !important;
   }
 
   .mobile-grid::before {
@@ -1705,7 +1705,7 @@ h3[id*="fonctions-cles"] + ul::before {
   
   /* Images dans grilles mobiles - tailles optimisées */
   .mobile-grid img {
-    max-height: 100mm !important; /* Augmenté pour meilleure visibilité */
+    max-height: 75mm !important; /* Réduit pour compacité */
   }
 
   /* Optimisation complète pour l'impression */
