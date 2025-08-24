@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm search:*)",
+      "Bash(claude mcp)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enabledMcpjsonServers": [
+    "playwright",
+    "context7"
+  ],
+  "outputStyle": "default"
+}

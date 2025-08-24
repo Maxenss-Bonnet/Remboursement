@@ -61,17 +61,17 @@
   --spacing-2xl: 32pt;
   --spacing-3xl: 48pt;
 
-  /* Tailles de police hiérarchiques */
+  /* Tailles de police hiérarchiques - MASSIVEMENT AUGMENTÉES */
   --font-size-h1: 32pt;
-  --font-size-h1-title: 36pt;
-  --font-size-h2: 22pt;
-  --font-size-h3: 17pt;
-  --font-size-h4: 14pt;
-  --font-size-h5: 12pt;
-  --font-size-h6: 10pt;
-  --font-size-body: 11pt;
-  --font-size-small: 10pt;
-  --font-size-caption: 9.5pt;
+  --font-size-h1-title: 42pt;
+  --font-size-h2: 28pt;
+  --font-size-h3: 22pt;
+  --font-size-h4: 18pt;
+  --font-size-h5: 15pt;
+  --font-size-h6: 13pt;
+  --font-size-body: 15pt;
+  --font-size-small: 13pt;
+  --font-size-caption: 12pt;
 
   /* Hauteurs de ligne optimisées */
   --line-height-tight: 1.2;
@@ -118,7 +118,7 @@ body::after {
   
   /* Optimisations pour la conversion Word via Puppeteer */
   body {
-    font-size: 11pt !important;
+    font-size: 15pt !important;
     line-height: 1.5 !important;
     -webkit-font-smoothing: subpixel-antialiased;
   }
@@ -135,55 +135,292 @@ body::after {
     box-shadow: var(--shadow-md);
     border: 1px solid var(--color-border-light);
     border-radius: 12px;
+    position: relative;
   }
+  
+  /* FOND DÉCORATIF SUBTIL POUR LA PREMIÈRE PAGE - SUPPRIMÉ */
+  /* body::before supprimé pour enlever le fond bleu */
+  
+  /* S'assurer que le contenu reste au-dessus - PLUS NÉCESSAIRE */
+  /* body > * z-index supprimé car plus de fond décoratif */
 }
 
-/* Gestion avancée des coupures de page */
+/* GESTION STRICTE des coupures de page pour tous les éléments */
 p, blockquote, pre, table, ul, ol, figure {
   page-break-inside: avoid;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
   orphans: 3;
   widows: 3;
 }
 
-h1, h2, h3, h4 {
-  page-break-after: avoid;
-  orphans: 4;
-  widows: 4;
+/* Protection spéciale pour les listes du sommaire */
+ul:has(a[href^="#"]) {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
 }
 
-/* CORRECTION MAJEURE : Forcer TOUS les titres principaux sur une nouvelle page */
-h2 {
-  page-break-before: always !important;
-  break-before: page !important;
-  -webkit-column-break-before: always !important;
+/* PAGINATION CLAIRE ET DÉFINITIVE POUR TOUS LES TITRES */
+
+/* H1 - Titre principal : reste sur la première page, pas de nouvelle page */
+h1 {
+  page-break-before: avoid !important;
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  orphans: 5 !important;
+  widows: 5 !important;
   margin-top: 0 !important;
-  padding-top: var(--spacing-md) !important;
 }
 
-/* Exception pour le premier H2 (après le titre principal) qui ne doit pas créer de saut */
-h1:first-of-type + hr + * + h2,
-body > h2:first-of-type {
-  page-break-before: auto !important;
-  break-before: auto !important;
-  -webkit-column-break-before: auto !important;
-}
-
-/* Gestion spécifique des H1 de chapitre */
+/* H1 supplémentaires (autres chapitres) : nouvelle page */
 h1:not(:first-of-type) {
   page-break-before: always !important;
   margin-top: 0 !important;
 }
 
-/* Éviter les titres orphelins en bas de page */
-h2, h3, h4 {
+/* H2 - TOUS commencent sur nouvelle page SAUF le premier (Résumé) */
+h2 {
+  page-break-before: always !important;
   page-break-after: avoid !important;
   break-after: avoid !important;
+  orphans: 30 !important;
+  widows: 30 !important;
+  margin-top: 0 !important;
+  min-height: 80mm; /* Force suffisamment de contenu après le titre */
 }
 
-/* Garde les sous-titres avec leur contenu */
+/* EXCEPTION : Le premier H2 (Résumé) ne crée pas de page vide */
+h2:first-of-type {
+  page-break-before: avoid !important; /* Évite la page vide après logos */
+  margin-top: var(--spacing-xl) !important;
+}
+
+/* H3/H4 - Sous-titres : JAMAIS de nouvelle page, toujours avec contenu */
 h3, h4, h5, h6 {
-  page-break-after: avoid;
-  margin-bottom: var(--spacing-sm);
+  page-break-before: avoid !important;
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  orphans: 15 !important;
+  widows: 15 !important;
+  min-height: 3em; /* Force du contenu après */
+}
+
+/* PROTECTION ABSOLUE CONTRE LES TITRES SÉPARÉS DE LEUR CONTENU */
+
+/* Créer un conteneur virtuel inséparable pour H2 + son contenu immédiat */
+h2,
+h2 + *,
+h2 + * + * {
+  /* Créer un bloc table inséparable */
+  display: table !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid-page !important;
+  -webkit-column-break-inside: avoid !important;
+  
+  /* Protection extrême contre les coupures */
+  orphans: 50 !important;
+  widows: 50 !important;
+  
+  /* Forcer le moteur de rendu à considérer comme un seul élément */
+  contain: layout style !important;
+}
+
+/* Protection pour H3/H4 avec leur contenu */
+h3,
+h3 + *,
+h4,
+h4 + * {
+  display: table !important;
+  width: 100% !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid-page !important;
+  orphans: 25 !important;
+  widows: 25 !important;
+  margin-top: 0 !important;
+}
+
+/* Méthode alternative : utiliser display: flex pour créer un conteneur inséparable */
+@supports (display: flex) {
+  /* Pour les navigateurs supportant flexbox */
+  h2, h2 + *, h2 + * + * {
+    display: flex !important;
+    flex-direction: column !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+}
+
+/* Protection supplémentaire pour les premiers éléments après titres */
+h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
+  page-break-before: avoid !important;
+  break-before: avoid-page !important;
+  -webkit-column-break-before: avoid !important;
+  margin-top: 0 !important;
+  
+  /* Forcer un minimum de contenu visible avec le titre */
+  min-height: 30mm !important;
+}
+
+/* Les quatre premiers éléments après un titre restent avec lui */
+h1 + * + *, h2 + * + *, h3 + * + *, h4 + * + *, h5 + * + *, h6 + * + *,
+h1 + * + * + *, h2 + * + * + *, h3 + * + * + *, h4 + * + * + *, h5 + * + * + *, h6 + * + * + *,
+h1 + * + * + * + *, h2 + * + * + * + *, h3 + * + * + * + *, h4 + * + * + * + *, h5 + * + * + * + *, h6 + * + * + * + * {
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+  -webkit-column-break-before: avoid !important;
+  orphans: 10 !important;
+  widows: 10 !important;
+  display: inline-block !important;
+  width: 100% !important;
+}
+
+/* Protection spéciale pour les figures et images après titres */
+h1 + figure, h2 + figure, h3 + figure, h4 + figure, h5 + figure, h6 + figure,
+h1 + img, h2 + img, h3 + img, h4 + img, h5 + img, h6 + img,
+h1 + p + figure, h2 + p + figure, h3 + p + figure, h4 + p + figure, h5 + p + figure, h6 + p + figure,
+h1 + p + img, h2 + p + img, h3 + p + img, h4 + p + img, h5 + p + img, h6 + p + img {
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+  -webkit-column-break-before: avoid !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+}
+
+/* Protection pour les listes après titres */
+h1 + ul, h2 + ul, h3 + ul, h4 + ul, h5 + ul, h6 + ul,
+h1 + ol, h2 + ol, h3 + ol, h4 + ol, h5 + ol, h6 + ol,
+h1 + p + ul, h2 + p + ul, h3 + p + ul, h4 + p + ul, h5 + p + ul, h6 + p + ul,
+h1 + p + ol, h2 + p + ol, h3 + p + ol, h4 + p + ol, h5 + p + ol, h6 + p + ol {
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+  -webkit-column-break-before: avoid !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+}
+
+/* Protection pour les tableaux après titres */
+h1 + table, h2 + table, h3 + table, h4 + table, h5 + table, h6 + table,
+h1 + p + table, h2 + p + table, h3 + p + table, h4 + p + table, h5 + p + table, h6 + p + table {
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+  -webkit-column-break-before: avoid !important;
+}
+
+/* ✅ Les règles H3/H4 sont maintenant définies dans la section "PAGINATION CLAIRE ET DÉFINITIVE" */
+
+/* ✅ Protection "Analyse IA" et toutes captures maintenant gérées par les règles générales ci-dessous */
+
+/* PROTECTION MAXIMALE CONTRE LES CAPTURES COUPÉES */
+
+/* Toutes les images dans captures/ : protection extrême */
+img[src*="captures/"] {
+  /* Forcer en bloc complet pour éviter toute coupure */
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  
+  /* Protection absolue contre les coupures de page */
+  page-break-before: avoid !important;
+  page-break-after: avoid !important;
+  page-break-inside: avoid-page !important;
+  break-before: avoid-page !important;
+  break-after: avoid-page !important;
+  break-inside: avoid-page !important;
+  -webkit-column-break-inside: avoid !important;
+  
+  /* Protection extrême avec orphans/widows */
+  orphans: 100 !important;
+  widows: 100 !important;
+  
+  /* Forcer un espace minimum pour éviter les coupures */
+  min-height: 50mm !important;
+  margin: 20pt 0 !important;
+  
+  /* Forcer le navigateur à traiter comme un seul élément */
+  contain: layout style !important;
+}
+
+/* Protection des conteneurs : figure, div, p avec captures */
+figure:has(img[src*="captures/"]), 
+div:has(img[src*="captures/"]),
+p:has(img[src*="captures/"]) {
+  /* Créer un bloc table inséparable pour le conteneur */
+  display: table !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  
+  /* Protection absolue contre les coupures */
+  page-break-before: avoid !important;
+  page-break-after: avoid !important;
+  page-break-inside: avoid-page !important;
+  break-before: avoid-page !important;
+  break-after: avoid-page !important;
+  break-inside: avoid-page !important;
+  
+  /* Protection extrême */
+  orphans: 100 !important;
+  widows: 100 !important;
+  
+  /* Assurer suffisamment d'espace */
+  min-height: 60mm !important;
+  margin: 20pt 0 !important;
+  
+  /* Forcer comme un seul élément */
+  contain: layout style paint !important;
+}
+
+/* Protection spéciale pour figure + img + figcaption ensemble */
+figure {
+  /* Traiter figure comme un bloc indivisible */
+  display: table !important;
+  width: 100% !important;
+  page-break-inside: avoid-page !important;
+  break-inside: avoid-page !important;
+  orphans: 100 !important;
+  widows: 100 !important;
+  margin: 20pt 0 !important;
+}
+
+/* Figcaption : toujours avec son image */
+figcaption {
+  display: table-caption !important;
+  caption-side: bottom !important;
+  width: 100% !important;
+  
+  /* Protection contre coupures */
+  page-break-before: avoid !important;
+  page-break-after: avoid !important;
+  page-break-inside: avoid !important;
+  break-before: avoid-page !important;
+  break-after: avoid-page !important;
+  break-inside: avoid-page !important;
+  
+  orphans: 50 !important;
+  widows: 50 !important;
+  
+  /* Style visuel */
+  font-style: italic !important;
+  font-size: calc(var(--font-size-body) - 2pt) !important;
+  color: var(--color-text-light) !important;
+  text-align: center !important;
+  margin: 10pt 0 !important;
+  padding: 5pt !important;
+}
+
+/* Méthode alternative avec flexbox pour navigateurs compatibles */
+@supports (display: flex) {
+  figure:has(img[src*="captures/"]) {
+    display: flex !important;
+    flex-direction: column !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
 }
 
 /* =============================================
@@ -228,28 +465,40 @@ h1 {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Style spécifique au premier H1 (page de garde) */
+/* TITRE SIMPLE DE LA PAGE DE GARDE - SANS FOND */
 h1:first-of-type {
   text-align: center;
   font-size: var(--font-size-h1-title);
-  margin-top: 8vh;
+  margin-top: 4vh;
   margin-bottom: var(--spacing-lg);
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  /* Couleur bleue simple sans fond */
+  color: var(--color-accent);
   font-weight: 900;
-  text-shadow: none;
 }
+
+/* Fond décoratif derrière le titre - SUPPRIMÉ */
+/* h1:first-of-type::before supprimé pour enlever le fond gris */
+
+/* Animation moderne du dégradé - SUPPRIMÉE */
+/* @keyframes titleGlow supprimée car plus de dégradé */
+
+/* Effet décoratif sous le titre - SUPPRIMÉ */
+/* h1:first-of-type::after supprimé pour avoir un titre totalement épuré */
+
+/* Animation pour la ligne décorative - SUPPRIMÉE */
+/* @keyframes lineShimmer supprimée car plus nécessaire */
+}
+
+/* Ancien effet supprimé - remplacé par le nouveau design */
 
 /* H2 - Sections principales avec indicateur visuel */
 h2 {
   font-size: var(--font-size-h2);
   line-height: var(--line-height-tight);
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-md); /* Réduit pour économiser l'espace */
   border-bottom: 2px solid var(--color-accent);
-  padding-bottom: var(--spacing-sm);
-  padding-top: var(--spacing-md);
+  padding-bottom: var(--spacing-xs); /* Réduit */
+  padding-top: var(--spacing-sm); /* Réduit */
   position: relative;
   font-weight: 700;
   color: var(--color-text);
@@ -306,13 +555,35 @@ h6 {
   letter-spacing: 0.05em;
 }
 
-/* Paragraphes avec alignement justifié et espacement optimisé */
+/* PARAGRAPHES AVEC PROTECTION RENFORCÉE */
 p {
   margin: 0 0 var(--spacing-md) 0;
   text-align: justify;
   hyphens: auto;
   line-height: var(--line-height-relaxed);
   word-spacing: 0.1em;
+  /* Protection contre les coupures de paragraphe */
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  orphans: 4 !important;
+  widows: 4 !important;
+}
+
+/* RÈGLES SPÉCIALES POUR PARAGRAPHES IMMÉDIATEMENT APRÈS TITRES */
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  /* Protection ultra-renforcée */
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  orphans: 8 !important;
+  widows: 8 !important;
+  /* Coller au titre */
+  padding-top: var(--spacing-xs);
+  display: inline-block;
+  width: 100%;
 }
 
 /* Amélioration de la lisibilité pour les paragraphes consécutifs */
@@ -324,7 +595,7 @@ p + p {
 /* Paragraphes d'introduction avec style distinctif */
 h2 + p:first-of-type,
 h3 + p:first-of-type {
-  font-size: 11.5pt;
+  font-size: 16pt;
   color: var(--color-text-light);
   margin-bottom: var(--spacing-lg);
   font-weight: 500;
@@ -371,49 +642,122 @@ a[href^="#"]:hover {
   color: var(--color-accent-dark);
 }
 
-/* CORRECTION SOMMAIRE : Optimisation pour tenir sur une page */
-h2 + ul {
-  font-size: 9.5pt !important;
-  line-height: 1.3 !important;
-  columns: 2 !important;
-  column-gap: var(--spacing-lg) !important;
-  column-fill: balance !important;
-  margin: var(--spacing-md) 0 var(--spacing-xl) 0 !important;
-  padding: var(--spacing-lg) !important;
-  background: linear-gradient(135deg, #f9fbfd, #f4f7fb, #eef2f7);
+/* =============================================
+   SOMMAIRE SIMPLE ET COMPATIBLE MARKDOWN PDF
+   ============================================= */
+
+/* Titre du sommaire */
+h2:nth-of-type(2) {
+  text-align: center;
+  font-size: 28pt;
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0; /* Marges réduites */
+  color: var(--color-accent);
+  font-weight: 700;
+  border-bottom: 2px solid var(--color-accent);
+  padding-bottom: var(--spacing-sm);
+}
+
+/* Liste principale du sommaire */
+h2:nth-of-type(2) + ul {
+  /* Utilise presque toute la hauteur disponible */
+  max-height: 295mm;
+  margin: var(--spacing-md) 0; /* Marges réduites pour plus d'espace */
+  padding: var(--spacing-md); /* Padding réduit pour plus de contenu */
+  
+  /* Organisation en 2 colonnes */
+  columns: 2;
+  column-gap: var(--spacing-2xl);
+  column-fill: balance;
+  
+  /* Style visuel */
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9, #e2e8f0);
   border: 2px solid var(--color-border);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
-  max-height: 240mm !important; /* Force le sommaire à ne pas dépasser */
+  
+  /* Pagination - SANS page vide forcée */
   page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  /* Supprimé page-break-after: always pour éviter la page vide */
+  
+  /* Police et espacement - RÉDUITE pour afficher tout le contenu */
+  font-size: 13pt;
+  line-height: 1.4;
 }
 
-/* Réduction des espacements dans le sommaire */
-h2 + ul li {
-  margin: 2pt 0 !important;
-  padding: 1pt 4pt !important;
+/* Éléments de premier niveau */
+h2:nth-of-type(2) + ul > li {
+  margin: var(--spacing-sm) 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  border-left: 3px solid var(--color-accent);
+  list-style: none;
   break-inside: avoid;
-  font-size: inherit;
 }
 
-h2 + ul ul {
-  margin: 1pt 0 2pt var(--spacing-sm) !important;
-  padding-left: var(--spacing-sm) !important;
-  font-size: 9pt !important;
+/* Liens de premier niveau */
+h2:nth-of-type(2) + ul > li > a {
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom: none;
+  display: block;
 }
 
-h2 + ul ul li {
-  margin: 1pt 0 !important;
-  padding: 0 2pt !important;
+h2:nth-of-type(2) + ul > li > a:hover {
+  color: var(--color-accent);
 }
 
-/* Listes avec espacement et puces personnalisées */
+/* Sous-listes */
+h2:nth-of-type(2) + ul ul {
+  margin: var(--spacing-xs) 0 0 var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  font-size: 12pt;
+}
+
+/* Éléments de sous-niveau */
+h2:nth-of-type(2) + ul ul li {
+  margin: 2pt 0;
+  padding: 2pt 4pt;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  list-style: none;
+  break-inside: avoid;
+}
+
+/* Liens de sous-niveau */
+h2:nth-of-type(2) + ul ul a {
+  font-weight: 500;
+  color: var(--color-text-light);
+  text-decoration: none;
+  border-bottom: none;
+}
+
+h2:nth-of-type(2) + ul ul a:hover {
+  color: var(--color-accent);
+}
+
+/* =============================================
+   LISTES NORMALES (hors sommaire)
+   ============================================= */
+
+/* LISTES INSÉPARABLES avec espacement et puces personnalisées */
 ul, ol {
   margin: 0 0 var(--spacing-lg) 0;
   padding-left: 24pt;
   line-height: var(--line-height-loose);
+  /* PROTECTION ABSOLUE des listes */
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+  /* Limiter la hauteur pour forcer un saut AVANT si nécessaire */
+  max-height: 200mm;
+  /* Forcer l'affichage en bloc inséparable */
+  display: inline-block;
+  width: 100%;
+  orphans: 10 !important;
+  widows: 10 !important;
 }
 
 li {
@@ -421,6 +765,11 @@ li {
   text-align: justify;
   position: relative;
   padding-left: var(--spacing-xs);
+  /* Protection des éléments de liste */
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  orphans: 3 !important;
+  widows: 3 !important;
 }
 
 /* Listes imbriquées avec indentation progressive */
@@ -500,6 +849,7 @@ hr {
 /* =============================================
    CORRECTION IMAGES : Tailles plus lisibles
    ============================================= */
+/* PROTECTION ABSOLUE DE TOUTES LES IMAGES */
 img {
   display: block;
   margin: var(--spacing-lg) auto;
@@ -510,7 +860,16 @@ img {
   border-radius: 8px;
   box-shadow: var(--shadow-md);
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-  page-break-inside: avoid;
+  /* PROTECTION MAXIMALE contre les coupures */
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+  page-break-before: auto;
+  page-break-after: auto;
+  break-before: auto;
+  break-after: auto;
+  orphans: 8 !important;
+  widows: 8 !important;
 }
 
 img:hover {
@@ -525,7 +884,7 @@ img[alt*="Figure"],
 img[alt*="Diagramme"],
 img[alt*="Schéma"] {
   max-width: 100% !important;
-  max-height: 200mm !important; /* Augmenté significativement */
+  max-height: 250mm !important; /* Augmenté significativement */
   width: auto !important;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -540,8 +899,8 @@ img[src*="pdg_"],
 img[src*="remboursement_"],
 img[alt*="Capture"],
 img[alt*="capture"] {
-  max-width: 50% !important;
-  max-height: 120mm !important; /* Augmenté pour meilleure lisibilité */
+  max-width: 70% !important;
+  max-height: 160mm !important; /* Augmenté pour meilleure lisibilité */
   border: 1px solid var(--color-accent-light);
   border-radius: 8px;
   box-shadow: var(--shadow-md);
@@ -556,7 +915,7 @@ img[src*="sheets_row"],
 img[alt*="Google Sheets"],
 img[alt*="export"] {
   max-width: 95% !important;
-  max-height: 150mm !important;
+  max-height: 200mm !important;
   border: 2px solid var(--color-accent);
   background: white;
   padding: var(--spacing-sm);
@@ -570,55 +929,112 @@ img[alt*="Présentation"] {
   border: 1px solid var(--color-border);
 }
 
-/* Gestion élégante des logos en page de garde */
+/* GESTION SIMPLE DES LOGOS EN PAGE DE GARDE - SANS FOND */
 div[align="center"] {
   display: flex;
-  justify-content: center;
+  justify-content: space-evenly; /* Répartition équitable sur toute la largeur */
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--spacing-lg);
-  margin: var(--spacing-lg) auto 0;
-  padding: var(--spacing-md);
+  gap: 80pt; /* Espacement très généreux entre logos */
+  margin: var(--spacing-xl) auto var(--spacing-xl);
+  padding: var(--spacing-md); /* Padding minimal */
+  /* Suppression de tous les fonds décoratifs */
 }
+
+/* Effet décoratif autour du conteneur de logos - SUPPRIMÉ */
+/* div[align="center"]::before supprimé pour enlever le fond décoratif */
 
 div[align="center"] img {
   display: block;
   margin: 0;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border-light);
-  max-height: 24mm;
+  max-height: 40mm; /* Taille encore augmentée pour plus de visibilité */
   width: auto;
-  background: transparent;
+  /* Suppression de tous les fonds et bordures décoratives */
   border-radius: 8px;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
+/* Effet de survol simplifié */
 div[align="center"] img:hover {
   transform: scale(1.05);
-  box-shadow: var(--shadow-md);
 }
 
-/* Amélioration du logo Natécia */
-div[align="center"] img[src*="Logo_Natecia"],
-div[align="center"] img[alt*="Natécia"] {
-  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-  border-radius: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
+/* LOGOS NATÉCIA ET CPE - VERSIONS SIMPLES SANS FOND */
+/* Suppression de toutes les améliorations spécifiques avec fonds et bordures */
+/* Les logos utilisent maintenant le style de base simple */
+
+/* CORRECTION RENFORCÉE : Titres de figures TOTALEMENT LIÉS à leurs images */
+/* Protection maximale pour tous les titres contenant "Figure" */
+h3[id*="figure"],
+h3:contains("Figure"), 
+h3[id*="Figure"],
+h3[id^="figure-"],
+h3[id*="diagramme"],
+h3[id*="schema"] {
+  /* EMPÊCHE ABSOLUMENT la coupure après le titre */
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  -webkit-column-break-after: avoid !important;
+  margin-bottom: var(--spacing-xs) !important;
+  /* Renforce la cohésion */
+  orphans: 4 !important;
+  widows: 4 !important;
+  /* Garde avec le contenu suivant */
+  display: inline-block;
+  width: 100%;
 }
 
-/* CORRECTION : Conteneur de figures avec protection et tailles optimisées */
+/* Protection MAXIMALE : Tous les éléments après un titre de figure */
+h3[id*="figure"] + *,
+h3[id*="Figure"] + *,
+h3[id^="figure-"] + *,
+h3 + figure,
+h3 + p + figure,
+h3 + div.mobile-grid,
+h3 + .mobile-grid {
+  /* EMPÊCHE la coupure avant l'élément */
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+  -webkit-column-break-before: avoid !important;
+  margin-top: var(--spacing-xs) !important;
+  /* Renforce la cohésion */
+  orphans: 4 !important;
+  widows: 4 !important;
+}
+
+/* Protection spéciale pour les conteneurs de figures */
+figure,
+div.mobile-grid,
+.mobile-grid {
+  /* Garde le contenu ensemble */
+  display: inline-block;
+  width: 100%;
+  margin-top: 0 !important;
+}
+
+/* CORRECTION : Conteneur de figures avec PROTECTION ULTRA-RENFORCÉE */
 figure {
-  margin: var(--spacing-xl) auto;
+  margin: var(--spacing-md) auto; /* Marges ajustées */
   text-align: center;
   background: var(--color-bg-primary);
   border-radius: 12px;
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--color-border-light);
-  break-inside: avoid;
-  page-break-inside: avoid;
+  /* PROTECTION ULTRA-RENFORCÉE contre toute fragmentation */
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+  page-break-before: auto !important;
+  page-break-after: auto !important;
+  break-before: auto !important;
+  break-after: auto !important;
   position: relative;
+  /* Forcer le bloc à rester ensemble */
+  display: inline-block;
+  width: 100%;
+  orphans: 10 !important;
+  widows: 10 !important;
 }
 
 /* Figures contenant des diagrammes techniques - GRANDES */
@@ -633,7 +1049,7 @@ figure:has(img[src*="diagram"]) {
 figure:has(img[src*="figure-"]) img,
 figure:has(img[src*="diagram"]) img {
   max-width: 100% !important;
-  max-height: 180mm !important;
+  max-height: 220mm !important;
   width: auto !important;
 }
 
@@ -675,16 +1091,18 @@ figure:has(img[src*="diagram"]) figcaption {
    Grilles d'images optimisées
    ============================================= */
 
-/* CORRECTION : Grille responsive compacte pour captures mobiles */
+/* CORRECTION : Grille responsive PROTÉGÉE contre la fragmentation */
 .mobile-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr) !important; /* Réduction à 2 colonnes pour plus de lisibilité */
-  gap: var(--spacing-lg) !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: var(--spacing-md) !important; /* Gap réduit */
   align-items: start;
-  break-inside: avoid;
-  page-break-inside: avoid;
-  margin: var(--spacing-lg) 0;
-  padding: var(--spacing-lg);
+  /* PROTECTION RENFORCÉE */
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+  margin: var(--spacing-md) 0; /* Marges réduites */
+  padding: var(--spacing-md); /* Padding réduit */
   background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-soft));
   border-radius: 12px;
   border: 1px solid var(--color-border-light);
@@ -692,12 +1110,14 @@ figure:has(img[src*="diagram"]) figcaption {
   position: relative;
 }
 
-/* Images dans la grille mobile - PLUS GRANDES */
+/* Images dans la grille mobile - OPTIMISÉES */
 .mobile-grid img {
   max-width: 100% !important;
-  max-height: 110mm !important; /* Augmenté pour meilleure lisibilité */
+  max-height: 120mm !important; /* Augmenté pour meilleure visibilité */
   border-radius: 6px;
   border: 1px solid var(--color-border-light);
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
 }
 
 /* Figures dans la grille mobile */
@@ -763,7 +1183,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin: var(--spacing-lg) 0;
-  font-size: 10pt;
+  font-size: 11pt;
   background: var(--color-bg-primary);
   border-radius: 8px;
   overflow: hidden;
@@ -790,6 +1210,7 @@ tbody td, tbody th {
   padding: var(--spacing-sm) var(--spacing-md);
   vertical-align: top;
   line-height: 1.5;
+  font-size: 13pt;
 }
 
 /* Alternance de couleurs moderne */
@@ -847,7 +1268,7 @@ pre {
   border-radius: 8px;
   padding: var(--spacing-md) var(--spacing-lg);
   overflow: auto;
-  font-size: 9.5pt;
+  font-size: 13pt;
   line-height: 1.6;
   margin: var(--spacing-lg) 0;
   box-shadow: var(--shadow-sm);
@@ -916,8 +1337,8 @@ h1:first-of-type + hr {
 h1:first-of-type + hr + p {
   text-align: center;
   color: var(--color-muted);
-  font-size: 12pt;
-  margin: var(--spacing-lg) 0;
+  font-size: 16pt;
+  margin: var(--spacing-xl) 0;
   font-weight: 500;
 }
 
@@ -926,76 +1347,7 @@ table, pre, blockquote, figure {
   break-inside: avoid;
 }
 
-/* Barre décorative supérieure du sommaire */
-h2 + ul::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-light), var(--color-accent-dark));
-  border-radius: 16px 16px 0 0;
-}
-
-/* Titre décoratif du sommaire */
-h2 + ul::after {
-  content: "Sommaire";
-  position: absolute;
-  top: var(--spacing-sm);
-  right: var(--spacing-lg);
-  font-size: 9pt;
-  font-weight: 600;
-  color: var(--color-muted);
-  background: rgba(255, 255, 255, 0.8);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: 6px;
-  border: 1px solid var(--color-border-light);
-}
-
-h2 + ul li:hover {
-  transform: translateX(6px);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: var(--shadow-sm);
-}
-
-/* Sous-listes du sommaire avec espacement réduit */
-h2 + ul ul {
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 0 6px 6px 0;
-  border-left: 3px solid var(--color-accent-light);
-  padding-top: 1pt;
-  padding-bottom: 1pt;
-}
-
-/* Liens du sommaire */
-h2 + ul a {
-  color: var(--color-text);
-  border-bottom: none;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color var(--transition-normal);
-  display: block;
-  padding: 1pt 0;
-}
-
-h2 + ul a:hover {
-  color: var(--color-accent-dark);
-  font-weight: 600;
-}
-
-/* Liens de premier niveau */
-h2 + ul > li > a {
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-/* Liens de second niveau */
-h2 + ul ul a {
-  font-weight: 500;
-  color: var(--color-text-light);
-  font-size: 8.5pt !important;
-}
+/* Styles spécialisés pour les éléments de métadonnées */
 
 /* Amélioration des éléments de métadonnées */
 strong {
@@ -1033,17 +1385,22 @@ dd {
   line-height: 1.6;
 }
 
+/* Gestion de la pagination pour le sommaire */
+
 /* =============================================
    Styles spécialisés pour le rapport de stage
    ============================================= */
 
-/* Amélioration des sections d'informations personnelles */
+/* MÉTADONNÉES SIMPLES DE LA PAGE DE GARDE */
 h1:first-of-type ~ p {
   text-align: center;
-  font-size: 11pt;
-  line-height: 1.7;
-  margin: var(--spacing-xs) auto;
-  max-width: 80%;
+  font-size: 16pt;
+  line-height: 1.6;
+  margin: var(--spacing-md) auto;
+  max-width: 85%;
+  /* Style simplifié sans fond décoratif */
+  padding: var(--spacing-sm);
+  color: var(--color-text);
 }
 
 /* Style pour les paragraphes contenant "Mots-clés" */
@@ -1199,57 +1556,75 @@ h3[id*="fonctions-cles"] + ul::before {
    OPTIMISATIONS IMPRESSION ET PAGINATION
    ============================================= */
 @media print {
-  /* Force tous les H2 à commencer sur une nouvelle page */
+  /* RÈGLES IMPRESSION AJUSTÉES pour éviter les séparations */
+  
+  /* Protection renforcée des H2 */
   h2 {
-    page-break-before: always !important;
-    break-before: page !important;
-    -webkit-column-break-before: always !important;
-    margin-top: 0 !important;
-    padding-top: var(--spacing-md) !important;
-  }
-
-  /* Exception pour le premier H2 */
-  body > h2:first-of-type,
-  h1 + hr + * + h2 {
-    page-break-before: auto !important;
-    break-before: auto !important;
-  }
-
-  /* Éviter les titres orphelins */
-  h2, h3, h4 {
     page-break-after: avoid !important;
     break-after: avoid !important;
-    orphans: 4 !important;
-    widows: 4 !important;
+    padding-top: var(--spacing-lg) !important;
+    orphans: 10 !important;
+    widows: 10 !important;
   }
 
-  /* Sommaire optimisé pour l'impression - UNE SEULE PAGE */
-  h2 + ul {
-    font-size: 9pt !important;
-    line-height: 1.25 !important;
-    columns: 2 !important;
-    column-gap: var(--spacing-md) !important;
-    max-height: 220mm !important;
-    overflow: hidden !important;
+  /* Seulement les chapitres principaux sur nouvelle page */
+  h2:nth-of-type(3), h2:nth-of-type(4), h2:nth-of-type(5),
+  a[id="conclusion"] + h2, a[id="remerciements"] + h2, a[id="glossaire"] + h2 {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin-top: 0 !important;
+  }
+
+  /* Tous les H2 y compris Résumé commencent sur nouvelle page */
+  /* Pas d'exception pour le Résumé - il a sa propre page 2 */
+
+  /* SOMMAIRE IMPRESSION SIMPLE */
+  h2:nth-of-type(2) {
+    text-align: center;
+    font-size: 28pt;
+    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+    color: var(--color-accent);
+    page-break-after: avoid !important;
+  }
+  
+  h2:nth-of-type(2) + ul {
+    max-height: 295mm;
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    columns: 2;
+    column-gap: var(--spacing-2xl);
+    column-fill: balance;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9, #e2e8f0);
+    border: 2px solid var(--color-border);
+    border-radius: 12px;
     page-break-inside: avoid !important;
-    break-inside: avoid !important;
+    /* Supprimé page-break-after: always pour éviter la page vide */
+    font-size: 13pt;
+    line-height: 1.4;
   }
-
-  h2 + ul li {
-    margin: 1pt 0 !important;
-    padding: 0.5pt 2pt !important;
-    break-inside: avoid !important;
+  
+  h2:nth-of-type(2) + ul > li {
+    margin: var(--spacing-sm) 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 6px;
+    border-left: 3px solid var(--color-accent);
+    break-inside: avoid;
+    list-style: none;
   }
-
-  h2 + ul ul {
-    font-size: 8pt !important;
-    margin: 0.5pt 0 1pt var(--spacing-xs) !important;
-    padding-left: var(--spacing-xs) !important;
+  
+  h2:nth-of-type(2) + ul ul {
+    margin: var(--spacing-xs) 0 0 var(--spacing-sm);
+    font-size: 12pt;
   }
-
-  h2 + ul ul li {
-    margin: 0.5pt 0 !important;
-    padding: 0 1pt !important;
+  
+  h2:nth-of-type(2) + ul ul li {
+    margin: 2pt 0;
+    padding: 2pt 4pt;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    break-inside: avoid;
+    list-style: none;
   }
 
   /* Images optimisées pour l'impression */
@@ -1258,7 +1633,7 @@ h3[id*="fonctions-cles"] + ul::before {
   figure:has(img[src*="figure-"]) img,
   figure:has(img[src*="diagram"]) img {
     max-width: 100% !important;
-    max-height: 170mm !important;
+    max-height: 200mm !important;
     page-break-inside: avoid !important;
   }
 
@@ -1266,15 +1641,15 @@ h3[id*="fonctions-cles"] + ul::before {
   img[src*="ndf_"],
   img[src*="pdg_"],
   img[src*="remboursement_"] {
-    max-width: 60% !important;
-    max-height: 100mm !important;
+    max-width: 70% !important;
+    max-height: 140mm !important;
   }
 
   /* Capture Google Sheets spéciale */
   img[src*="pdg_sheets"],
   img[src*="sheets_row"] {
     max-width: 100% !important;
-    max-height: 120mm !important;
+    max-height: 180mm !important;
   }
 
   /* Grille mobile pour l'impression */
@@ -1286,19 +1661,63 @@ h3[id*="fonctions-cles"] + ul::before {
   }
 
   .mobile-grid img {
-    max-height: 80mm !important;
+    max-height: 110mm !important;
   }
 
   .mobile-grid::before {
     display: none !important;
   }
 
-  /* Protection contre la fragmentation */
+  /* PROTECTION MAXIMALE contre la fragmentation */
   figure, img, table, pre, blockquote,
-  .mobile-grid, .mobile-grid figure {
+  .mobile-grid, .mobile-grid figure,
+  figcaption, .mobile-grid figcaption {
     break-inside: avoid-page !important;
     page-break-inside: avoid !important;
     -webkit-column-break-inside: avoid !important;
+    /* Protection renforcée */
+    break-before: avoid !important;
+    break-after: avoid !important;
+    orphans: 6 !important;
+    widows: 6 !important;
+  }
+
+  /* RÈGLES ABSOLUES IMPRESSION - MAINTENIR LES BLOCS ENSEMBLE */
+  h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    margin-top: 0 !important;
+    orphans: 6 !important;
+    widows: 6 !important;
+  }
+
+  h1 + * + *, h2 + * + *, h3 + * + *, h4 + * + *, h5 + * + *, h6 + * + * {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    orphans: 6 !important;
+    widows: 6 !important;
+  }
+
+  /* Protection spéciale impression pour figures/images après titres */
+  h1 + figure, h2 + figure, h3 + figure, h4 + figure, h5 + figure, h6 + figure,
+  h1 + img, h2 + img, h3 + img, h4 + img, h5 + img, h6 + img,
+  h1 + p + figure, h2 + p + figure, h3 + p + figure, h4 + p + figure,
+  h1 + p + img, h2 + p + img, h3 + p + img, h4 + p + img {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  /* Protection spéciale pour les grilles mobiles */
+  .mobile-grid {
+    margin: var(--spacing-sm) 0 !important; /* Marges réduites */
+    padding: var(--spacing-sm) !important; /* Padding réduit */
+  }
+  
+  /* Images dans grilles mobiles - tailles optimisées */
+  .mobile-grid img {
+    max-height: 100mm !important; /* Augmenté pour meilleure visibilité */
   }
 
   /* Optimisation complète pour l'impression */
@@ -1329,12 +1748,36 @@ h3[id*="fonctions-cles"] + ul::before {
   h2 { margin-bottom: var(--spacing-md) !important; }
   h3 { margin: var(--spacing-md) 0 var(--spacing-sm) 0 !important; }
 
-  /* Texte justifié pour l'impression */
+  /* PROTECTION RENFORCÉE IMPRESSION - Paragraphes et listes */
   p {
     text-align: justify !important;
     hyphens: auto !important;
-    orphans: 3 !important;
-    widows: 3 !important;
+    page-break-inside: avoid !important;
+    orphans: 8 !important;
+    widows: 8 !important;
+  }
+
+  /* Paragraphes après titres - impression */
+  h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
+    page-break-before: avoid !important;
+    page-break-inside: avoid !important;
+    orphans: 10 !important;
+    widows: 10 !important;
+  }
+
+  /* Listes inséparables - impression */
+  ul, ol {
+    page-break-inside: avoid !important;
+    orphans: 10 !important;
+    widows: 10 !important;
+  }
+
+  /* Titres H3/H4 protection renforcée - impression */
+  h3, h4, h5, h6 {
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    orphans: 10 !important;
+    widows: 10 !important;
   }
 }
 

@@ -50,30 +50,33 @@ Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du b
   - [Présentation de l'Entreprise : Natécia](#présentation-de-lentreprise--natécia)
   - [Contexte et Enjeux du Stage](#contexte-et-enjeux-du-stage)
   - [Structure du Rapport](#structure-du-rapport)
-- [Développement – Chapitre 1 : Application Mobile "Notes de Frais Employé"](#développement--chapitre-1--application-mobile-notes-de-frais-employé)
+- [Développement - Chapitre 1 : Application Mobile "Notes de Frais Employé"](#développement---chapitre-1--application-mobile-notes-de-frais-employé)
   - [Analyse du Besoin](#analyse-du-besoin)
   - [Démarche Adoptée et Solutions Envisagées](#démarche-adoptée-et-solutions-envisagées)
   - [Justification des Choix Techniques](#justification-des-choix-techniques)
   - [Fonctionnement de l'Application](#fonctionnement-de-lapplication)
-    - [Figure 1 : Schéma du workflow](#figure-1--schéma-du-workflow)
-    - [Figure 1.1 : Diagramme de Contexte C4](#figure-11--diagramme-de-contexte-c4)
-    - [Figure 1.2 : Diagramme de Conteneurs C4](#figure-12--diagramme-de-conteneurs-c4)
+    - [Figure 1 : Schéma du workflow de l'application "Notes de Frais"](#figure-1--schéma-du-workflow-de-lapplication-notes-de-frais)
+    - [Figure 1.1 : Diagramme de Contexte C4 de l'application "Notes de Frais"](#figure-11--diagramme-de-contexte-c4-de-lapplication-notes-de-frais)
+    - [Figure 1.2 : Diagramme de Conteneurs C4 de l'application "Notes de Frais"](#figure-12--diagramme-de-conteneurs-c4-de-lapplication-notes-de-frais)
+    - [Captures complémentaires - Application Employé](#captures-complémentaires---application-employé)
   - [Fonctions Clés Issues du Code](#fonctions-clés-issues-du-code)
   - [Difficultés Rencontrées](#difficultés-rencontrées)
   - [Résultats Obtenus](#résultats-obtenus)
-- [Développement – Chapitre 2 : Application Mobile "Notes de Frais PDG"](#développement--chapitre-2--application-mobile-notes-de-frais-pdg)
+- [Développement - Chapitre 2 : Application Mobile "Notes de Frais PDG"](#développement---chapitre-2--application-mobile-notes-de-frais-pdg)
   - [Analyse du Besoin Spécifique](#analyse-du-besoin-spécifique)
   - [Adaptations et Fonctionnalités Clés](#adaptations-et-fonctionnalités-clés)
+    - [Captures d'écran - Application PDG](#captures-décran---application-pdg)
   - [Résultats](#résultats)
-- [Développement – Chapitre 3 : Application Desktop "Gestion des Remboursements"](#développement--chapitre-3--application-desktop-gestion-des-remboursements)
+- [Développement - Chapitre 3 : Application Desktop "Gestion des Remboursements"](#développement---chapitre-3--application-desktop-gestion-des-remboursements)
   - [Analyse du Besoin](#analyse-du-besoin-1)
   - [Architecture Logicielle MVC](#architecture-logicielle-mvc)
-    - [Figure 2 : Schéma d'architecture](#figure-2--schéma-darchitecture)
-    - [Figure 2.1 : Diagramme de Contexte C4](#figure-21--diagramme-de-contexte-c4)
-    - [Figure 2.2 : Diagramme de Conteneurs C4](#figure-22--diagramme-de-conteneurs-c4)
+    - [Figure 2 : Schéma d'architecture de l'application "Gestion des Remboursements"](#figure-2--schéma-darchitecture-de-lapplication-gestion-des-remboursements)
+    - [Figure 2.1 : Diagramme de Contexte C4 de l'application "Gestion des Remboursements"](#figure-21--diagramme-de-contexte-c4-de-lapplication-gestion-des-remboursements)
+    - [Figure 2.2 : Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"](#figure-22--diagramme-de-conteneurs-c4-de-lapplication-gestion-des-remboursements)
   - [Fonctions Clés Issues du Code](#fonctions-clés-issues-du-code-1)
   - [Fonctionnement et Workflow de Validation](#fonctionnement-et-workflow-de-validation)
-    - [Figure 3 : Diagramme du workflow](#figure-3--diagramme-du-workflow)
+    - [Figure 3 : Diagramme du workflow de validation des remboursements](#figure-3--diagramme-du-workflow-de-validation-des-remboursements)
+    - [Captures complémentaires - Application Desktop](#captures-complémentaires---application-desktop)
   - [Gestion de la Base de Données sur Réseau](#gestion-de-la-base-de-données-sur-réseau)
   - [Résultats Obtenus](#résultats-obtenus-1)
 - [Conclusion](#conclusion)
@@ -119,7 +122,7 @@ Ce rapport s'articule en trois chapitres principaux, chacun dédié à l'un des 
 
 ---
 
-## Développement – Chapitre 1 : Application Mobile "Notes de Frais Employé"
+## Développement - Chapitre 1 : Application Mobile "Notes de Frais Employé"
 
 ### Analyse du Besoin
 
@@ -151,7 +154,7 @@ Pour l'extraction de données, la solution d'une **API d'Intelligence Artificiel
 
 L'application suit un workflow utilisateur simple et intuitif.
 
-#### Figure 1 : Schéma du workflow de l'application "Notes de Frais"
+### Figure 1 : Schéma du workflow de l'application "Notes de Frais"
 <figure>
 <img alt="Figure 1 - Workflow Notes de Frais" src="./diagrams-out/figure-1-workflow.svg" />
 <figcaption>Figure 1 : Schéma du workflow de l'application "Notes de Frais"</figcaption>
@@ -159,13 +162,13 @@ L'application suit un workflow utilisateur simple et intuitif.
 
 *Le workflow ci-dessus illustre le parcours d'un justificatif, de sa capture à sa réception par le service comptable.*
 
-#### Figure 1.1 : Diagramme de Contexte C4 de l'application "Notes de Frais"
+### Figure 1.1 : Diagramme de Contexte C4 de l'application "Notes de Frais"
 <figure>
 <img alt="Figure 1.1 - Contexte Notes de Frais" src="./diagrams-out/figure-1-1-context.svg" />
 <figcaption>Figure 1.1 : Diagramme de Contexte C4 de l'application "Notes de Frais"</figcaption>
 </figure>
 
-#### Figure 1.2 : Diagramme de Conteneurs C4 de l'application "Notes de Frais"
+### Figure 1.2 : Diagramme de Conteneurs C4 de l'application "Notes de Frais"
 <figure>
 <img alt="Figure 1.2 - Conteneurs Notes de Frais" src="./diagrams-out/figure-1-2-containers.svg" />
 <figcaption>Figure 1.2 : Diagramme de Conteneurs C4 de l'application "Notes de Frais"</figcaption>
@@ -177,7 +180,7 @@ L'application suit un workflow utilisateur simple et intuitif.
 <figcaption>Interface de l'application "Notes de Frais"</figcaption>
 </figure>
 
-#### Captures complémentaires – Application Employé
+### Captures complémentaires - Application Employé
 
 <div class="mobile-grid">
   <figure class="mobile-shot">
@@ -226,7 +229,7 @@ L'application développée est fonctionnelle et répond à toutes les exigences 
 
 ---
 
-## Développement – Chapitre 2 : Application Mobile "Notes de Frais PDG"
+## Développement - Chapitre 2 : Application Mobile "Notes de Frais PDG"
 
 ### Analyse du Besoin Spécifique
 
@@ -243,7 +246,7 @@ Le projet a donc consisté à dupliquer la base de code existante (via une branc
 
 Le reste de l'application (capture, analyse IA, stockage local) est resté identique, garantissant une maintenance aisée des deux versions.
 
-#### Captures d'écran – Application PDG
+### Captures d'écran - Application PDG
 
 <figure>
 <img src="./captures/pdg_sheets_row.png" alt="Résultat d'export : ligne ajoutée dans Google Sheets" />
@@ -256,7 +259,7 @@ La version "PDG" est également fonctionnelle. L'intégration avec Google Sheets
 
 ---
 
-## Développement – Chapitre 3 : Application Desktop "Gestion des Remboursements"
+## Développement - Chapitre 3 : Application Desktop "Gestion des Remboursements"
 
 ### Analyse du Besoin
 
@@ -273,7 +276,7 @@ Le besoin était de créer une application de bureau centralisée, avec :
 
 Pour garantir la maintenabilité et la scalabilité de l'application, une architecture **Modèle-Vue-Contrôleur (MVC)** a été mise en œuvre.
 
-#### Figure 2 : Schéma d'architecture de l'application "Gestion des Remboursements"
+### Figure 2 : Schéma d'architecture de l'application "Gestion des Remboursements"
 <figure>
 <img alt="Figure 2 - Architecture Remboursements" src="./diagrams-out/figure-2-architecture.svg" />
 <figcaption>Figure 2 : Schéma d'architecture de l'application "Gestion des Remboursements"</figcaption>
@@ -282,13 +285,13 @@ Pour garantir la maintenabilité et la scalabilité de l'application, une archit
 *   **Vue :** Responsable de l'affichage de l'interface graphique. Elle est construite avec la bibliothèque Python `CustomTkinter`.
 *   **Contrôleur :** Reçoit les actions de l'utilisateur depuis la Vue, les traite en faisant appel au Modèle, et met à jour la Vue en conséquence.
 
-#### Figure 2.1 : Diagramme de Contexte C4 de l'application "Gestion des Remboursements"
+### Figure 2.1 : Diagramme de Contexte C4 de l'application "Gestion des Remboursements"
 <figure>
 <img alt="Figure 2.1 - Contexte Remboursements" src="./diagrams-out/figure-2-1-context.svg" />
 <figcaption>Figure 2.1 : Diagramme de Contexte C4 de l'application "Gestion des Remboursements"</figcaption>
 </figure>
 
-#### Figure 2.2 : Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"
+### Figure 2.2 : Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"
 <figure>
 <img alt="Figure 2.2 - Conteneurs Remboursements" src="./diagrams-out/figure-2-2-containers.svg" />
 <figcaption>Figure 2.2 : Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"</figcaption>
@@ -306,14 +309,14 @@ Pour garantir la maintenabilité et la scalabilité de l'application, une archit
 
 L'application matérialise un processus métier strict où une demande de remboursement passe par plusieurs statuts, chaque transition étant conditionnée par l'action d'un utilisateur avec le rôle approprié.
 
-#### Figure 3 : Diagramme du workflow de validation des remboursements
+### Figure 3 : Diagramme du workflow de validation des remboursements
 <figure>
 <img alt="Figure 3 - Workflow Validation Remboursements" src="./diagrams-out/figure-3-workflow-remboursement.svg" />
 <figcaption>Figure 3 : Diagramme du workflow de validation des remboursements</figcaption>
 </figure>
 *Ce diagramme illustre les différents états d'une demande et les rôles habilités à la faire transiter d'un état à l'autre.*
 
-#### Captures complémentaires – Application Desktop
+### Captures complémentaires - Application Desktop
 
 <figure>
   <img src="./captures/remboursement_login.png" alt="Écran de connexion (identifiant, mot de passe, erreurs)" />
