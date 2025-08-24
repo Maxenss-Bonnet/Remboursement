@@ -52,26 +52,26 @@
   /* adouci pour une esthétique plus professionnelle et moins flashy à l'impression */
   --shadow-lg: 0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 3px 6px -3px rgba(0, 0, 0, 0.05);
 
-  /* Espacements progressifs */
-  --spacing-xs: 4pt;
-  --spacing-sm: 8pt;
-  --spacing-md: 12pt;
-  --spacing-lg: 16pt;
-  --spacing-xl: 24pt;
-  --spacing-2xl: 32pt;
-  --spacing-3xl: 48pt;
+  /* Espacements réduits pour compacité */
+  --spacing-xs: 3pt;
+  --spacing-sm: 6pt;
+  --spacing-md: 9pt;
+  --spacing-lg: 12pt;
+  --spacing-xl: 18pt;
+  --spacing-2xl: 24pt;
+  --spacing-3xl: 36pt;
 
-  /* Tailles de police optimisées pour compacité */
-  --font-size-h1: 24pt;
-  --font-size-h1-title: 28pt;
-  --font-size-h2: 18pt;
-  --font-size-h3: 14pt;
-  --font-size-h4: 12pt;
-  --font-size-h5: 10pt;
-  --font-size-h6: 9pt;
-  --font-size-body: 9.5pt;
-  --font-size-small: 8.5pt;
-  --font-size-caption: 8pt;
+  /* Tailles de police compactes pour impression sur une page */
+  --font-size-h1: 16pt;
+  --font-size-h1-title: 20pt;
+  --font-size-h2: 13pt;
+  --font-size-h3: 11pt;
+  --font-size-h4: 10pt;
+  --font-size-h5: 9pt;
+  --font-size-h6: 8pt;
+  --font-size-body: 8.5pt;
+  --font-size-small: 7.5pt;
+  --font-size-caption: 7pt;
 
   /* Hauteurs de ligne optimisées */
   --line-height-tight: 1.2;
@@ -90,12 +90,13 @@
    Compatible Markdown PDF (yzane) + Puppeteer/Chromium
    ============================================= */
 @page {
-  margin: 20mm 20mm 22mm 20mm;
+  margin: 12mm 12mm 12mm 12mm; /* Marges uniformes optimales */
   size: A4;
-  /* Optimisations Puppeteer pour meilleure compatibilité Word */
+  /* Optimisations impression */
   -webkit-print-color-adjust: exact;
-  /* Support pour l'extension Markdown PDF */
   color-adjust: exact;
+  /* Suppression des effets pour impression */
+  box-shadow: none;
 }
 
 @page :first {
@@ -124,17 +125,17 @@ body::after {
   }
 }
 
-/* Prévisualisation écran: container central propre (non imprimé) */
+/* Prévisualisation écran optimisée */
 @media screen {
   html, body { background: var(--color-bg-secondary); }
   body {
     max-width: 980px;
     margin: 0 auto;
-    padding: 28px 24px 48px;
+    padding: 20px 16px 30px;
     background: var(--color-bg-primary);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
     border: 1px solid var(--color-border-light);
-    border-radius: 12px;
+    border-radius: 8px;
     position: relative;
   }
   
@@ -161,37 +162,53 @@ ul:has(a[href^="#"]) {
   -webkit-column-break-inside: avoid !important;
 }
 
-/* PAGINATION CLAIRE ET DÉFINITIVE POUR TOUS LES TITRES */
+/* PAGINATION OPTIMISÉE - ÉLIMINATION DES PAGES VIDES */
 
 /* H1 - Titre principal : reste sur la première page, pas de nouvelle page */
 h1 {
   page-break-before: avoid !important;
   page-break-after: avoid !important;
   break-after: avoid !important;
-  orphans: 5 !important;
-  widows: 5 !important;
+  orphans: 3 !important;
+  widows: 3 !important;
   margin-top: 0 !important;
 }
 
-/* H1 supplémentaires (autres chapitres) : nouvelle page */
+/* H1 supplémentaires (autres chapitres) : SEULEMENT les chapitres principaux */
 h1:not(:first-of-type) {
-  page-break-before: always !important;
-  margin-top: 0 !important;
+  page-break-before: avoid !important; /* Évite les pages vides */
+  margin-top: var(--spacing-lg) !important;
 }
 
-/* H2 - TOUS commencent obligatoirement sur nouvelle page */
+/* H2 - PAS de nouvelle page systématique pour éviter les pages vides */
 h2 {
-  page-break-before: always !important;
+  page-break-before: avoid !important;
   page-break-after: avoid !important;
   break-after: avoid !important;
-  orphans: 50 !important;
-  widows: 50 !important;
-  margin-top: 0 !important;
-  min-height: 60mm; /* Force du contenu après le titre */
+  orphans: 3 !important;
+  widows: 3 !important;
+  margin-top: var(--spacing-md) !important;
+  min-height: auto; /* Supprime la contrainte de hauteur */
 }
 
-/* AUCUNE EXCEPTION - tous les H2 commencent sur nouvelle page */
-/* Ceci assure que chaque section principale a sa propre page */
+/* PAGINATION OPTIMISÉE : Seulement les chapitres principaux */
+/* Résumé, Introduction, Chapitres 1-3, Conclusion */
+h2:first-of-type, /* Résumé */
+h2:nth-of-type(2), /* Sommaire */
+h2:nth-of-type(3), /* Introduction */
+h2:nth-of-type(4), /* Chapitre 1 */
+h2:nth-of-type(5), /* Chapitre 2 */
+h2:nth-of-type(6), /* Chapitre 3 */
+h2:nth-of-type(7) /* Conclusion */ {
+  page-break-before: always !important;
+  margin-top: 0 !important;
+}
+
+/* Remerciements, Glossaire, etc. : pas de nouvelle page */
+h2:nth-of-type(n+8) {
+  page-break-before: avoid !important;
+  margin-top: var(--spacing-lg) !important;
+}
 
 /* H3/H4 - Sous-titres : JAMAIS de nouvelle page, toujours avec contenu */
 h3, h4, h5, h6 {
@@ -205,27 +222,32 @@ h3, h4, h5, h6 {
 
 /* PROTECTION RENFORCEE CONTRE LA SEPARATION TITRE/CONTENU */
 
-/* Créer des blocs inséparables pour H2 avec leur contenu */
+/* H2 : PROTECTION OPTIMISÉE SANS SURCONTRAINTES */
 h2 {
-  /* Forcer l'association avec le contenu suivant */
+  /* Association avec le contenu suivant */
   page-break-after: avoid !important;
   break-after: avoid !important;
-  orphans: 100 !important;
-  widows: 100 !important;
-  /* Créer un conteneur flex inséparable */
-  display: flex !important;
-  flex-direction: column !important;
-  min-height: 50mm !important;
+  /* Valeurs orphans/widows raisonnables */
+  orphans: 2 !important;
+  widows: 2 !important;
+  /* Affichage normal sans surcontraintes */
+  display: block !important;
+  min-height: auto !important;
+  /* Espacement suffisant avec le contenu suivant */
+  margin-bottom: var(--spacing-md) !important;
 }
 
-/* Protection pour H3/H4 avec leur contenu */
+/* H3/H4 : PROTECTION LÉGÈRE ET FLEXIBLE */
 h3, h4 {
   page-break-after: avoid !important;
   break-after: avoid !important;
-  orphans: 50 !important;
-  widows: 50 !important;
-  margin-bottom: 0 !important;
-  min-height: 20mm !important;
+  /* Valeurs minimales pour éviter les coupures brutales */
+  orphans: 2 !important;
+  widows: 2 !important;
+  margin-bottom: var(--spacing-sm) !important;
+  min-height: auto !important;
+  /* Espacement avec le contenu suivant */
+  padding-bottom: 2pt;
 }
 
 /* Méthode alternative : utiliser display: flex pour créer un conteneur inséparable */
@@ -239,28 +261,26 @@ h3, h4 {
   }
 }
 
-/* Protection supplémentaire pour les premiers éléments après titres */
+/* CONTENU APRÈS TITRES : LIAISON NATURELLE */
 h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
   page-break-before: avoid !important;
   break-before: avoid !important;
-  -webkit-column-break-before: avoid !important;
-  margin-top: 0 !important;
-  
-  /* Forcer un minimum de contenu visible avec le titre */
-  min-height: 25mm !important;
-  orphans: 20 !important;
-  widows: 20 !important;
+  /* Espacement minimal pour liaison visuelle */
+  margin-top: var(--spacing-xs) !important;
+  /* Valeurs naturelles sans surcontraintes */
+  min-height: auto !important;
+  orphans: 2 !important;
+  widows: 2 !important;
 }
 
-/* Les trois premiers éléments après un titre restent avec lui */
+/* Éléments après titres - espacement normal pour éviter superpositions */
 h1 + * + *, h2 + * + *, h3 + * + *, h4 + * + *, h5 + * + *, h6 + * + *,
 h1 + * + * + *, h2 + * + * + *, h3 + * + * + *, h4 + * + * + *, h5 + * + * + *, h6 + * + * + * {
   page-break-before: avoid !important;
   break-before: avoid !important;
-  -webkit-column-break-before: avoid !important;
-  orphans: 15 !important;
-  widows: 15 !important;
-  margin-top: 0 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
+  margin-top: var(--spacing-xs) !important;
 }
 
 /* Protection spéciale pour les figures et images après titres */
@@ -321,11 +341,11 @@ img[src*="captures/"] {
   -webkit-column-break-inside: avoid !important;
   
   /* Protection extrême avec orphans/widows */
-  orphans: 999 !important;
-  widows: 999 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
   
   /* Forcer un espace minimum pour éviter les coupures */
-  min-height: 40mm !important;
+  min-height: auto !important;
   margin: 15pt 0 !important;
   
   /* Forcer comme élément indivisible */
@@ -351,28 +371,28 @@ p:has(img[src*="captures/"]),
   -webkit-column-break-inside: avoid !important;
   
   /* Protection extrême */
-  orphans: 999 !important;
-  widows: 999 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
   
   /* Assurer suffisamment d'espace */
-  min-height: 50mm !important;
+  min-height: auto !important;
   margin: 15pt 0 !important;
   
   /* Optimisation rendu */
   overflow: hidden !important;
 }
 
-/* Protection spéciale pour figure + img + figcaption ensemble */
+/* SUPPRESSION DES SURCONTRAINTES QUI CRÉENT DES SUPERPOSITIONS */
 figure {
-  /* Traiter figure comme un bloc indivisible */
-  display: inline-block !important;
+  /* Affichage normal sans surcontraintes */
+  display: block !important;
   width: 100% !important;
   page-break-inside: avoid !important;
   break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
-  orphans: 999 !important;
-  widows: 999 !important;
-  margin: 15pt 0 !important;
+  /* Valeurs normales au lieu de 999 */
+  orphans: 2 !important;
+  widows: 2 !important;
+  margin: var(--spacing-sm) 0 !important;
   vertical-align: top !important;
 }
 
@@ -390,8 +410,8 @@ figcaption {
   break-inside: avoid !important;
   -webkit-column-break-inside: avoid !important;
   
-  orphans: 999 !important;
-  widows: 999 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
   
   /* Style visuel */
   font-style: italic !important;
@@ -442,24 +462,29 @@ h1, h2, h3, h4, h5, h6 {
   transition: color var(--transition-normal);
 }
 
-/* H1 - Titres de chapitre principaux */
+/* H1 - Titres de chapitre principaux - SANS COUPURE */
 h1 {
   font-size: var(--font-size-h1);
   line-height: var(--line-height-tight);
-  margin: var(--spacing-2xl) 0 var(--spacing-xl) 0;
+  margin: var(--spacing-lg) 0 var(--spacing-md) 0;
   color: var(--color-accent);
   font-weight: 800;
   letter-spacing: -0.03em;
   position: relative;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  /* Éviter les coupures de mots */
+  hyphens: none;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: visible;
 }
 
-/* TITRE SIMPLE DE LA PAGE DE GARDE - SANS FOND */
+/* TITRE SIMPLE DE LA PAGE DE GARDE - COMPACT */
 h1:first-of-type {
   text-align: center;
   font-size: var(--font-size-h1-title);
-  margin-top: 4vh;
-  margin-bottom: var(--spacing-lg);
+  margin-top: 2vh;
+  margin-bottom: var(--spacing-md);
   /* Couleur bleue simple sans fond */
   color: var(--color-accent);
   font-weight: 900;
@@ -479,28 +504,34 @@ h1:first-of-type {
 
 /* Ancien effet supprimé - remplacé par le nouveau design */
 
-/* H2 - Sections principales avec indicateur visuel */
+/* H2 - Sections principales - SANS COUPURE */
 h2 {
   font-size: var(--font-size-h2);
   line-height: var(--line-height-tight);
-  margin-bottom: var(--spacing-lg);
-  border-bottom: 2px solid var(--color-accent);
-  padding-bottom: var(--spacing-sm);
-  padding-top: var(--spacing-md);
+  margin-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-accent);
+  padding-bottom: 1pt;
+  padding-top: var(--spacing-xs);
   position: relative;
   font-weight: 700;
   color: var(--color-text);
+  /* Éviter les coupures de mots dans les titres */
+  hyphens: none;
+  word-break: keep-all;
 }
 
-/* H3 - Sous-sections avec style distinctif */
+/* H3 - Sous-sections - SANS COUPURE */
 h3 {
   font-size: var(--font-size-h3);
   line-height: var(--line-height-tight);
-  margin: var(--spacing-xl) 0 var(--spacing-md) 0;
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
   color: var(--color-text);
   font-weight: 600;
   position: relative;
   padding-left: var(--spacing-sm);
+  /* Éviter les coupures de mots */
+  hyphens: none;
+  word-break: keep-all;
 }
 
 /* Indicateur visuel pour H3 */
@@ -519,7 +550,7 @@ h3::before {
 /* H4 - Sous-sous-sections */
 h4 {
   font-size: var(--font-size-h4);
-  margin: var(--spacing-lg) 0 var(--spacing-sm) 0;
+  margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
   color: var(--color-text-light);
   font-weight: 600;
   font-style: italic;
@@ -543,18 +574,18 @@ h6 {
   letter-spacing: 0.05em;
 }
 
-/* PARAGRAPHES AVEC PROTECTION RENFORCÉE */
+/* PARAGRAPHES COMPACTS - ESPACEMENT UNIFORME */
 p {
-  margin: 0 0 var(--spacing-sm) 0;
+  margin: 0 0 var(--spacing-sm) 0; /* Espacement uniforme */
   text-align: justify;
-  hyphens: auto;
-  line-height: var(--line-height-relaxed);
-  word-spacing: 0.1em;
+  hyphens: auto; /* Gardé pour le texte normal */
+  line-height: 1.4;
+  word-spacing: 0.05em;
   /* Protection contre les coupures de paragraphe */
   page-break-inside: avoid !important;
   break-inside: avoid !important;
-  orphans: 4 !important;
-  widows: 4 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
 }
 
 /* RÈGLES SPÉCIALES POUR PARAGRAPHES IMMÉDIATEMENT APRÈS TITRES */
@@ -634,195 +665,257 @@ a[href^="#"]:hover {
    SOMMAIRE SIMPLE ET COMPATIBLE MARKDOWN PDF
    ============================================= */
 
-/* Titre du sommaire */
+/* Titre du sommaire - ultra compact - SANS COUPURE */
 h2:nth-of-type(2) {
   text-align: center;
-  font-size: 22pt;
-  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+  font-size: 14pt;
+  margin: var(--spacing-xs) 0 2pt 0;
   color: var(--color-accent);
   font-weight: 700;
-  border-bottom: 2px solid var(--color-accent);
-  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-accent);
+  padding-bottom: 2pt;
+  /* Éviter les coupures */
+  hyphens: none;
+  word-break: keep-all;
 }
 
-/* Liste principale du sommaire */
+/* SOMMAIRE ULTRA COMPACT - TIENT SUR UNE PAGE */
 h2:nth-of-type(2) + ul {
-  /* Utilise presque toute la hauteur disponible */
-  max-height: 295mm;
-  margin: var(--spacing-md) 0; /* Marges réduites pour plus d'espace */
-  padding: var(--spacing-md); /* Padding réduit pour plus de contenu */
+  /* Hauteur strictement limitée */
+  max-height: 180mm !important;
+  margin: 4pt 0;
+  padding: 8pt;
   
-  /* Organisation en 2 colonnes */
+  /* 2 colonnes très compactes */
   columns: 2;
-  column-gap: var(--spacing-2xl);
+  column-gap: 20pt;
   column-fill: balance;
   
-  /* Style visuel */
-  background: linear-gradient(135deg, #f8fafc, #f1f5f9, #e2e8f0);
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
+  /* Style simplifié pour compacité */
+  background: #f8fafc;
+  border: 1px solid var(--color-accent-light);
+  border-radius: 4px;
   
-  /* Pagination - SANS page vide forcée */
+  /* Pagination stricte */
   page-break-inside: avoid !important;
   break-inside: avoid !important;
-  /* Supprimé page-break-after: always pour éviter la page vide */
   
-  /* Police et espacement - RÉDUITE pour afficher tout le contenu */
-  font-size: 11pt;
-  line-height: 1.4;
+  /* Police compacte */
+  font-size: 8.5pt;
+  line-height: 1.25;
+  font-family: var(--font-secondary);
+  
+  /* Protection contre les coupures dans le sommaire */
+  hyphens: none;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
-/* Éléments de premier niveau */
+/* SECTIONS PRINCIPALES - TRÈS COMPACTES */
 h2:nth-of-type(2) + ul > li {
-  margin: var(--spacing-sm) 0;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 6px;
-  border-left: 3px solid var(--color-accent);
+  margin: 3pt 0;
+  padding: 2pt 4pt;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 3px;
+  border-left: 2px solid var(--color-accent);
   list-style: none;
   break-inside: avoid;
+  font-weight: 600;
+  color: var(--color-accent-dark);
+  position: relative;
 }
 
-/* Liens de premier niveau */
+/* Suppression du séparateur pour gagner de l'espace */
+h2:nth-of-type(2) + ul > li:not(:last-child)::after {
+  display: none;
+}
+
+/* LIENS SECTIONS - COMPACTS SANS COUPURE */
 h2:nth-of-type(2) + ul > li > a {
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-accent-dark);
   text-decoration: none;
   border-bottom: none;
   display: block;
+  /* Empêcher les coupures des liens */
+  white-space: nowrap;
+  overflow: visible; /* Permettre l'affichage complet */
+  text-overflow: clip;
+  hyphens: none;
+  word-break: keep-all;
+}
+
+/* Suppression des points de suite pour gagner de l'espace */
+h2:nth-of-type(2) + ul > li > a::after {
+  display: none;
 }
 
 h2:nth-of-type(2) + ul > li > a:hover {
   color: var(--color-accent);
 }
 
-/* Sous-listes */
+/* SOUS-SECTIONS - TRÈS COMPACTES */
 h2:nth-of-type(2) + ul ul {
-  margin: var(--spacing-xs) 0 0 var(--spacing-sm);
-  padding-left: var(--spacing-sm);
-  font-size: 8.5pt;
+  margin: 2pt 0 0 0;
+  padding-left: 12pt; /* Indentation réduite */
+  font-size: 7.5pt;
+  border-left: 1px dotted var(--color-accent-light);
 }
 
-/* Éléments de sous-niveau */
+/* SOUS-SECTIONS - ULTRA COMPACTES */
 h2:nth-of-type(2) + ul ul li {
-  margin: 2pt 0;
-  padding: 2pt 4pt;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
+  margin: 1pt 0;
+  padding: 1pt 2pt;
+  background: transparent;
   list-style: none;
   break-inside: avoid;
+  font-weight: 400;
+  color: var(--color-text);
+  position: relative;
 }
 
-/* Liens de sous-niveau */
+/* Puce simplifiée pour sous-sections */
+h2:nth-of-type(2) + ul ul li::before {
+  content: "•";
+  color: var(--color-accent-light);
+  font-size: 0.7em;
+  margin-right: 4pt;
+}
+
+/* LIENS SOUS-SECTIONS - COMPACTS */
 h2:nth-of-type(2) + ul ul a {
-  font-weight: 500;
-  color: var(--color-text-light);
+  font-weight: 400;
+  color: var(--color-text);
   text-decoration: none;
   border-bottom: none;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Suppression des points de suite */
+h2:nth-of-type(2) + ul ul a::after {
+  display: none;
 }
 
 h2:nth-of-type(2) + ul ul a:hover {
   color: var(--color-accent);
 }
 
+/* SOUS-SOUS-SECTIONS - TRÈS SIMPLIFIÉES */
+h2:nth-of-type(2) + ul ul ul {
+  margin: 1pt 0 0 0;
+  padding-left: 18pt;
+  font-size: 7pt;
+  border-left: none;
+}
+
+h2:nth-of-type(2) + ul ul ul li {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-weight: 300;
+  font-style: normal;
+  color: var(--color-text-light);
+}
+
+h2:nth-of-type(2) + ul ul ul li::before {
+  content: "-";
+  color: var(--color-muted);
+  font-size: 0.6em;
+  margin-right: 3pt;
+}
+
+h2:nth-of-type(2) + ul ul ul a {
+  font-weight: 300;
+  font-style: normal;
+  color: var(--color-text-light);
+  font-size: 0.95em;
+}
+
+h2:nth-of-type(2) + ul ul ul a::after {
+  display: none;
+}
+
 /* =============================================
    LISTES NORMALES (hors sommaire)
    ============================================= */
 
-/* LISTES INSÉPARABLES avec espacement et puces personnalisées */
+/* LISTES UNIFORMISÉES ET COMPACTES */
 ul, ol {
-  margin: 0 0 var(--spacing-md) 0;
-  padding-left: 20pt;
-  line-height: var(--line-height-loose);
-  /* PROTECTION ABSOLUE des listes */
+  margin: 0 0 var(--spacing-sm) 0;
+  padding-left: 15pt; /* Indentation standardisée */
+  line-height: 1.4;
+  /* Protection contre les coupures */
   page-break-inside: avoid !important;
   break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
-  /* Limiter la hauteur pour forcer un saut AVANT si nécessaire */
-  max-height: 180mm;
-  /* Forcer l'affichage en bloc inséparable */
+  max-height: 150mm;
   display: inline-block;
   width: 100%;
-  orphans: 10 !important;
-  widows: 10 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
 }
 
 li {
-  margin: var(--spacing-sm) 0;
+  margin: var(--spacing-xs) 0;
   text-align: justify;
   position: relative;
-  padding-left: var(--spacing-xs);
+  padding-left: 0;
   /* Protection des éléments de liste */
   page-break-inside: avoid !important;
   break-inside: avoid !important;
-  orphans: 3 !important;
-  widows: 3 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
 }
 
-/* Listes imbriquées avec indentation progressive */
+/* Listes imbriquées avec indentation uniforme */
 li ul, li ol {
-  margin: var(--spacing-sm) 0;
-  padding-left: 20pt;
+  margin: var(--spacing-xs) 0;
+  padding-left: 15pt;
 }
 
 li li {
   margin: var(--spacing-xs) 0;
 }
 
-/* Puces personnalisées pour les listes non ordonnées */
+/* PUCES UNIFORMISÉES - SIMPLES ET CLAIR */
 ul li {
-  list-style: none;
+  list-style: disc outside;
+  margin-left: 0;
+  padding-left: 0;
   position: relative;
 }
 
+/* Suppression des puces personnalisées pour uniformité */
 ul li::before {
-  content: "▸";
-  color: var(--color-accent);
-  font-weight: bold;
-  position: absolute;
-  left: -20pt;
-  top: 0;
-  font-size: 1.1em;
+  display: none;
 }
 
 /* Puces de second niveau */
-ul ul li::before {
-  content: "◦";
-  color: var(--color-accent-light);
-  font-size: 1.2em;
+ul ul li {
+  list-style: circle outside;
 }
 
 /* Puces de troisième niveau */
-ul ul ul li::before {
-  content: "▪";
-  color: var(--color-muted);
-  font-size: 0.9em;
+ul ul ul li {
+  list-style: square outside;
 }
 
-/* Listes ordonnées avec style moderne */
+/* LISTES ORDONNÉES UNIFORMISÉES */
 ol li {
-  list-style: none;
-  counter-increment: list-counter;
+  list-style: decimal outside;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+/* Suppression de la numérotation personnalisée */
+ol li::before {
+  display: none;
 }
 
 ol {
-  counter-reset: list-counter;
-}
-
-ol li::before {
-  content: counter(list-counter) ".";
-  color: var(--color-accent);
-  font-weight: 700;
-  position: absolute;
-  left: -24pt;
-  top: 0;
-  background: var(--color-bg-accent);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.9em;
-  min-width: 18pt;
-  text-align: center;
+  counter-reset: none;
 }
 
 /* Séparateurs élégants */
@@ -837,27 +930,24 @@ hr {
 /* =============================================
    CORRECTION IMAGES : Tailles plus lisibles
    ============================================= */
-/* PROTECTION ABSOLUE DE TOUTES LES IMAGES */
+/* IMAGES STANDARDISÉES */
 img {
   display: block;
-  margin: var(--spacing-lg) auto;
-  max-width: 100%;
+  margin: var(--spacing-sm) auto;
+  max-width: 40%; /* Largeur standardisée */
+  max-height: 40mm; /* Hauteur standardisée */
   height: auto;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-  /* PROTECTION MAXIMALE contre les coupures */
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  /* Protection contre les coupures */
   page-break-inside: avoid !important;
   break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
   page-break-before: auto;
   page-break-after: auto;
-  break-before: auto;
-  break-after: auto;
-  orphans: 8 !important;
-  widows: 8 !important;
+  orphans: 2 !important;
+  widows: 2 !important;
 }
 
 img:hover {
@@ -865,80 +955,76 @@ img:hover {
   box-shadow: var(--shadow-lg);
 }
 
-/* CORRECTION : Diagrammes et figures techniques - TAILLE OPTIMISÉE */
+/* Diagrammes et figures - STANDARDISÉS */
 img[src*="figure-"],
 img[src*="diagram"],
 img[alt*="Figure"],
 img[alt*="Diagramme"],
 img[alt*="Schéma"] {
-  max-width: 100% !important;
-  max-height: 150mm !important; /* Réduit pour compacité */
+  max-width: 80% !important;
+  max-height: 60mm !important;
   width: auto !important;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  padding: var(--spacing-md);
-  border-radius: 10px;
-  box-shadow: var(--shadow-md);
+  padding: var(--spacing-xs);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
 }
 
-/* CORRECTION : Captures d'écran - Taille optimisée */
+/* Captures d'écran - STANDARDISÉES */
 img[src*="ndf_"],
 img[src*="pdg_"],
 img[src*="remboursement_"],
 img[alt*="Capture"],
 img[alt*="capture"] {
-  max-width: 45% !important;
-  max-height: 90mm !important; /* Réduit pour compacité */
+  max-width: 40% !important;
+  max-height: 30mm !important;
   border: 1px solid var(--color-accent-light);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
   background: var(--color-bg-primary);
   display: block;
-  margin: var(--spacing-md) auto;
+  margin: var(--spacing-xs) auto;
 }
 
-/* CORRECTION SPÉCIALE : Google Sheets capture - TAILLE OPTIMISÉE */
+/* Google Sheets capture - STANDARDISÉE */
 img[src*="pdg_sheets"],
 img[src*="sheets_row"],
 img[alt*="Google Sheets"],
 img[alt*="export"] {
-  max-width: 80% !important;
-  max-height: 120mm !important;
-  border: 2px solid var(--color-accent);
+  max-width: 70% !important;
+  max-height: 40mm !important;
+  border: 1px solid var(--color-accent);
   background: white;
-  padding: var(--spacing-sm);
+  padding: 2pt;
 }
 
-/* Images de présentation (logos, sites) */
+/* Images de présentation - STANDARDISÉES */
 img[src*="natecia_site"],
 img[alt*="Présentation"] {
-  max-width: 70%;
-  border-radius: 8px;
+  max-width: 60%;
+  max-height: 35mm;
+  border-radius: 4px;
   border: 1px solid var(--color-border);
 }
 
-/* GESTION SIMPLE DES LOGOS EN PAGE DE GARDE - SANS FOND */
+/* LOGOS PAGE DE GARDE - COMPACTS */
 div[align="center"] {
   display: flex;
-  justify-content: space-evenly; /* Répartition équitable sur toute la largeur */
+  justify-content: space-evenly;
   align-items: center;
   flex-wrap: wrap;
-  gap: 80pt; /* Espacement très généreux entre logos */
-  margin: var(--spacing-xl) auto var(--spacing-xl);
-  padding: var(--spacing-md); /* Padding minimal */
-  /* Suppression de tous les fonds décoratifs */
+  gap: 40pt; /* Espacement réduit */
+  margin: var(--spacing-md) auto var(--spacing-md);
+  padding: var(--spacing-sm); /* Padding réduit */
 }
-
-/* Effet décoratif autour du conteneur de logos - SUPPRIMÉ */
-/* div[align="center"]::before supprimé pour enlever le fond décoratif */
 
 div[align="center"] img {
   display: block;
   margin: 0;
-  max-height: 30mm; /* Taille optimisée pour compacité */
+  max-height: 18mm; /* Taille réduite pour compacité */
   width: auto;
-  /* Suppression de tous les fonds et bordures décoratives */
-  border-radius: 8px;
+  border-radius: 6px;
   transition: transform 0.3s ease;
 }
 
@@ -1001,18 +1087,18 @@ div.mobile-grid,
 }
 
 /* CORRECTION : Conteneur de figures avec PROTECTION ULTRA-RENFORCÉE */
+/* FIGURES STANDARDISÉES ET UNIFORMES */
 figure {
-  margin: var(--spacing-md) auto; /* Marges ajustées */
+  margin: var(--spacing-sm) auto; /* Marges réduites */
   text-align: center;
   background: var(--color-bg-primary);
-  border-radius: 12px;
-  padding: var(--spacing-sm);
-  box-shadow: var(--shadow-md);
+  border-radius: 6px;
+  padding: var(--spacing-xs);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-light);
-  /* PROTECTION ULTRA-RENFORCÉE contre toute fragmentation */
+  /* Protection optimisée contre la fragmentation */
   break-inside: avoid !important;
   page-break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
   page-break-before: auto !important;
   page-break-after: auto !important;
   break-before: auto !important;
@@ -1021,8 +1107,9 @@ figure {
   /* Forcer le bloc à rester ensemble */
   display: inline-block;
   width: 100%;
-  orphans: 10 !important;
-  widows: 10 !important;
+  /* Suppression des contraintes excessives */
+  orphans: 2 !important;
+  widows: 2 !important;
 }
 
 /* Figures contenant des diagrammes techniques - GRANDES */
@@ -1098,11 +1185,11 @@ figure:has(img[src*="diagram"]) figcaption {
   position: relative;
 }
 
-/* Images dans la grille mobile - COMPACTES */
+/* Images dans la grille mobile - STANDARDISÉES */
 .mobile-grid img {
   max-width: 100% !important;
-  max-height: 85mm !important; /* Réduit pour compacité */
-  border-radius: 6px;
+  max-height: 25mm !important;
+  border-radius: 3px;
   border: 1px solid var(--color-border-light);
   page-break-inside: avoid !important;
   break-inside: avoid !important;
@@ -1118,15 +1205,19 @@ figure:has(img[src*="diagram"]) figcaption {
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 
-/* Légendes dans la grille mobile - optimisées */
+/* Légendes dans la grille mobile - très compactes */
+/* Légendes grille mobile - uniformisées */
 .mobile-grid figcaption {
-  font-size: 8pt !important; /* Réduit pour compacité */
-  margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  background: var(--color-bg-accent);
-  border-radius: 4px;
+  font-size: 7pt !important; /* Taille uniforme avec autres légendes */
+  font-style: italic;
+  font-weight: 400;
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  background: rgba(248, 250, 252, 0.8);
+  border-radius: 3px;
+  border: 1px solid var(--color-border-light);
   color: var(--color-text-light);
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 /* =============================================
@@ -1379,15 +1470,15 @@ dd {
    Styles spécialisés pour le rapport de stage
    ============================================= */
 
-/* MÉTADONNÉES SIMPLES DE LA PAGE DE GARDE */
+/* MÉTADONNÉES COMPACTES DE LA PAGE DE GARDE */
 h1:first-of-type ~ p {
   text-align: center;
-  font-size: 16pt;
-  line-height: 1.6;
-  margin: var(--spacing-md) auto;
-  max-width: 85%;
+  font-size: 11pt;
+  line-height: 1.4;
+  margin: var(--spacing-xs) auto;
+  max-width: 90%;
   /* Style simplifié sans fond décoratif */
-  padding: var(--spacing-sm);
+  padding: var(--spacing-xs);
   color: var(--color-text);
 }
 
@@ -1487,21 +1578,53 @@ a[id="resume"] + h2 {
   margin-bottom: var(--spacing-xl);
 }
 
-/* Sections de chapitre avec numérotation */
-a[id^="chapitre-"] + h2::before {
-  content: "Chapitre " counter(chapter-counter);
-  counter-increment: chapter-counter;
-  display: block;
-  font-size: var(--font-size-small);
-  color: var(--color-accent);
-  font-weight: 600;
-  margin-bottom: var(--spacing-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+/* SUPPRESSION TOTALE DE LA NUMÉROTATION AUTOMATIQUE */
+/* L'ancien système créait "2.A1", "3.A2" etc. */
+
+/* H2 : Plus de numérotation automatique */
+h2:nth-of-type(n+3) {
+  /* Suppression complète */
 }
 
+h2:nth-of-type(n+3)::before {
+  /* Suppression complète */
+  display: none;
+}
+
+/* H3 : Plus de numérotation automatique */
+h3 {
+  /* Suppression complète */
+}
+
+h3::before {
+  /* Suppression complète */
+  display: none;
+}
+
+/* H4 : Plus de numérotation automatique */
+h4 {
+  /* Suppression complète */
+}
+
+h4::before {
+  /* Suppression complète */
+  display: none;
+}
+
+/* H2 : Plus de réinitialisation */
+h2 {
+  /* Suppression complète */
+}
+
+/* H3 : Plus de réinitialisation */
+h3 {
+  /* Suppression complète */
+}
+
+/* SUPPRESSION COMPLÈTE DE L'ANCIEN SYSTÈME */
 body {
-  counter-reset: chapter-counter;
+  /* Suppression de tous les compteurs défaillants */
+  counter-reset: none;
 }
 
 /* Sections de résultats avec indicateur de succès */
@@ -1544,15 +1667,25 @@ h3[id*="fonctions-cles"] + ul::before {
    OPTIMISATIONS IMPRESSION ET PAGINATION
    ============================================= */
 @media print {
-  /* RÈGLES IMPRESSION AJUSTÉES pour éviter les séparations */
+  /* OPTIMISATION COMPLÈTE POUR IMPRESSION */
   
-  /* Protection renforcée des H2 */
+  /* Suppression de tous les effets visuels */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    background-image: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  /* Titres optimisés pour impression */
   h2 {
     page-break-after: avoid !important;
     break-after: avoid !important;
-    padding-top: var(--spacing-lg) !important;
-    orphans: 10 !important;
-    widows: 10 !important;
+    padding-top: var(--spacing-sm) !important;
+    orphans: 2 !important;
+    widows: 2 !important;
+    border-bottom: 1px solid #333 !important;
   }
 
   /* Seulement les chapitres principaux sur nouvelle page */
@@ -1575,20 +1708,22 @@ h3[id*="fonctions-cles"] + ul::before {
     page-break-after: avoid !important;
   }
   
+  /* Sommaire impression - 2 colonnes professionnelles */
   h2:nth-of-type(2) + ul {
-    max-height: 220mm;
+    max-height: 240mm;
     margin: var(--spacing-md) 0;
-    padding: var(--spacing-md);
+    padding: var(--spacing-lg);
     columns: 2;
     column-gap: var(--spacing-2xl);
     column-fill: balance;
-    background: linear-gradient(135deg, #f8fafc, #f1f5f9, #e2e8f0);
-    border: 2px solid var(--color-border);
-    border-radius: 12px;
+    background: white;
+    border: 1px solid #333;
+    border-radius: 4px;
     page-break-inside: avoid !important;
-    /* Supprimé page-break-after: always pour éviter la page vide */
-    font-size: 11pt;
-    line-height: 1.4;
+    font-size: 10pt;
+    line-height: 1.3;
+    /* Suppression des effets pour impression */
+    box-shadow: none !important;
   }
   
   h2:nth-of-type(2) + ul > li {
@@ -1615,59 +1750,67 @@ h3[id*="fonctions-cles"] + ul::before {
     list-style: none;
   }
 
-  /* Images optimisées pour l'impression */
-  img[src*="figure-"],
-  img[src*="diagram"],
-  figure:has(img[src*="figure-"]) img,
-  figure:has(img[src*="diagram"]) img {
-    max-width: 100% !important;
-    max-height: 140mm !important;
+  /* Images standardisées pour impression */
+  img {
+    max-width: 40% !important;
+    max-height: 35mm !important;
     page-break-inside: avoid !important;
+    border: 1px solid #000 !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 6pt auto !important;
+  }
+  
+  /* Diagrammes légèrement plus grands */
+  img[src*="figure-"],
+  img[src*="diagram"] {
+    max-width: 70% !important;
+    max-height: 50mm !important;
+  }
+  
+  /* Logos page de garde */
+  div[align="center"] img {
+    max-height: 15mm !important;
   }
 
-  /* Captures d'écran optimisées */
-  img[src*="ndf_"],
-  img[src*="pdg_"],
-  img[src*="remboursement_"] {
-    max-width: 45% !important;
-    max-height: 85mm !important;
-  }
-
-  /* Capture Google Sheets spéciale */
-  img[src*="pdg_sheets"],
-  img[src*="sheets_row"] {
-    max-width: 80% !important;
-    max-height: 110mm !important;
-  }
-
-  /* Grille mobile pour l'impression */
+  /* Grille mobile très compacte pour l'impression */
   .mobile-grid {
     grid-template-columns: 1fr 1fr !important;
-    gap: var(--spacing-md) !important;
+    gap: var(--spacing-sm) !important;
     page-break-inside: avoid !important;
-    margin: var(--spacing-md) 0 !important;
+    margin: var(--spacing-sm) 0 !important;
   }
 
   .mobile-grid img {
-    max-height: 85mm !important;
+    max-height: 40mm !important;
   }
 
   .mobile-grid::before {
     display: none !important;
   }
 
-  /* PROTECTION MAXIMALE contre la fragmentation */
+  /* Protection optimisée pour impression */
   figure, img, table, pre, blockquote,
-  .mobile-grid, .mobile-grid figure,
-  figcaption, .mobile-grid figcaption {
-    break-inside: avoid-page !important;
+  .mobile-grid, .mobile-grid figure {
+    break-inside: avoid !important;
     page-break-inside: avoid !important;
-    -webkit-column-break-inside: avoid !important;
-    /* Protection renforcée */
-    break-before: avoid !important;
-    break-after: avoid !important;
-    orphans: 6 !important;
-    widows: 6 !important;
+    orphans: 2 !important;
+    widows: 2 !important;
+    margin: 6pt auto !important;
+  }
+  
+  /* Texte optimisé pour impression */
+  body {
+    line-height: 1.3 !important;
+    color: #000 !important;
+  }
+  
+  /* Suppression des décorations */
+  hr {
+    border: none !important;
+    border-top: 1px solid #000 !important;
+    margin: 12pt 0 !important;
+    box-shadow: none !important;
   }
 
   /* RÈGLES ABSOLUES IMPRESSION - MAINTENIR LES BLOCS ENSEMBLE */
