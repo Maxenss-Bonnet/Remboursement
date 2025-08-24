@@ -61,17 +61,17 @@
   --spacing-2xl: 32pt;
   --spacing-3xl: 48pt;
 
-  /* Tailles de police hiérarchiques - MASSIVEMENT AUGMENTÉES */
-  --font-size-h1: 32pt;
-  --font-size-h1-title: 42pt;
-  --font-size-h2: 28pt;
-  --font-size-h3: 22pt;
-  --font-size-h4: 18pt;
-  --font-size-h5: 15pt;
-  --font-size-h6: 13pt;
-  --font-size-body: 15pt;
-  --font-size-small: 13pt;
-  --font-size-caption: 12pt;
+  /* Tailles de police optimisées pour la lisibilité */
+  --font-size-h1: 20pt;
+  --font-size-h1-title: 28pt;
+  --font-size-h2: 18pt;
+  --font-size-h3: 16pt;
+  --font-size-h4: 14pt;
+  --font-size-h5: 12pt;
+  --font-size-h6: 11pt;
+  --font-size-body: 11pt;
+  --font-size-small: 10pt;
+  --font-size-caption: 9pt;
 
   /* Hauteurs de ligne optimisées */
   --line-height-tight: 1.2;
@@ -118,7 +118,7 @@ body::after {
   
   /* Optimisations pour la conversion Word via Puppeteer */
   body {
-    font-size: 15pt !important;
+    font-size: 11pt !important;
     line-height: 1.5 !important;
     -webkit-font-smoothing: subpixel-antialiased;
   }
@@ -179,22 +179,19 @@ h1:not(:first-of-type) {
   margin-top: 0 !important;
 }
 
-/* H2 - TOUS commencent sur nouvelle page SAUF le premier (Résumé) */
+/* H2 - TOUS commencent obligatoirement sur nouvelle page */
 h2 {
   page-break-before: always !important;
   page-break-after: avoid !important;
   break-after: avoid !important;
-  orphans: 30 !important;
-  widows: 30 !important;
+  orphans: 50 !important;
+  widows: 50 !important;
   margin-top: 0 !important;
-  min-height: 80mm; /* Force suffisamment de contenu après le titre */
+  min-height: 60mm; /* Force du contenu après le titre */
 }
 
-/* EXCEPTION : Le premier H2 (Résumé) ne crée pas de page vide */
-h2:first-of-type {
-  page-break-before: avoid !important; /* Évite la page vide après logos */
-  margin-top: var(--spacing-xl) !important;
-}
+/* AUCUNE EXCEPTION - tous les H2 commencent sur nouvelle page */
+/* Ceci assure que chaque section principale a sa propre page */
 
 /* H3/H4 - Sous-titres : JAMAIS de nouvelle page, toujours avec contenu */
 h3, h4, h5, h6 {
@@ -206,40 +203,29 @@ h3, h4, h5, h6 {
   min-height: 3em; /* Force du contenu après */
 }
 
-/* PROTECTION ABSOLUE CONTRE LES TITRES SÉPARÉS DE LEUR CONTENU */
+/* PROTECTION RENFORCEE CONTRE LA SEPARATION TITRE/CONTENU */
 
-/* Créer un conteneur virtuel inséparable pour H2 + son contenu immédiat */
-h2,
-h2 + *,
-h2 + * + * {
-  /* Créer un bloc table inséparable */
-  display: table !important;
-  width: 100% !important;
-  table-layout: fixed !important;
-  page-break-inside: avoid !important;
-  break-inside: avoid-page !important;
-  -webkit-column-break-inside: avoid !important;
-  
-  /* Protection extrême contre les coupures */
-  orphans: 50 !important;
-  widows: 50 !important;
-  
-  /* Forcer le moteur de rendu à considérer comme un seul élément */
-  contain: layout style !important;
+/* Créer des blocs inséparables pour H2 avec leur contenu */
+h2 {
+  /* Forcer l'association avec le contenu suivant */
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  orphans: 100 !important;
+  widows: 100 !important;
+  /* Créer un conteneur flex inséparable */
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 50mm !important;
 }
 
 /* Protection pour H3/H4 avec leur contenu */
-h3,
-h3 + *,
-h4,
-h4 + * {
-  display: table !important;
-  width: 100% !important;
-  page-break-inside: avoid !important;
-  break-inside: avoid-page !important;
-  orphans: 25 !important;
-  widows: 25 !important;
-  margin-top: 0 !important;
+h3, h4 {
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  orphans: 50 !important;
+  widows: 50 !important;
+  margin-bottom: 0 !important;
+  min-height: 20mm !important;
 }
 
 /* Méthode alternative : utiliser display: flex pour créer un conteneur inséparable */
@@ -256,25 +242,25 @@ h4 + * {
 /* Protection supplémentaire pour les premiers éléments après titres */
 h1 + *, h2 + *, h3 + *, h4 + *, h5 + *, h6 + * {
   page-break-before: avoid !important;
-  break-before: avoid-page !important;
+  break-before: avoid !important;
   -webkit-column-break-before: avoid !important;
   margin-top: 0 !important;
   
   /* Forcer un minimum de contenu visible avec le titre */
-  min-height: 30mm !important;
+  min-height: 25mm !important;
+  orphans: 20 !important;
+  widows: 20 !important;
 }
 
-/* Les quatre premiers éléments après un titre restent avec lui */
+/* Les trois premiers éléments après un titre restent avec lui */
 h1 + * + *, h2 + * + *, h3 + * + *, h4 + * + *, h5 + * + *, h6 + * + *,
-h1 + * + * + *, h2 + * + * + *, h3 + * + * + *, h4 + * + * + *, h5 + * + * + *, h6 + * + * + *,
-h1 + * + * + * + *, h2 + * + * + * + *, h3 + * + * + * + *, h4 + * + * + * + *, h5 + * + * + * + *, h6 + * + * + * + * {
+h1 + * + * + *, h2 + * + * + *, h3 + * + * + *, h4 + * + * + *, h5 + * + * + *, h6 + * + * + * {
   page-break-before: avoid !important;
   break-before: avoid !important;
   -webkit-column-break-before: avoid !important;
-  orphans: 10 !important;
-  widows: 10 !important;
-  display: inline-block !important;
-  width: 100% !important;
+  orphans: 15 !important;
+  widows: 15 !important;
+  margin-top: 0 !important;
 }
 
 /* Protection spéciale pour les figures et images après titres */
@@ -315,9 +301,9 @@ h1 + p + table, h2 + p + table, h3 + p + table, h4 + p + table, h5 + p + table, 
 
 /* ✅ Protection "Analyse IA" et toutes captures maintenant gérées par les règles générales ci-dessous */
 
-/* PROTECTION MAXIMALE CONTRE LES CAPTURES COUPÉES */
+/* PROTECTION MAXIMALE CONTRE LES CAPTURES COUPEES */
 
-/* Toutes les images dans captures/ : protection extrême */
+/* Toutes les images dans captures/ : protection absolue */
 img[src*="captures/"] {
   /* Forcer en bloc complet pour éviter toute coupure */
   display: block !important;
@@ -326,91 +312,94 @@ img[src*="captures/"] {
   height: auto !important;
   
   /* Protection absolue contre les coupures de page */
-  page-break-before: avoid !important;
-  page-break-after: avoid !important;
-  page-break-inside: avoid-page !important;
-  break-before: avoid-page !important;
-  break-after: avoid-page !important;
-  break-inside: avoid-page !important;
+  page-break-before: auto !important;
+  page-break-after: auto !important;
+  page-break-inside: avoid !important;
+  break-before: auto !important;
+  break-after: auto !important;
+  break-inside: avoid !important;
   -webkit-column-break-inside: avoid !important;
   
   /* Protection extrême avec orphans/widows */
-  orphans: 100 !important;
-  widows: 100 !important;
+  orphans: 999 !important;
+  widows: 999 !important;
   
   /* Forcer un espace minimum pour éviter les coupures */
-  min-height: 50mm !important;
-  margin: 20pt 0 !important;
+  min-height: 40mm !important;
+  margin: 15pt 0 !important;
   
-  /* Forcer le navigateur à traiter comme un seul élément */
-  contain: layout style !important;
+  /* Forcer comme élément indivisible */
+  box-decoration-break: clone !important;
 }
 
 /* Protection des conteneurs : figure, div, p avec captures */
 figure:has(img[src*="captures/"]), 
 div:has(img[src*="captures/"]),
-p:has(img[src*="captures/"]) {
-  /* Créer un bloc table inséparable pour le conteneur */
-  display: table !important;
+p:has(img[src*="captures/"]),
+.mobile-grid {
+  /* Créer un conteneur indécoupable */
+  display: inline-block !important;
   width: 100% !important;
-  table-layout: fixed !important;
   
   /* Protection absolue contre les coupures */
-  page-break-before: avoid !important;
-  page-break-after: avoid !important;
-  page-break-inside: avoid-page !important;
-  break-before: avoid-page !important;
-  break-after: avoid-page !important;
-  break-inside: avoid-page !important;
+  page-break-before: auto !important;
+  page-break-after: auto !important;
+  page-break-inside: avoid !important;
+  break-before: auto !important;
+  break-after: auto !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
   
   /* Protection extrême */
-  orphans: 100 !important;
-  widows: 100 !important;
+  orphans: 999 !important;
+  widows: 999 !important;
   
   /* Assurer suffisamment d'espace */
-  min-height: 60mm !important;
-  margin: 20pt 0 !important;
+  min-height: 50mm !important;
+  margin: 15pt 0 !important;
   
-  /* Forcer comme un seul élément */
-  contain: layout style paint !important;
+  /* Optimisation rendu */
+  overflow: hidden !important;
 }
 
 /* Protection spéciale pour figure + img + figcaption ensemble */
 figure {
   /* Traiter figure comme un bloc indivisible */
-  display: table !important;
+  display: inline-block !important;
   width: 100% !important;
-  page-break-inside: avoid-page !important;
-  break-inside: avoid-page !important;
-  orphans: 100 !important;
-  widows: 100 !important;
-  margin: 20pt 0 !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+  orphans: 999 !important;
+  widows: 999 !important;
+  margin: 15pt 0 !important;
+  vertical-align: top !important;
 }
 
 /* Figcaption : toujours avec son image */
 figcaption {
-  display: table-caption !important;
-  caption-side: bottom !important;
+  display: block !important;
   width: 100% !important;
   
   /* Protection contre coupures */
   page-break-before: avoid !important;
   page-break-after: avoid !important;
   page-break-inside: avoid !important;
-  break-before: avoid-page !important;
-  break-after: avoid-page !important;
-  break-inside: avoid-page !important;
+  break-before: avoid !important;
+  break-after: avoid !important;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
   
-  orphans: 50 !important;
-  widows: 50 !important;
+  orphans: 999 !important;
+  widows: 999 !important;
   
   /* Style visuel */
   font-style: italic !important;
-  font-size: calc(var(--font-size-body) - 2pt) !important;
+  font-size: calc(var(--font-size-body) - 1pt) !important;
   color: var(--color-text-light) !important;
   text-align: center !important;
-  margin: 10pt 0 !important;
-  padding: 5pt !important;
+  margin: 8pt 0 0 0 !important;
+  padding: 4pt !important;
 }
 
 /* Méthode alternative avec flexbox pour navigateurs compatibles */
@@ -557,7 +546,7 @@ h6 {
 
 /* PARAGRAPHES AVEC PROTECTION RENFORCÉE */
 p {
-  margin: 0 0 var(--spacing-md) 0;
+  margin: 0 0 var(--spacing-sm) 0;
   text-align: justify;
   hyphens: auto;
   line-height: var(--line-height-relaxed);
@@ -588,16 +577,16 @@ h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
 
 /* Amélioration de la lisibilité pour les paragraphes consécutifs */
 p + p {
-  margin-top: var(--spacing-md);
-  text-indent: var(--spacing-lg);
+  margin-top: var(--spacing-sm);
+  text-indent: var(--spacing-md);
 }
 
 /* Paragraphes d'introduction avec style distinctif */
 h2 + p:first-of-type,
 h3 + p:first-of-type {
-  font-size: 16pt;
+  font-size: 12pt;
   color: var(--color-text-light);
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
   font-weight: 500;
   line-height: var(--line-height-loose);
   text-indent: 0;
@@ -649,8 +638,8 @@ a[href^="#"]:hover {
 /* Titre du sommaire */
 h2:nth-of-type(2) {
   text-align: center;
-  font-size: 28pt;
-  margin: var(--spacing-md) 0 var(--spacing-sm) 0; /* Marges réduites */
+  font-size: 20pt;
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
   color: var(--color-accent);
   font-weight: 700;
   border-bottom: 2px solid var(--color-accent);
@@ -744,15 +733,15 @@ h2:nth-of-type(2) + ul ul a:hover {
 
 /* LISTES INSÉPARABLES avec espacement et puces personnalisées */
 ul, ol {
-  margin: 0 0 var(--spacing-lg) 0;
-  padding-left: 24pt;
+  margin: 0 0 var(--spacing-md) 0;
+  padding-left: 20pt;
   line-height: var(--line-height-loose);
   /* PROTECTION ABSOLUE des listes */
   page-break-inside: avoid !important;
   break-inside: avoid !important;
   -webkit-column-break-inside: avoid !important;
   /* Limiter la hauteur pour forcer un saut AVANT si nécessaire */
-  max-height: 200mm;
+  max-height: 180mm;
   /* Forcer l'affichage en bloc inséparable */
   display: inline-block;
   width: 100%;
@@ -1581,7 +1570,7 @@ h3[id*="fonctions-cles"] + ul::before {
   /* SOMMAIRE IMPRESSION SIMPLE */
   h2:nth-of-type(2) {
     text-align: center;
-    font-size: 28pt;
+    font-size: 20pt;
     margin: var(--spacing-md) 0 var(--spacing-sm) 0;
     color: var(--color-accent);
     page-break-after: avoid !important;
