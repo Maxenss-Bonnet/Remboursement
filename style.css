@@ -52,26 +52,26 @@
   /* adouci pour une esthétique plus professionnelle et moins flashy à l'impression */
   --shadow-lg: 0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 3px 6px -3px rgba(0, 0, 0, 0.05);
 
-  /* Espacements ultra-compacts pour maximiser l'espace */
-  --spacing-xs: 2pt;
-  --spacing-sm: 4pt;
-  --spacing-md: 6pt;
-  --spacing-lg: 8pt;
-  --spacing-xl: 12pt;
-  --spacing-2xl: 16pt;
-  --spacing-3xl: 24pt;
+  /* Espacements progressifs */
+  --spacing-xs: 4pt;
+  --spacing-sm: 8pt;
+  --spacing-md: 12pt;
+  --spacing-lg: 16pt;
+  --spacing-xl: 24pt;
+  --spacing-2xl: 32pt;
+  --spacing-3xl: 48pt;
 
-  /* Tailles de police compactes pour optimiser l'espace */
-  --font-size-h1: 14pt;
-  --font-size-h1-title: 20pt;
-  --font-size-h2: 13pt;
-  --font-size-h3: 12pt;
-  --font-size-h4: 10pt;
-  --font-size-h5: 9pt;
-  --font-size-h6: 8pt;
-  --font-size-body: 9pt;
-  --font-size-small: 8pt;
-  --font-size-caption: 7pt;
+  /* Tailles de police hiérarchiques */
+  --font-size-h1: 32pt;
+  --font-size-h1-title: 36pt;
+  --font-size-h2: 22pt;
+  --font-size-h3: 17pt;
+  --font-size-h4: 14pt;
+  --font-size-h5: 12pt;
+  --font-size-h6: 10pt;
+  --font-size-body: 11pt;
+  --font-size-small: 10pt;
+  --font-size-caption: 9.5pt;
 
   /* Hauteurs de ligne optimisées */
   --line-height-tight: 1.2;
@@ -118,7 +118,7 @@ body::after {
   
   /* Optimisations pour la conversion Word via Puppeteer */
   body {
-    font-size: 9pt !important;
+    font-size: 11pt !important;
     line-height: 1.5 !important;
     -webkit-font-smoothing: subpixel-antialiased;
   }
@@ -483,10 +483,10 @@ h1:first-of-type {
 h2 {
   font-size: var(--font-size-h2);
   line-height: var(--line-height-tight);
-  margin-bottom: var(--spacing-md); /* Réduit pour économiser l'espace */
+  margin-bottom: var(--spacing-lg);
   border-bottom: 2px solid var(--color-accent);
-  padding-bottom: var(--spacing-xs); /* Réduit */
-  padding-top: var(--spacing-sm); /* Réduit */
+  padding-bottom: var(--spacing-sm);
+  padding-top: var(--spacing-md);
   position: relative;
   font-weight: 700;
   color: var(--color-text);
@@ -583,9 +583,9 @@ p + p {
 /* Paragraphes d'introduction avec style distinctif */
 h2 + p:first-of-type,
 h3 + p:first-of-type {
-  font-size: 9pt;
+  font-size: 11.5pt;
   color: var(--color-text-light);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
   font-weight: 500;
   line-height: var(--line-height-loose);
   text-indent: 0;
@@ -637,8 +637,8 @@ a[href^="#"]:hover {
 /* Titre du sommaire */
 h2:nth-of-type(2) {
   text-align: center;
-  font-size: 15pt;
-  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+  font-size: 28pt;
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0; /* Marges réduites */
   color: var(--color-accent);
   font-weight: 700;
   border-bottom: 2px solid var(--color-accent);
@@ -669,8 +669,8 @@ h2:nth-of-type(2) + ul {
   /* Supprimé page-break-after: always pour éviter la page vide */
   
   /* Police et espacement - RÉDUITE pour afficher tout le contenu */
-  font-size: 10pt;
-  line-height: 1.3;
+  font-size: 13pt;
+  line-height: 1.4;
 }
 
 /* Éléments de premier niveau */
@@ -840,13 +840,13 @@ hr {
 /* PROTECTION ABSOLUE DE TOUTES LES IMAGES */
 img {
   display: block;
-  margin: var(--spacing-sm) auto;
+  margin: var(--spacing-lg) auto;
   max-width: 100%;
   height: auto;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
-  border-radius: 6px;
-  box-shadow: var(--shadow-sm);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
   /* PROTECTION MAXIMALE contre les coupures */
   page-break-inside: avoid !important;
@@ -865,55 +865,55 @@ img:hover {
   box-shadow: var(--shadow-lg);
 }
 
-/* CORRECTION : Diagrammes et figures techniques - TAILLE COMPACTE */
+/* CORRECTION : Diagrammes et figures techniques - BEAUCOUP PLUS GRANDS */
 img[src*="figure-"],
 img[src*="diagram"],
 img[alt*="Figure"],
 img[alt*="Diagramme"],
 img[alt*="Schéma"] {
   max-width: 100% !important;
-  max-height: 120mm !important; /* Réduit pour optimiser l'espace */
+  max-height: 200mm !important; /* Augmenté significativement */
   width: auto !important;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  padding: var(--spacing-sm);
-  border-radius: 6px;
-  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-md);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
 }
 
-/* CORRECTION : Captures d'écran - Taille compacte */
+/* CORRECTION : Captures d'écran - Taille plus lisible */
 img[src*="ndf_"],
 img[src*="pdg_"],
 img[src*="remboursement_"],
 img[alt*="Capture"],
 img[alt*="capture"] {
-  max-width: 55% !important;
-  max-height: 100mm !important; /* Réduit pour optimiser l'espace */
+  max-width: 50% !important;
+  max-height: 120mm !important; /* Augmenté pour meilleure lisibilité */
   border: 1px solid var(--color-accent-light);
-  border-radius: 6px;
-  box-shadow: var(--shadow-sm);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
   background: var(--color-bg-primary);
   display: block;
-  margin: var(--spacing-sm) auto;
+  margin: var(--spacing-md) auto;
 }
 
-/* CORRECTION SPÉCIALE : Google Sheets capture - Taille optimisée */
+/* CORRECTION SPÉCIALE : Google Sheets capture - BEAUCOUP PLUS GRANDE */
 img[src*="pdg_sheets"],
 img[src*="sheets_row"],
 img[alt*="Google Sheets"],
 img[alt*="export"] {
-  max-width: 75% !important;
-  max-height: 130mm !important;
-  border: 1px solid var(--color-accent);
+  max-width: 95% !important;
+  max-height: 150mm !important;
+  border: 2px solid var(--color-accent);
   background: white;
-  padding: var(--spacing-xs);
+  padding: var(--spacing-sm);
 }
 
 /* Images de présentation (logos, sites) */
 img[src*="natecia_site"],
 img[alt*="Présentation"] {
-  max-width: 70%;
-  border-radius: 6px;
+  max-width: 85%;
+  border-radius: 8px;
   border: 1px solid var(--color-border);
 }
 
@@ -935,10 +935,10 @@ div[align="center"] {
 div[align="center"] img {
   display: block;
   margin: 0;
-  max-height: 25mm; /* Taille réduite pour optimiser l'espace */
+  max-height: 40mm; /* Taille encore augmentée pour plus de visibilité */
   width: auto;
   /* Suppression de tous les fonds et bordures décoratives */
-  border-radius: 6px;
+  border-radius: 8px;
   transition: transform 0.3s ease;
 }
 
@@ -1002,12 +1002,12 @@ div.mobile-grid,
 
 /* CORRECTION : Conteneur de figures avec PROTECTION ULTRA-RENFORCÉE */
 figure {
-  margin: var(--spacing-sm) auto; /* Marges compactes */
+  margin: var(--spacing-md) auto; /* Marges ajustées */
   text-align: center;
   background: var(--color-bg-primary);
-  border-radius: 8px;
-  padding: var(--spacing-xs);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  padding: var(--spacing-sm);
+  box-shadow: var(--shadow-md);
   border: 1px solid var(--color-border-light);
   /* PROTECTION ULTRA-RENFORCÉE contre toute fragmentation */
   break-inside: avoid !important;
@@ -1037,7 +1037,7 @@ figure:has(img[src*="diagram"]) {
 figure:has(img[src*="figure-"]) img,
 figure:has(img[src*="diagram"]) img {
   max-width: 100% !important;
-  max-height: 130mm !important;
+  max-height: 220mm !important;
   width: auto !important;
 }
 
@@ -1079,30 +1079,30 @@ figure:has(img[src*="diagram"]) figcaption {
    Grilles d'images optimisées
    ============================================= */
 
-/* CORRECTION : Grille responsive COMPACTE */
+/* CORRECTION : Grille responsive PROTÉGÉE contre la fragmentation */
 .mobile-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr) !important;
-  gap: var(--spacing-sm) !important; /* Gap encore plus réduit */
+  gap: var(--spacing-md) !important; /* Gap réduit */
   align-items: start;
   /* PROTECTION RENFORCÉE */
   break-inside: avoid !important;
   page-break-inside: avoid !important;
   -webkit-column-break-inside: avoid !important;
-  margin: var(--spacing-sm) 0; /* Marges compactes */
-  padding: var(--spacing-sm); /* Padding compact */
+  margin: var(--spacing-md) 0; /* Marges réduites */
+  padding: var(--spacing-md); /* Padding réduit */
   background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-soft));
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-sm);
   position: relative;
 }
 
-/* Images dans la grille mobile - COMPACTES */
+/* Images dans la grille mobile - OPTIMISÉES */
 .mobile-grid img {
   max-width: 100% !important;
-  max-height: 70mm !important; /* Réduit pour optimiser l'espace */
-  border-radius: 4px;
+  max-height: 120mm !important; /* Augmenté pour meilleure visibilité */
+  border-radius: 6px;
   border: 1px solid var(--color-border-light);
   page-break-inside: avoid !important;
   break-inside: avoid !important;
@@ -1112,21 +1112,21 @@ figure:has(img[src*="diagram"]) figcaption {
 .mobile-grid figure {
   margin: 0;
   background: var(--color-bg-primary);
-  box-shadow: var(--shadow-sm);
-  border-radius: 8px;
-  padding: var(--spacing-xs); /* Compact */
+  box-shadow: var(--shadow-md);
+  border-radius: 12px;
+  padding: var(--spacing-md); /* Augmenté */
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 
-/* Légendes dans la grille mobile - compactes */
+/* Légendes dans la grille mobile - plus lisibles */
 .mobile-grid figcaption {
-  font-size: 7pt !important; /* Réduit pour optimiser l'espace */
-  margin-top: var(--spacing-xs);
-  padding: var(--spacing-xs);
+  font-size: 9.5pt !important; /* Légèrement augmenté */
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm); /* Augmenté */
   background: var(--color-bg-accent);
-  border-radius: 3px;
+  border-radius: 4px;
   color: var(--color-text-light);
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 /* =============================================
@@ -1569,26 +1569,26 @@ h3[id*="fonctions-cles"] + ul::before {
   /* SOMMAIRE IMPRESSION SIMPLE */
   h2:nth-of-type(2) {
     text-align: center;
-    font-size: 15pt;
-    margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+    font-size: 28pt;
+    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
     color: var(--color-accent);
     page-break-after: avoid !important;
   }
   
   h2:nth-of-type(2) + ul {
-    max-height: 280mm;
-    margin: var(--spacing-xs) 0;
-    padding: var(--spacing-sm);
+    max-height: 240mm;
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
     columns: 2;
-    column-gap: var(--spacing-xl);
+    column-gap: var(--spacing-2xl);
     column-fill: balance;
     background: linear-gradient(135deg, #f8fafc, #f1f5f9, #e2e8f0);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border: 2px solid var(--color-border);
+    border-radius: 12px;
     page-break-inside: avoid !important;
     /* Supprimé page-break-after: always pour éviter la page vide */
-    font-size: 10pt;
-    line-height: 1.3;
+    font-size: 13pt;
+    line-height: 1.4;
   }
   
   h2:nth-of-type(2) + ul > li {
@@ -1621,7 +1621,7 @@ h3[id*="fonctions-cles"] + ul::before {
   figure:has(img[src*="figure-"]) img,
   figure:has(img[src*="diagram"]) img {
     max-width: 100% !important;
-    max-height: 110mm !important;
+    max-height: 200mm !important;
     page-break-inside: avoid !important;
   }
 
@@ -1629,15 +1629,15 @@ h3[id*="fonctions-cles"] + ul::before {
   img[src*="ndf_"],
   img[src*="pdg_"],
   img[src*="remboursement_"] {
-    max-width: 55% !important;
-    max-height: 90mm !important;
+    max-width: 50% !important;
+    max-height: 120mm !important;
   }
 
   /* Capture Google Sheets spéciale */
   img[src*="pdg_sheets"],
   img[src*="sheets_row"] {
-    max-width: 75% !important;
-    max-height: 120mm !important;
+    max-width: 95% !important;
+    max-height: 150mm !important;
   }
 
   /* Grille mobile pour l'impression */
@@ -1649,7 +1649,7 @@ h3[id*="fonctions-cles"] + ul::before {
   }
 
   .mobile-grid img {
-    max-height: 65mm !important;
+    max-height: 120mm !important;
   }
 
   .mobile-grid::before {
@@ -1705,7 +1705,7 @@ h3[id*="fonctions-cles"] + ul::before {
   
   /* Images dans grilles mobiles - tailles optimisées */
   .mobile-grid img {
-    max-height: 60mm !important; /* Compact pour optimiser l'espace */
+    max-height: 100mm !important; /* Augmenté pour meilleure visibilité */
   }
 
   /* Optimisation complète pour l'impression */
