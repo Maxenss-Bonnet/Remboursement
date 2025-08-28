@@ -1,2 +1,0 @@
-﻿rapport_stage_maxence_bonnet.md
-style.css

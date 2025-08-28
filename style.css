@@ -711,111 +711,23 @@ h2 + ul ul li {
   border-radius: 4px;
 }
 
-/* TABLE DES ILLUSTRATIONS - STYLE SIMILAIRE AU SOMMAIRE */
-/* Sélecteur pour la liste qui suit directement le titre "Table des Illustrations" */
-h2:has(+ ul) + ul,
-h2[id="table-des-illustrations"] + ul {
-  /* Même style que le sommaire mais avec adaptation pour la Table des Illustrations */
-  font-size: 11pt !important;
-  line-height: 1.45 !important;
-  
-  columns: 2 !important;
-  column-gap: var(--spacing-2xl) !important;
-  column-fill: balance !important;
-  
-  margin: var(--spacing-lg) 0 var(--spacing-2xl) 0 !important;
-  padding: var(--spacing-xl) var(--spacing-2xl) !important;
-  
-  background: linear-gradient(135deg, #ffffff, #f8fafc, #f1f5f9, #e2e8f0);
-  border: 3px solid var(--color-accent);
-  border-radius: 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(37, 99, 235, 0.08);
-  
-  position: relative !important;
-  overflow: visible !important;
-  width: 100% !important;
-  min-height: 100mm !important;
-  
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
+/* TABLE DES ILLUSTRATIONS - Utilise automatiquement le style du sommaire grâce à h2 + ul */
+/* La Table des Illustrations n'a plus besoin de styles spécifiques */
+/* Elle hérite automatiquement du style h2 + ul comme le sommaire */
 
-/* Items de la Table des Illustrations */
-h2[id="table-des-illustrations"] + ul li {
-  margin: 3pt 0 !important;
-  padding: 2pt 6pt !important;
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
-  
-  font-size: 10.5pt !important;
-  line-height: 1.4 !important;
-  font-weight: 500 !important;
-  
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 6px;
-  list-style: none;
-  position: relative;
-}
-
-/* Liens dans la Table des Illustrations */
-h2[id="table-des-illustrations"] + ul a {
-  color: var(--color-text) !important;
-  text-decoration: none !important;
-  border-bottom: none !important;
-  display: block;
-  padding: 2pt 4pt;
+/* Titre décoratif spécifique pour la Table des Illustrations */
+h2#table-des-illustrations + ul::after {
+  content: "Annexes" !important;
+  position: absolute;
+  top: var(--spacing-xs);
+  right: var(--spacing-md);
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--color-muted);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2pt var(--spacing-xs);
   border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-h2[id="table-des-illustrations"] + ul a:hover {
-  background-color: var(--color-bg-accent);
-  color: var(--color-accent-dark);
-  transform: translateX(2px);
-}
-
-h2[id="table-des-illustrations"] + ul li strong {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-/* Fallback pour l'ancienne classe si elle est toujours utilisée quelque part */
-.table-illustrations {
-  font-size: 11pt !important;
-  line-height: 1.45 !important;
-  columns: 2 !important;
-  column-gap: var(--spacing-2xl) !important;
-  column-fill: balance !important;
-  margin: var(--spacing-lg) 0 var(--spacing-2xl) 0 !important;
-  padding: var(--spacing-xl) var(--spacing-2xl) !important;
-  background: linear-gradient(135deg, #ffffff, #f8fafc, #f1f5f9, #e2e8f0);
-  border: 3px solid var(--color-accent);
-  border-radius: 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(37, 99, 235, 0.08);
-  position: relative !important;
-  overflow: visible !important;
-  width: 100% !important;
-  min-height: 100mm !important;
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
-
-.table-illustrations li {
-  margin: 3pt 0 !important;
-  padding: 2pt 6pt !important;
-  break-inside: avoid !important;
-  font-size: 10.5pt !important;
-  line-height: 1.4 !important;
-  font-weight: 500 !important;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 6px;
-  list-style: none;
-}
-
-.table-illustrations li strong {
-  color: var(--color-accent);
-  font-weight: 600;
+  border: 1px solid var(--color-border-light);
 }
 
 /* Listes avec espacement et puces personnalisées */
@@ -1480,7 +1392,7 @@ h2 + ul::before {
 }
 
 /* Titre décoratif du sommaire - COMPACT */
-h2 + ul::after {
+h2#sommaire + ul::after {
   content: "Sommaire";
   position: absolute;
   top: var(--spacing-xs);
@@ -1675,9 +1587,10 @@ h4 + ul li::before {
    Différenciation visuelle du sommaire
    ============================================= */
 
-/* RESET : Annuler les styles du sommaire pour Bibliographie et Glossaire */
-#bibliographie + ul,
-#glossaire + ul {
+/* RESET : Annuler les styles du sommaire pour Bibliographie et Glossaire UNIQUEMENT */
+/* La Table des Illustrations conserve le style du sommaire */
+h2#bibliographie + ul,
+h2#glossaire + ul {
   /* Annuler le style colonnes du sommaire */
   columns: none !important;
   column-gap: normal !important;
@@ -1702,10 +1615,10 @@ h4 + ul li::before {
   position: static !important;
 }
 
-#bibliographie + ul::before,
-#bibliographie + ul::after,
-#glossaire + ul::before,
-#glossaire + ul::after {
+h2#bibliographie + ul::before,
+h2#bibliographie + ul::after,
+h2#glossaire + ul::before,
+h2#glossaire + ul::after {
   display: none !important;
 }
 
@@ -1714,7 +1627,7 @@ h4 + ul li::before {
    ============================================= */
 
 /* Section Bibliographie - Même layout que le Glossaire */
-#bibliographie + ul {
+h2#bibliographie + ul {
   padding-left: 0;
   list-style: none;
   margin-top: var(--spacing-xl);
@@ -1723,7 +1636,7 @@ h4 + ul li::before {
   gap: var(--spacing-sm);
 }
 
-#bibliographie + ul li {
+h2#bibliographie + ul li {
   /* Reset des styles hérités */
   background: none !important;
   border: none !important;
@@ -1757,7 +1670,7 @@ h4 + ul li::before {
 }
 
 /* Puce décorative identique au Glossaire - Alignement optimisé */
-#bibliographie + ul li::before {
+h2#bibliographie + ul li::before {
   content: "▸" !important;
   color: var(--color-accent) !important;
   font-weight: bold !important;
@@ -1771,7 +1684,7 @@ h4 + ul li::before {
 }
 
 /* Effet survol identique au Glossaire */
-#bibliographie + ul li:hover {
+h2#bibliographie + ul li:hover {
   background: linear-gradient(135deg, 
     var(--color-bg-accent) 0%, 
     var(--color-bg-secondary) 100%) !important;
@@ -1781,7 +1694,7 @@ h4 + ul li::before {
 }
 
 /* Style des liens dans la bibliographie - simplifié */
-#bibliographie + ul li a {
+h2#bibliographie + ul li a {
   color: var(--color-accent-dark) !important;
   text-decoration: none !important;
   border-bottom: 1px dotted var(--color-accent-light) !important;
@@ -1790,7 +1703,7 @@ h4 + ul li::before {
   transition: all 0.2s ease !important;
 }
 
-#bibliographie + ul li a:hover {
+h2#bibliographie + ul li a:hover {
   background-color: var(--color-bg-accent) !important;
   border-bottom-style: solid !important;
   transform: none !important;
@@ -1801,7 +1714,7 @@ h4 + ul li::before {
    ============================================= */
 
 /* Section Glossaire */
-#glossaire + ul {
+h2#glossaire + ul {
   padding-left: 0;
   list-style: none;
   margin-top: var(--spacing-xl);
@@ -1810,7 +1723,7 @@ h4 + ul li::before {
   gap: var(--spacing-sm);
 }
 
-#glossaire + ul li {
+h2#glossaire + ul li {
   /* Reset des styles hérités */
   background: none !important;
   border: none !important;
@@ -1844,7 +1757,7 @@ h4 + ul li::before {
 }
 
 /* Séparateur entre terme et définition - Alignement optimisé */
-#glossaire + ul li::before {
+h2#glossaire + ul li::before {
   content: "▸" !important;
   color: var(--color-accent) !important;
   font-weight: bold !important;
@@ -1858,7 +1771,7 @@ h4 + ul li::before {
 }
 
 /* Style pour les termes en gras (premier strong) */
-#glossaire + ul li strong:first-child {
+h2#glossaire + ul li strong:first-child {
   color: var(--color-accent-dark) !important;
   font-weight: 700 !important;
   font-size: 10.5pt !important;
@@ -1873,7 +1786,7 @@ h4 + ul li::before {
 }
 
 /* Effet survol pour le glossaire */
-#glossaire + ul li:hover {
+h2#glossaire + ul li:hover {
   background: linear-gradient(135deg, 
     var(--color-bg-accent) 0%, 
     var(--color-bg-secondary) 100%) !important;
@@ -1888,11 +1801,11 @@ h4 + ul li::before {
 
 @media print {
   /* Bibliographie pour l'impression - Style carte simplifié */
-  #bibliographie + ul {
+  h2#bibliographie + ul {
     gap: var(--spacing-xs) !important;
   }
   
-  #bibliographie + ul li {
+  h2#bibliographie + ul li {
     font-size: 9.5pt !important;
     line-height: 1.4 !important;
     margin-bottom: var(--spacing-xs) !important;
@@ -1914,17 +1827,17 @@ h4 + ul li::before {
     break-inside: avoid !important;
   }
   
-  #bibliographie + ul li::before {
+  h2#bibliographie + ul li::before {
     font-size: 10pt !important;
     margin-top: 0 !important;
   }
   
   /* Glossaire pour l'impression - Style identique à la Bibliographie */
-  #glossaire + ul {
+  h2#glossaire + ul {
     gap: var(--spacing-xs) !important;
   }
   
-  #glossaire + ul li {
+  h2#glossaire + ul li {
     font-size: 9.5pt !important;
     line-height: 1.4 !important;
     margin-bottom: var(--spacing-xs) !important;
@@ -1946,19 +1859,19 @@ h4 + ul li::before {
     break-inside: avoid !important;
   }
   
-  #glossaire + ul li::before {
+  h2#glossaire + ul li::before {
     font-size: 10pt !important;
     margin-top: 0 !important;
   }
   
-  #glossaire + ul li strong:first-child {
+  h2#glossaire + ul li strong:first-child {
     font-size: 9.5pt !important;
     min-width: 80px !important;
   }
   
   /* Supprimer les effets de survol à l'impression */
-  #bibliographie + ul li:hover,
-  #glossaire + ul li:hover {
+  h2#bibliographie + ul li:hover,
+  h2#glossaire + ul li:hover {
     transform: none !important;
     background: inherit !important;
     border-color: inherit !important;

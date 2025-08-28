@@ -51,7 +51,7 @@ Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du b
   - [Présentation de l'Entreprise : Natécia](#12-présentation-de-lentreprise--natécia)
   - [Contexte et Enjeux du Stage](#13-contexte-et-enjeux-du-stage)
   - [Structure du Rapport](#14-structure-du-rapport)
-- [Application Mobile "Notes de Frais Employé"](#2-application-mobile-notes-de-frais-employé)
+- [Application Mobile Notes de Frais Employé](#2-application-mobile-notes-de-frais-employé)
   - [Analyse du Besoin](#21-analyse-du-besoin)
   - [Démarche Adoptée et Solutions Envisagées](#22-démarche-adoptée-et-solutions-envisagées)
   - [Justification des Choix Techniques](#23-justification-des-choix-techniques)
@@ -59,11 +59,11 @@ Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du b
   - [Fonctions Clés Issues du Code](#25-fonctions-clés-issues-du-code)
   - [Difficultés Rencontrées](#26-difficultés-rencontrées)
   - [Résultats Obtenus](#27-résultats-obtenus)
-- [Application Mobile "Notes de Frais PDG"](#3-application-mobile-notes-de-frais-pdg)
+- [Application Mobile Notes de Frais PDG](#3-application-mobile-notes-de-frais-pdg)
   - [Analyse du Besoin Spécifique](#31-analyse-du-besoin-spécifique)
   - [Adaptations et Fonctionnalités Clés](#32-adaptations-et-fonctionnalités-clés)
   - [Résultats](#33-résultats)
-- [Application Desktop "Gestion des Remboursements"](#4-application-desktop-gestion-des-remboursements)
+- [Application Desktop Gestion des Remboursements](#4-application-desktop-gestion-des-remboursements)
   - [Analyse du Besoin](#41-analyse-du-besoin)
   - [Architecture Logicielle MVC](#42-architecture-logicielle-mvc)
   - [Fonctions Clés Issues du Code](#43-fonctions-clés-issues-du-code)
@@ -73,10 +73,10 @@ Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du b
 - [Conclusion](#5-conclusion)
   - [Récapitulatif des Livrables](#51-récapitulatif-des-livrables)
   - [Limites et Perspectives d'Évolution](#52-limites-et-perspectives-dévolution)
-- [Remerciements](#6-remerciements)
-- [Glossaire](#7-glossaire)
-- [Bibliographie](#8-bibliographie)
-- [Annexes](#9-annexes)
+- [Remerciements](#remerciements)
+- [Glossaire](#glossaire)
+- [Bibliographie](#bibliographie)
+- [Annexes](#annexes)
   - [Liens vers les Dépôts de Code Source](#91-liens-vers-les-dépôts-de-code-source)
   - [Annexes - Illustrations](#92-annexes---illustrations)
 
@@ -84,29 +84,25 @@ Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du b
 
 ## Table des Illustrations
 
-<div class="table-illustrations">
-
-- **Annexe A.1** - Workflow de l'application "Notes de Frais" 
-- **Annexe A.2** - Diagramme de Contexte C4 de l'application "Notes de Frais" 
-- **Annexe A.3** - Diagramme de Conteneurs C4 de l'application "Notes de Frais" 
-- **Annexe A.4** - Interface principale de l'application "Notes de Frais" 
-- **Annexe A.5** - Écran de capture/import de justificatifs 
-- **Annexe A.6** - Analyse IA et vérification des données extraites 
-- **Annexe A.7** - Notes kilométriques 
-- **Annexe A.8** - Historique des notes 
-- **Annexe A.9** - Aperçu d'une page du PDF généré 
-- **Annexe A.10** - Envoi et confirmation du rapport 
-- **Annexe A.11** - Résultat d'export dans Google Sheets (Application PDG) 
-- **Annexe A.12** - Architecture de l'application "Gestion des Remboursements" 
-- **Annexe A.13** - Diagramme de Contexte C4 de l'application "Gestion des Remboursements" 
-- **Annexe A.14** - Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements" 
-- **Annexe A.15** - Workflow de validation des remboursements 
-- **Annexe A.16** - Écran de connexion de l'application Remboursements 
-- **Annexe A.17** - Création d'une nouvelle demande de remboursement 
-- **Annexe A.18** - Gestion des pièces jointes 
-- **Annexe A.19** - Confirmation de paiement 
-
-</div>
+- [**Annexe A.1** - Workflow de l'application Notes de Frais](#annexe-a1---workflow-de-lapplication-notes-de-frais)
+- [**Annexe A.2** - Diagramme de Contexte C4 de l'application Notes de Frais](#annexe-a2---diagramme-de-contexte-c4-de-lapplication-notes-de-frais)
+- [**Annexe A.3** - Diagramme de Conteneurs C4 de l'application Notes de Frais](#annexe-a3---diagramme-de-conteneurs-c4-de-lapplication-notes-de-frais)
+- [**Annexe A.4** - Interface principale de l'application Notes de Frais](#annexe-a4---interface-principale-de-lapplication-notes-de-frais)
+- [**Annexe A.5** - Écran de capture/import de justificatifs](#annexe-a5---écran-de-captureimport-de-justificatifs)
+- [**Annexe A.6** - Analyse IA et vérification des données extraites](#annexe-a6---analyse-ia-et-vérification-des-données-extraites)
+- [**Annexe A.7** - Notes kilométriques](#annexe-a7---notes-kilométriques)
+- [**Annexe A.8** - Historique des notes](#annexe-a8---historique-des-notes)
+- [**Annexe A.9** - Aperçu d'une page du PDF généré](#annexe-a9---aperçu-dune-page-du-pdf-généré)
+- [**Annexe A.10** - Envoi et confirmation du rapport](#annexe-a10---envoi-et-confirmation-du-rapport)
+- [**Annexe A.11** - Résultat d'export dans Google Sheets (Application PDG)](#annexe-a11---résultat-dexport-dans-google-sheets-application-pdg)
+- [**Annexe A.12** - Architecture de l'application Gestion des Remboursements](#annexe-a12---architecture-de-lapplication-gestion-des-remboursements)
+- [**Annexe A.13** - Diagramme de Contexte C4 de l'application Gestion des Remboursements](#annexe-a13---diagramme-de-contexte-c4-de-lapplication-gestion-des-remboursements)
+- [**Annexe A.14** - Diagramme de Conteneurs C4 de l'application Gestion des Remboursements](#annexe-a14---diagramme-de-conteneurs-c4-de-lapplication-gestion-des-remboursements)
+- [**Annexe A.15** - Workflow de validation des remboursements](#annexe-a15---workflow-de-validation-des-remboursements)
+- [**Annexe A.16** - Écran de connexion de l'application Remboursements](#annexe-a16---écran-de-connexion-de-lapplication-remboursements)
+- [**Annexe A.17** - Création d'une nouvelle demande de remboursement](#annexe-a17---création-dune-nouvelle-demande-de-remboursement)
+- [**Annexe A.18** - Gestion des pièces jointes](#annexe-a18---gestion-des-pièces-jointes)
+- [**Annexe A.19** - Confirmation de paiement](#annexe-a19---confirmation-de-paiement)
 
 ---
 
@@ -145,7 +141,7 @@ Ce rapport s'articule en trois chapitres principaux, chacun dédié à l'un des 
 
 <div class="page-break"></div>
 
-## 2. Application Mobile "Notes de Frais Employé"
+## 2. Application Mobile Notes de Frais Employé
 
 ### 2.1 Analyse du Besoin
 
@@ -177,19 +173,19 @@ Pour l'extraction de données, la solution d'une **API d'Intelligence Artificiel
 
 L'application suit un workflow utilisateur simple et intuitif.
 
-Le workflow de l'application suit un parcours structuré du justificatif, de sa capture à sa réception par le service comptable *(voir Annexe A.1 - Workflow de l'application "Notes de Frais")*.
+Le workflow de l'application suit un parcours structuré du justificatif, de sa capture à sa réception par le service comptable *([voir Annexe A.1 - Workflow de l'application Notes de Frais](#annexe-a1---workflow-de-lapplication-notes-de-frais))*.
 
-L'architecture de l'application est documentée selon la méthodologie C4 avec un diagramme de contexte *(voir Annexe A.2 - Diagramme de Contexte C4)* et un diagramme de conteneurs *(voir Annexe A.3 - Diagramme de Conteneurs C4)*.
+L'architecture de l'application est documentée selon la méthodologie C4 avec un diagramme de contexte *([voir Annexe A.2 - Diagramme de Contexte C4](#annexe-a2---diagramme-de-contexte-c4-de-lapplication-notes-de-frais))* et un diagramme de conteneurs *([voir Annexe A.3 - Diagramme de Conteneurs C4](#annexe-a3---diagramme-de-conteneurs-c4-de-lapplication-notes-de-frais))*.
 
-L'interface principale de l'application offre une navigation intuitive et accessible *(voir Annexe A.4 - Interface principale de l'application)*.
+L'interface principale de l'application offre une navigation intuitive et accessible *([voir Annexe A.4 - Interface principale de l'application](#annexe-a4---interface-principale-de-lapplication-notes-de-frais))*.
 
 L'application propose plusieurs fonctionnalités clés documentées visuellement en annexe :
-- Capture et import de justificatifs via caméra ou sélecteur multi-fichiers *(voir Annexe A.5)*
-- Analyse IA avec vérification et correction des données extraites *(voir Annexe A.6)*
-- Gestion des notes kilométriques avec calcul automatique *(voir Annexe A.7)*
-- Historique complet des notes avec filtres et statuts *(voir Annexe A.8)*
-- Génération de PDF avec tableaux et totaux détaillés *(voir Annexe A.9)*
-- Processus d'envoi et confirmation du rapport *(voir Annexe A.10)*
+- Capture et import de justificatifs via caméra ou sélecteur multi-fichiers *([voir Annexe A.5](#annexe-a5---écran-de-captureimport-de-justificatifs))*
+- Analyse IA avec vérification et correction des données extraites *([voir Annexe A.6](#annexe-a6---analyse-ia-et-vérification-des-données-extraites))*
+- Gestion des notes kilométriques avec calcul automatique *([voir Annexe A.7](#annexe-a7---notes-kilométriques))*
+- Historique complet des notes avec filtres et statuts *([voir Annexe A.8](#annexe-a8---historique-des-notes))*
+- Génération de PDF avec tableaux et totaux détaillés *([voir Annexe A.9](#annexe-a9---aperçu-dune-page-du-pdf-généré))*
+- Processus d'envoi et confirmation du rapport *([voir Annexe A.10](#annexe-a10---envoi-et-confirmation-du-rapport))*
 
 ### 2.5 Fonctions Clés Issues du Code
 
@@ -213,7 +209,7 @@ L'application développée est fonctionnelle et répond à toutes les exigences 
 
 <div class="page-break"></div>
 
-## 3. Application Mobile "Notes de Frais PDG"
+## 3. Application Mobile Notes de Frais PDG
 
 ### 3.1 Analyse du Besoin Spécifique
 
@@ -230,7 +226,7 @@ Le projet a donc consisté à dupliquer la base de code existante (via une branc
 
 Le reste de l'application (capture, analyse IA, stockage local) est resté identique, garantissant une maintenance aisée des deux versions.
 
-La fonctionnalité spécifique à la version PDG permet l'export direct vers Google Sheets avec toutes les colonnes pertinentes automatiquement renseignées *(voir Annexe A.11 - Résultat d'export dans Google Sheets)*.
+La fonctionnalité spécifique à la version PDG permet l'export direct vers Google Sheets avec toutes les colonnes pertinentes automatiquement renseignées *([voir Annexe A.11 - Résultat d'export dans Google Sheets](#annexe-a11---résultat-dexport-dans-google-sheets-application-pdg))*.
 
 ### 3.3 Résultats
 
@@ -240,7 +236,7 @@ La version "PDG" est également fonctionnelle. L'intégration avec Google Sheets
 
 <div class="page-break"></div>
 
-## 4. Application Desktop "Gestion des Remboursements"
+## 4. Application Desktop Gestion des Remboursements
 
 ### 4.1 Analyse du Besoin
 
@@ -257,12 +253,12 @@ Le besoin était de créer une application de bureau centralisée, avec :
 
 Pour garantir la maintenabilité et la scalabilité de l'application, une architecture **Modèle-Vue-Contrôleur (MVC)** a été mise en œuvre.
 
-L'architecture MVC de l'application est détaillée dans le schéma d'architecture *(voir Annexe A.12 - Architecture de l'application)*. Cette architecture se compose de trois éléments principaux :
+L'architecture MVC de l'application est détaillée dans le schéma d'architecture *([voir Annexe A.12 - Architecture de l'application](#annexe-a12---architecture-de-lapplication-gestion-des-remboursements))*. Cette architecture se compose de trois éléments principaux :
 *   **Modèle :** Gère les données et la logique métier. Il interagit directement avec la base de données SQLite.
 *   **Vue :** Responsable de l'affichage de l'interface graphique. Elle est construite avec la bibliothèque Python `CustomTkinter`.
 *   **Contrôleur :** Reçoit les actions de l'utilisateur depuis la Vue, les traite en faisant appel au Modèle, et met à jour la Vue en conséquence.
 
-La documentation technique complète comprend un diagramme de contexte C4 *(voir Annexe A.13)* et un diagramme de conteneurs C4 *(voir Annexe A.14)*.
+La documentation technique complète comprend un diagramme de contexte C4 *([voir Annexe A.13](#annexe-a13---diagramme-de-contexte-c4-de-lapplication-gestion-des-remboursements))* et un diagramme de conteneurs C4 *([voir Annexe A.14](#annexe-a14---diagramme-de-conteneurs-c4-de-lapplication-gestion-des-remboursements))*.
 
 ### 4.3 Fonctions Clés Issues du Code
 
@@ -276,13 +272,13 @@ La documentation technique complète comprend un diagramme de contexte C4 *(voir
 
 L'application matérialise un processus métier strict où une demande de remboursement passe par plusieurs statuts, chaque transition étant conditionnée par l'action d'un utilisateur avec le rôle approprié.
 
-Le processus de validation suit un workflow strict avec différents états et transitions, où chaque rôle a des permissions spécifiques pour faire évoluer une demande *(voir Annexe A.15 - Workflow de validation des remboursements)*.
+Le processus de validation suit un workflow strict avec différents états et transitions, où chaque rôle a des permissions spécifiques pour faire évoluer une demande *([voir Annexe A.15 - Workflow de validation des remboursements](#annexe-a15---workflow-de-validation-des-remboursements))*.
 
 L'application desktop propose une interface complète pour la gestion des remboursements avec plusieurs écrans spécialisés :
-- Écran de connexion sécurisé avec gestion des erreurs *(voir Annexe A.16)*
-- Interface de création de nouvelle demande avec saisie des informations requises *(voir Annexe A.17)*
-- Module de gestion des pièces jointes pour RIB, factures et justificatifs *(voir Annexe A.18)*
-- Écran de confirmation de paiement avec horodatage automatique *(voir Annexe A.19)*
+- Écran de connexion sécurisé avec gestion des erreurs *([voir Annexe A.16](#annexe-a16---écran-de-connexion-de-lapplication-remboursements))*
+- Interface de création de nouvelle demande avec saisie des informations requises *([voir Annexe A.17](#annexe-a17---création-dune-nouvelle-demande-de-remboursement))*
+- Module de gestion des pièces jointes pour RIB, factures et justificatifs *([voir Annexe A.18](#annexe-a18---gestion-des-pièces-jointes))*
+- Écran de confirmation de paiement avec horodatage automatique *([voir Annexe A.19](#annexe-a19---confirmation-de-paiement))*
 
 ### 4.5 Gestion de la Base de Données sur Réseau
 
@@ -305,9 +301,9 @@ L'application a été déployée et est utilisée par les différents services c
 ### 5.1 Récapitulatif des Livrables
 
 Ce stage a abouti à la livraison de trois applications entièrement fonctionnelles qui répondent aux problématiques de gestion initiales de Natécia :
-1.  **Une application mobile "Notes de Frais"** pour les employés.
+1.  **Une application mobile Notes de Frais** pour les employés.
 2.  **Une version "PDG"** de cette application avec des fonctionnalités de reporting étendues.
-3.  **Une application de bureau "Gestion des Remboursements"** pour centraliser et sécuriser le workflow de validation.
+3.  **Une application de bureau Gestion des Remboursements** pour centraliser et sécuriser le workflow de validation.
 
 Ces outils ont été conçus pour être robustes, sécurisés et évolutifs.
 
@@ -376,25 +372,25 @@ Enfin, je remercie CPE Lyon de m'avoir offert l'opportunité de réaliser ce sta
 
 ## 9.2 Annexes - Illustrations
 
-### Annexe A.1 - Workflow de l'application "Notes de Frais"
+### Annexe A.1 - Workflow de l'application Notes de Frais
 <figure>
 <img alt="Workflow Notes de Frais" src="./diagrams-out/figure-1-workflow.svg" />
-<figcaption>Schéma du workflow de l'application "Notes de Frais" illustrant le parcours d'un justificatif, de sa capture à sa réception par le service comptable.</figcaption>
+<figcaption>Schéma du workflow de l'application Notes de Frais illustrant le parcours d'un justificatif, de sa capture à sa réception par le service comptable.</figcaption>
 </figure>
 
-### Annexe A.2 - Diagramme de Contexte C4 de l'application "Notes de Frais"
+### Annexe A.2 - Diagramme de Contexte C4 de l'application Notes de Frais
 <figure>
 <img alt="Contexte Notes de Frais" src="./diagrams-out/figure-1-1-context.svg" />
 <figcaption>Vue de contexte du système montrant les acteurs externes et leurs interactions avec l'application.</figcaption>
 </figure>
 
-### Annexe A.3 - Diagramme de Conteneurs C4 de l'application "Notes de Frais"
+### Annexe A.3 - Diagramme de Conteneurs C4 de l'application Notes de Frais
 <figure>
 <img alt="Conteneurs Notes de Frais" src="./diagrams-out/figure-1-2-containers.svg" />
 <figcaption>Architecture des conteneurs logiciels et leurs relations dans l'application.</figcaption>
 </figure>
 
-### Annexe A.4 - Interface principale de l'application "Notes de Frais"
+### Annexe A.4 - Interface principale de l'application Notes de Frais
 <figure>
 <img src="./captures/ndf_main.png" alt="Interface de l'application Notes de Frais" />
 <figcaption>Écran principal de l'application mobile offrant un accès aux différentes fonctionnalités.</figcaption>
@@ -442,19 +438,19 @@ Enfin, je remercie CPE Lyon de m'avoir offert l'opportunité de réaliser ce sta
 <figcaption>Ligne automatiquement ajoutée dans Google Sheets avec toutes les colonnes pertinentes renseignées par l'application PDG.</figcaption>
 </figure>
 
-### Annexe A.12 - Architecture de l'application "Gestion des Remboursements"
+### Annexe A.12 - Architecture de l'application Gestion des Remboursements
 <figure>
 <img alt="Architecture Remboursements" src="./diagrams-out/figure-2-architecture.svg" />
 <figcaption>Schéma d'architecture MVC (Modèle-Vue-Contrôleur) de l'application desktop de gestion des remboursements.</figcaption>
 </figure>
 
-### Annexe A.13 - Diagramme de Contexte C4 de l'application "Gestion des Remboursements"
+### Annexe A.13 - Diagramme de Contexte C4 de l'application Gestion des Remboursements
 <figure>
 <img alt="Contexte Remboursements" src="./diagrams-out/figure-2-1-context.svg" />
 <figcaption>Vue de contexte montrant les différents services et acteurs interagissant avec l'application de remboursements.</figcaption>
 </figure>
 
-### Annexe A.14 - Diagramme de Conteneurs C4 de l'application "Gestion des Remboursements"
+### Annexe A.14 - Diagramme de Conteneurs C4 de l'application Gestion des Remboursements
 <figure>
 <img alt="Conteneurs Remboursements" src="./diagrams-out/figure-2-2-containers.svg" />
 <figcaption>Architecture technique détaillant les conteneurs logiciels et la base de données SQLite sur réseau.</figcaption>
