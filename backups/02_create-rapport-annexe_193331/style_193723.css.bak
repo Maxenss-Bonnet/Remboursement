@@ -712,91 +712,27 @@ h2 + ul ul li {
 }
 
 /* TABLE DES ILLUSTRATIONS - STYLE SIMILAIRE AU SOMMAIRE */
-/* Sélecteur pour la liste qui suit directement le titre "Table des Illustrations" */
-h2:has(+ ul) + ul,
-h2[id="table-des-illustrations"] + ul {
-  /* Même style que le sommaire mais avec adaptation pour la Table des Illustrations */
-  font-size: 11pt !important;
-  line-height: 1.45 !important;
-  
-  columns: 2 !important;
-  column-gap: var(--spacing-2xl) !important;
-  column-fill: balance !important;
-  
-  margin: var(--spacing-lg) 0 var(--spacing-2xl) 0 !important;
-  padding: var(--spacing-xl) var(--spacing-2xl) !important;
-  
-  background: linear-gradient(135deg, #ffffff, #f8fafc, #f1f5f9, #e2e8f0);
-  border: 3px solid var(--color-accent);
-  border-radius: 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(37, 99, 235, 0.08);
-  
-  position: relative !important;
-  overflow: visible !important;
-  width: 100% !important;
-  min-height: 100mm !important;
-  
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
-
-/* Items de la Table des Illustrations */
-h2[id="table-des-illustrations"] + ul li {
-  margin: 3pt 0 !important;
-  padding: 2pt 6pt !important;
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-  -webkit-column-break-inside: avoid !important;
-  
-  font-size: 10.5pt !important;
-  line-height: 1.4 !important;
-  font-weight: 500 !important;
-  
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 6px;
-  list-style: none;
-  position: relative;
-}
-
-/* Liens dans la Table des Illustrations */
-h2[id="table-des-illustrations"] + ul a {
-  color: var(--color-text) !important;
-  text-decoration: none !important;
-  border-bottom: none !important;
-  display: block;
-  padding: 2pt 4pt;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-h2[id="table-des-illustrations"] + ul a:hover {
-  background-color: var(--color-bg-accent);
-  color: var(--color-accent-dark);
-  transform: translateX(2px);
-}
-
-h2[id="table-des-illustrations"] + ul li strong {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-/* Fallback pour l'ancienne classe si elle est toujours utilisée quelque part */
 .table-illustrations {
   font-size: 11pt !important;
   line-height: 1.45 !important;
+  
   columns: 2 !important;
   column-gap: var(--spacing-2xl) !important;
   column-fill: balance !important;
+  
   margin: var(--spacing-lg) 0 var(--spacing-2xl) 0 !important;
   padding: var(--spacing-xl) var(--spacing-2xl) !important;
+  
   background: linear-gradient(135deg, #ffffff, #f8fafc, #f1f5f9, #e2e8f0);
   border: 3px solid var(--color-accent);
   border-radius: 16px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(37, 99, 235, 0.08);
+  
   position: relative !important;
   overflow: visible !important;
   width: 100% !important;
   min-height: 100mm !important;
+  
   page-break-inside: avoid !important;
   break-inside: avoid !important;
 }
@@ -805,9 +741,11 @@ h2[id="table-des-illustrations"] + ul li strong {
   margin: 3pt 0 !important;
   padding: 2pt 6pt !important;
   break-inside: avoid !important;
+  
   font-size: 10.5pt !important;
   line-height: 1.4 !important;
   font-weight: 500 !important;
+  
   background: rgba(255, 255, 255, 0.6);
   border-radius: 6px;
   list-style: none;

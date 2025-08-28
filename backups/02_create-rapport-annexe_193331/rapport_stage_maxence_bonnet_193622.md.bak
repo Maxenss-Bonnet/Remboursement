@@ -132,9 +132,10 @@ Natécia est une clinique privée lyonnaise spécialisée dans la santé de la f
 Le point de départ de ce stage était un constat simple : les processus de gestion des notes de frais et des demandes de remboursement étaient majoritairement manuels, reposant sur des échanges d'e-mails et des documents papier. Cette méthode de travail présentait plusieurs inconvénients majeurs :
 *   **Perte de temps** pour les employés et les services comptables.
 *   **Risques d'erreurs** de saisie et de perte de justificatifs.
-*   **Manque de traçabilité** et de vision centralisée sur l'état des demandes
+*   **Manque de traçabilité** et de vision centralisée sur l'état des demandes.
 *   **Processus de validation long** et complexe, impliquant de multiples intervenants.
 *   **Impact économique important** bloquant les demandes en cours.
+
 L'objectif du stage était donc de répondre à ces problématiques en développant des solutions logicielles sur mesure, capables d'automatiser et de sécuriser ces workflows.
 
 ### 1.4 Structure du Rapport
