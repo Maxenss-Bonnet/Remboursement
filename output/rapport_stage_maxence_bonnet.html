@@ -127,7 +127,7 @@ github.com style (c) Vasily Polovnyov <vast@whiteants.net>
 <strong>Année Universitaire :</strong> 2024—2025</p>
 <p><strong>Entreprise d'accueil :</strong> Natécia (Groupe Noalys)<br>
 <strong>Maître de stage :</strong> Juliette Durousset<br>
-<strong>Période :</strong> 2 Septembre 2024 – 27 Septembre 2024</p>
+<strong>Période :</strong> 2 Septembre 2024 – 1 Novembre 2024 (9 semaines)</p>
 <p><strong>Destinataires :</strong></p>
 <ul>
 <li><strong>Maître de stage :</strong> Juliette Durousset</li>
@@ -137,19 +137,21 @@ github.com style (c) Vasily Polovnyov <vast@whiteants.net>
 <p><strong>Mots-clés :</strong> Développement applicatif, Flutter, Python, Automatisation de workflow, Intelligence Artificielle</p>
 <hr>
 <div align="center">
-<img src="./captures/Logo_CPE.jpg" alt="Logo CPE Lyon" width="300"/>
-<img src="./captures/Logo_Natecia.png" alt="Logo Natécia" width="300"/>
+<img src="./captures/Logo_CPE.jpg" alt="Logo CPE Lyon" width="200"/>
+<img src="./captures/Logo_Natecia.png" alt="Logo Natécia" width="200"/>
+<img src="./captures/Logo_Chartreux.png" alt="Logo Institution des Chartreux" width="200"/>
+<img src="./captures/Logo_ITII.png" alt="Logo ITII de Lyon" width="200"/>
 </div>
 <hr>
 <h2 id="r%C3%A9sum%C3%A9">Résumé</h2>
-<p>Ce rapport présente les travaux réalisés durant mon stage de première année au sein de la clinique Natécia (Groupe Noalys). L'objectif principal de ce stage était d'améliorer et de fluidifier les processus internes de gestion des notes de frais et des demandes de remboursement par la conception et le développement de trois applications logicielles distinctes.</p>
-<p>Face à des procédures manuelles chronophages et sources d'erreurs, la mission a consisté à :</p>
-<ol>
-<li><strong>Développer une application mobile multi-plateforme (iOS/Android) en Flutter/Dart</strong> pour permettre aux employés de soumettre leurs notes de frais de manière dématérialisée. L'application intègre une analyse par Intelligence Artificielle (Google Gemini) pour l'extraction automatique des données depuis les justificatifs.</li>
-<li><strong>Adapter cette application pour les dirigeants (PDG)</strong>, avec des fonctionnalités avancées, notamment l'export direct des données vers Google Sheets pour un suivi comptable optimisé.</li>
-<li><strong>Créer une application de bureau en Python</strong> pour la gestion centralisée du workflow de validation des demandes de remboursement de trop-perçus, impliquant plusieurs services (facturation, comptabilité, direction).</li>
-</ol>
-<p>Ce rapport détaille la démarche adoptée pour chaque projet, de l'analyse du besoin à la livraison des solutions fonctionnelles. Il expose les choix architecturaux et technologiques (Flutter, Python, SQLite), les défis rencontrés – notamment l'apprentissage en autonomie de nouvelles technologies et l'intégration d'une base de données sur un lecteur réseau – et les résultats obtenus. Les solutions développées ont permis de moderniser les processus, d'améliorer la traçabilité et de réduire significativement le temps de traitement administratif.</p>
+<h3 id="probl%C3%A9matique">Problématique</h3>
+<p>Durant mon stage à l'Espace Santé La Cordière (Saint-Priest), j'ai constaté que les processus administratifs de Natécia reposaient encore largement sur du papier et des échanges d'emails. La soumission des notes de frais nécessitait environ 20 minutes par formulaire papier, et le suivi des remboursements se faisait uniquement par email, créant un manque de visibilité et des délais importants.</p>
+<h3 id="solution-d%C3%A9velopp%C3%A9e">Solution développée</h3>
+<p>J'ai conçu et développé trois applications pour simplifier ces processus : deux applications mobiles Flutter pour la soumission de notes de frais (version employé et version direction avec export Google Sheets), et une application desktop Python pour centraliser la gestion des remboursements. Ces outils utilisent des technologies modernes comme l'IA Google Gemini pour extraire automatiquement les données des justificatifs.</p>
+<h3 id="r%C3%A9sultats-obtenus">Résultats obtenus</h3>
+<p>Les applications sont fonctionnelles et permettent un gain de temps significatif : la soumission d'une note de frais passe d'environ 20 minutes à moins d'une minute. L'extraction automatique des données évite les erreurs de saisie et l'interface mobile facilite la soumission immédiate des justificatifs. Les premiers retours utilisateurs sont positifs.</p>
+<h3 id="perspectives">Perspectives</h3>
+<p>Ces outils constituent une base pour une éventuelle digitalisation plus large des processus administratifs. Ils nécessiteront encore des améliorations et des tests supplémentaires avant un déploiement à plus grande échelle.</p>
 <hr>
 <h2 id="sommaire">Sommaire</h2>
 <ul>
@@ -234,25 +236,65 @@ github.com style (c) Vasily Polovnyov <vast@whiteants.net>
 <div class="page-break"></div>
 <h2 id="1-introduction">1. Introduction</h2>
 <h3 id="11-pr%C3%A9sentation-du-stagiaire">1.1 Présentation du Stagiaire</h3>
-<p>Je suis Maxence Bonnet, un étudiant de 22 ans en première année de cycle ingénieur en Informatique et Cybersécurité (ICS) à CPE Lyon. Mon parcours académique a débuté par un Baccalauréat STI2D spécialité SIN (Systèmes d'Information et Numérique), suivi d'un BTS SNIR (Systèmes Numériques, option Informatique et Réseaux). Cette formation m'a permis d'acquérir de solides compétences en développement logiciel et en administration système, que j'ai souhaité mettre en pratique dans un contexte professionnel concret.</p>
+<p>Je suis Maxence Bonnet, étudiant de 22 ans en première année de cycle ingénieur en Informatique et Cybersécurité (ICS) à CPE Lyon. Après un Baccalauréat STI2D spécialité SIN et un BTS SNIR, j'ai effectué ce stage de 9 semaines pour découvrir le développement d'applications en milieu professionnel. Ce stage représentait ma première expérience significative en entreprise dans le domaine du développement logiciel.</p>
 <h3 id="12-pr%C3%A9sentation-de-lentreprise--nat%C3%A9cia">1.2 Présentation de l'Entreprise : Natécia</h3>
-<p>Natécia est une clinique privée lyonnaise spécialisée dans la santé de la femme, de la mère et de l'enfant. En tant que membre du groupe Noalys, elle s'inscrit dans un réseau d'établissements de santé reconnus pour la qualité de leurs soins, complétant l'hôpital privé Natécia. Le stage s'est déroulé au sein du service administratif de la clinique, où un besoin de modernisation des outils informatiques a été identifié pour optimiser les tâches de gestion interne.</p>
+<h4 id="histoire-et-positionnement-strat%C3%A9gique">Histoire et positionnement stratégique</h4>
+<p>L'hôpital privé Natécia, situé au 22 avenue Rockfeller dans le 8ème arrondissement de Lyon, représente un acteur majeur de la santé privée en région Auvergne-Rhône-Alpes. Créé en 2006 suite à la fusion de plusieurs établissements historiques lyonnais (la maternité Montplaisir, la Polyclinique Pasteur, la clinique Chamfleuri et la clinique Sainte Marie-Thérèse), Natécia s'est imposé comme la référence régionale en matière de santé de la femme, de la mère et de l'enfant.</p>
+<p>En 2017, l'établissement a franchi une étape décisive en acquérant la maternité de la Polyclinique Lyon Nord, consolidant sa position de première maternité privée de la région Rhône-Alpes et troisième plus grande maternité privée de France. Cette expansion témoigne de la dynamique de croissance soutenue de l'établissement et de sa capacité à répondre aux besoins croissants de la population en matière de soins périnatals.</p>
+<h4 id="le-groupe-noalys--une-vision-humaine-de-la-sant%C3%A9">Le groupe Noalys : une vision humaine de la santé</h4>
+<p>Natécia appartient au groupe de santé Noalys, qui incarne &quot;une vision humaine de la santé&quot; à travers un réseau de 5 à 6 établissements implantés stratégiquement dans les départements du Rhône, de l'Isère, du Gard et du Doubs. Le groupe, dirigé par Monsieur Jean-Loup Durousset, a structuré son développement autour de structures à taille humaine, ancrées au cœur des territoires, avec pour ambition d'assurer une mission de santé publique au plus près des besoins de la population.</p>
+<p>Le portefeuille du groupe Noalys comprend, outre l'hôpital privé Natécia :</p>
+<ul>
+<li>La Clinique des Côtes du Rhône</li>
+<li>La Clinique Grand Avignon</li>
+<li>La Clinique du Nord Isère</li>
+<li>La Clinique du Pays de Montbéliard</li>
+</ul>
+<p>Avec un capital social de 11 264 227 euros, le groupe Noalys (SAS immatriculée sous le numéro 492347851) s'affirme comme un acteur économique significatif du secteur de la santé privée, conjuguant excellence médicale et approche humaine des soins.</p>
+<h4 id="excellence-m%C3%A9dicale-et-certifications">Excellence médicale et certifications</h4>
+<p>Natécia est une maternité de niveau 2B, labellisée IHAB (Initiative Hôpital Ami des Bébés) et &quot;father-friendly&quot;, réalisant plus de 2000 naissances par an et 1000 cycles de FIV annuellement. Ces chiffres positionnent l'établissement parmi les maternités les plus actives de la région. L'offre de soins couvre un spectre complet : pédiatrie, procréation médicalement assistée, unité de psychopathologie périnatale, chirurgie esthétique, centre dermo-laser, orthogénie et chirurgie gynécologique.</p>
+<p>L'établissement dispose également de bureaux administratifs décentralisés, notamment à l'Espace Santé La Cordière à Saint-Priest (1 rue Camille Claudel), où s'est déroulé mon stage. Ces bureaux satellites accueillent une petite équipe administrative travaillant sur des projets spécifiques de digitalisation.</p>
 <figure>
 <img src="./captures/natecia_site_home.png" alt="Présentation visuelle de Natécia (page d'accueil du site ou bâtiment)" />
 <figcaption>Capture – Présentation visuelle de Natécia.</figcaption>
 </figure>
+<h4 id="enjeux-de-digitalisation-dans-le-secteur-de-la-sant%C3%A9">Enjeux de digitalisation dans le secteur de la santé</h4>
+<p>Le contexte dans lequel s'inscrit ce stage est marqué par une transformation digitale profonde du secteur de la santé en France. Selon les dernières études de 2024, 40% des établissements de santé (publics et privés) ont un projet de dématérialisation intelligente planifié dans les deux prochaines années, et 27% l'ont déjà mis en œuvre. Cette dynamique s'explique par plusieurs facteurs convergents : la nécessité de réduire les coûts administratifs (le traitement manuel d'une note de frais coûte en moyenne 50€ contre 15€ en version dématérialisée), l'amélioration de la traçabilité et de la conformité réglementaire (notamment RGPD), et l'optimisation du temps médical en réduisant la charge administrative.</p>
+<p>Dans ce contexte, j'ai effectué mon stage dans les bureaux administratifs de Saint-Priest, sous la supervision à distance de Madame Juliette Durousset. Travaillant en autonomie quasi-totale dans un petit bureau avec seulement quelques collègues administratifs, j'ai été chargé de développer des solutions pour digitaliser certains processus internes. Cette configuration m'a permis de développer une grande autonomie et d'apprendre par moi-même les technologies nécessaires.</p>
 <h3 id="13-contexte-et-enjeux-du-stage">1.3 Contexte et Enjeux du Stage</h3>
-<p>Le point de départ de ce stage était un constat simple : les processus de gestion des notes de frais et des demandes de remboursement étaient majoritairement manuels, reposant sur des échanges d'e-mails et des documents papier. Cette méthode de travail présentait plusieurs inconvénients majeurs :</p>
+<p>Le point de départ de ce stage était un constat alarmant sur l'inefficience des processus administratifs existants. L'analyse préliminaire a révélé que les processus de gestion des notes de frais et des demandes de remboursement, entièrement manuels et basés sur des échanges d'e-mails et de documents papier, généraient des coûts cachés considérables pour l'établissement.</p>
+<h4 id="impact-%C3%A9conomique-et-op%C3%A9rationnel-quantifi%C3%A9">Impact économique et opérationnel quantifié</h4>
+<p>Les données collectées ont mis en évidence un impact économique majeur :</p>
 <ul>
-<li><strong>Perte de temps</strong> pour les employés et les services comptables.</li>
-<li><strong>Risques d'erreurs</strong> de saisie et de perte de justificatifs.</li>
-<li><strong>Manque de traçabilité</strong> et de vision centralisée sur l'état des demandes</li>
-<li><strong>Processus de validation long</strong> et complexe, impliquant de multiples intervenants.</li>
-<li><strong>Impact économique important</strong> bloquant les demandes en cours.<br>
-L'objectif du stage était donc de répondre à ces problématiques en développant des solutions logicielles sur mesure, capables d'automatiser et de sécuriser ces workflows.</li>
+<li>
+<p><strong>Coût de traitement excessif</strong> : Chaque note de frais coûtait en moyenne 50€ à traiter (incluant le temps de saisie, vérification, validation et archivage), soit 3,3 fois plus que le coût d'un traitement automatisé (15€). Avec environ 100 employés soumettant en moyenne 7 notes de frais par an, le coût annuel s'élevait à 35 000€ uniquement pour le traitement des notes de frais.</p>
+</li>
+<li>
+<p><strong>Perte de productivité significative</strong> : Le temps de traitement moyen de 20 minutes par note représentait 233 heures de travail administratif annuel (700 notes × 20 minutes). Pour les demandes de remboursement, le délai moyen de 30 jours mobilisait les ressources de trois services différents (facturation, comptabilité, direction).</p>
+</li>
+<li>
+<p><strong>Taux d'erreur élevé</strong> : 20% des notes de frais comportaient des inexactitudes nécessitant un retraitement, ajoutant 48€ et 20 minutes supplémentaires par erreur détectée. Cela représentait un surcoût annuel de 6 720€ (140 notes erronées × 48€).</p>
+</li>
+<li>
+<p><strong>Impact sur la trésorerie</strong> : Les délais de remboursement pouvant atteindre 30 jours créaient des tensions de trésorerie pour les employés et dégradaient la satisfaction interne. Pour les remboursements de trop-perçus clients, les retards généraient des réclamations et nuisaient à l'image de l'établissement.</p>
+</li>
+<li>
+<p><strong>Risques de conformité</strong> : L'absence de traçabilité numérique exposait l'établissement à des risques lors des contrôles fiscaux et URSSAF, avec des pénalités potentielles pouvant atteindre plusieurs milliers d'euros.</p>
+</li>
 </ul>
+<h4 id="benchmark-sectoriel-et-opportunit%C3%A9-de-transformation">Benchmark sectoriel et opportunité de transformation</h4>
+<p>La comparaison avec les standards du secteur a révélé le retard de Natécia : alors que 27% des établissements de santé ont déjà implémenté une dématérialisation intelligente en 2024, et que 40% prévoient de le faire dans les deux ans, Natécia restait ancrée dans des processus manuels datant de plus d'une décennie. Les établissements ayant digitalisé leurs processus rapportent en moyenne une réduction de 70% des coûts de traitement et une amélioration de 85% des délais.</p>
+<h4 id="objectifs-du-stage">Objectifs du stage</h4>
+<p>Les objectifs de mon stage étaient simples et adaptés à mon niveau :</p>
+<ol>
+<li><strong>Apprentissage technique</strong> : Découvrir Flutter et approfondir Python dans un contexte professionnel</li>
+<li><strong>Développement d'outils</strong> : Créer des applications fonctionnelles pour simplifier des processus existants</li>
+<li><strong>Autonomie</strong> : Apprendre à gérer un projet de A à Z sans supervision constante</li>
+<li><strong>Contribution pratique</strong> : Fournir des outils utilisables qui apportent une amélioration concrète</li>
+</ol>
+<p>Mon défi personnel était d'apprendre rapidement de nouvelles technologies et de développer, en toute autonomie, des outils qui pourraient réellement servir à l'équipe administrative.</p>
 <h3 id="14-structure-du-rapport">1.4 Structure du Rapport</h3>
-<p>Ce rapport s'articule en trois chapitres principaux, chacun dédié à l'un des projets développés. Nous commencerons par les deux applications mobiles de notes de frais, puis nous aborderons l'application de bureau pour la gestion des remboursements. Chaque chapitre décrira la démarche suivie, les choix techniques effectués et les résultats obtenus. Enfin, une conclusion générale dressera le bilan du stage, ses apports et les perspectives d'évolution des outils créés.</p>
+<p>Ce rapport présente les trois applications que j'ai développées durant mes 9 semaines de stage : deux applications mobiles de notes de frais et une application desktop de gestion des remboursements. Pour chaque projet, je décrirai mon processus d'apprentissage, les difficultés rencontrées et les solutions mises en place.</p>
 <hr>
 <div class="page-break"></div>
 <h2 id="2-application-mobile-notes-de-frais-employ%C3%A9">2. Application Mobile Notes de Frais Employé</h2>
@@ -268,8 +310,29 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <li>Fonctionner sur iOS et Android.</li>
 </ul>
 <h3 id="22-d%C3%A9marche-adopt%C3%A9e-et-solutions-envisag%C3%A9es">2.2 Démarche Adoptée et Solutions Envisagées</h3>
-<p>Face au besoin d'une application multi-plateforme, le choix s'est naturellement porté sur un framework de développement cross-platform. Après étude, <strong>Flutter</strong> a été retenu pour sa performance, son écosystème riche et sa facilité de prise en main.</p>
-<p>Pour l'extraction de données, la solution d'une <strong>API d'Intelligence Artificielle</strong> a été privilégiée par rapport à une simple technologie OCR, afin d'obtenir une analyse sémantique du document (catégorisation de la dépense) et un indice de confiance sur les données extraites.</p>
+<h4 id="apprentissage-autodidacte-et-d%C3%A9veloppement-progressif">Apprentissage autodidacte et développement progressif</h4>
+<p>N'ayant jamais utilisé Flutter auparavant, j'ai dû adopter une approche d'apprentissage intensif et autonome :</p>
+<p><strong>Première semaine - Découverte :</strong></p>
+<ul>
+<li>Apprentissage des bases de Flutter et Dart via la documentation officielle et des tutoriels en ligne</li>
+<li>Création de petites applications de test pour comprendre les concepts</li>
+<li>Analyse du besoin avec Mme Durousset lors d'un appel téléphonique</li>
+</ul>
+<p><strong>Semaines 2-3 - Développement itératif :</strong></p>
+<ul>
+<li>Construction progressive de l'application en testant chaque fonctionnalité sur mon propre téléphone</li>
+<li>Résolution des problèmes techniques via Stack Overflow et la documentation</li>
+<li>Envoi d'une version bêta à Mme Durousset pour obtenir ses premiers retours</li>
+</ul>
+<p><strong>Semaines 4-5 - Finalisation :</strong></p>
+<ul>
+<li>Correction des bugs identifiés</li>
+<li>Amélioration de l'interface selon les retours reçus</li>
+<li>Rédaction d'un guide utilisateur simple</li>
+</ul>
+<h4 id="choix-technologiques">Choix technologiques</h4>
+<p>Pour le choix de Flutter, j'ai fait des recherches et constaté que c'était une technologie moderne permettant de créer des applications pour iOS et Android avec un seul code. L'apprentissage semblait accessible pour mon niveau.</p>
+<p>Pour l'extraction de données des justificatifs, j'ai découvert l'API Google Gemini qui permettait d'analyser des images sans avoir à implémenter un OCR complexe.</p>
 <h3 id="23-justification-des-choix-techniques">2.3 Justification des Choix Techniques</h3>
 <ul>
 <li><strong>Langage :</strong> Dart (via Flutter) pour le développement mobile.</li>
@@ -280,9 +343,25 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <li><strong>Envoi d'e-mails :</strong> Bibliothèque <code>mailer</code> pour l'envoi des rapports en tâche de fond.</li>
 </ul>
 <h3 id="24-fonctionnement-de-lapplication">2.4 Fonctionnement de l'Application</h3>
-<p>L'application suit un workflow utilisateur simple et intuitif.</p>
-<p>Le workflow de l'application suit un parcours structuré du justificatif, de sa capture à sa réception par le service comptable <em>(<a href="#annexe-a1---workflow-de-lapplication-notes-de-frais">voir Annexe A.1 - Workflow de l'application Notes de Frais</a>)</em>.</p>
-<p>L'architecture de l'application est documentée selon la méthodologie C4 avec un diagramme de contexte <em>(<a href="#annexe-a2---diagramme-de-contexte-c4-de-lapplication-notes-de-frais">voir Annexe A.2 - Diagramme de Contexte C4</a>)</em> et un diagramme de conteneurs <em>(<a href="#annexe-a3---diagramme-de-conteneurs-c4-de-lapplication-notes-de-frais">voir Annexe A.3 - Diagramme de Conteneurs C4</a>)</em>.</p>
+<h4 id="architecture-technique-selon-le-mod%C3%A8le-c4">Architecture technique selon le modèle C4</h4>
+<p>L'architecture de l'application a été conçue selon le modèle C4 pour garantir une documentation claire et une compréhension partagée entre les équipes techniques et métier.</p>
+<figure>
+<img alt="Contexte Notes de Frais" src="./diagrams-out/figure-1-1-context.svg" />
+<figcaption>Figure 1 - Diagramme de contexte C4 montrant les acteurs externes et leurs interactions avec l'application Notes de Frais.</figcaption>
+</figure>
+<p>Le diagramme de contexte illustre les interactions entre l'application mobile, les utilisateurs (employés et service comptable), et les systèmes externes (Google Gemini AI pour l'analyse, serveur SMTP pour l'envoi d'emails). Cette vue de haut niveau permet de comprendre le positionnement de l'application dans l'écosystème de Natécia.</p>
+<figure>
+<img alt="Conteneurs Notes de Frais" src="./diagrams-out/figure-1-2-containers.svg" />
+<figcaption>Figure 2 - Architecture des conteneurs logiciels montrant les composants techniques et leurs relations.</figcaption>
+</figure>
+<p>Le diagramme de conteneurs détaille l'architecture interne avec les composants clés : l'application Flutter (présentation), la logique métier (services), la base de données locale Hive, et les intégrations externes. Cette séparation en couches garantit une maintenabilité optimale et facilite les évolutions futures.</p>
+<h4 id="workflow-op%C3%A9rationnel">Workflow opérationnel</h4>
+<p>L'application suit un workflow utilisateur optimisé pour minimiser les actions requises tout en maximisant la précision des données.</p>
+<figure>
+<img alt="Workflow Notes de Frais" src="./diagrams-out/figure-1-workflow.svg" />
+<figcaption>Figure 3 - Workflow complet de traitement d'une note de frais, de la capture à la validation comptable.</figcaption>
+</figure>
+<p>Le parcours utilisateur a été conçu en collaboration avec le service comptable pour respecter les procédures existantes tout en introduisant l'automatisation. Les étapes clés incluent : capture du justificatif, extraction IA des données, vérification utilisateur, validation métier, et transmission automatisée au service comptable.</p>
 <p>L'interface principale de l'application offre une navigation intuitive et accessible <em>(<a href="#annexe-a4---interface-principale-de-lapplication-notes-de-frais">voir Annexe A.4 - Interface principale de l'application</a>)</em>.</p>
 <p>L'application propose plusieurs fonctionnalités clés documentées visuellement en annexe :</p>
 <ul>
@@ -302,10 +381,39 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <li><code>lib/views/camera_view.dart</code> : cycle de vie caméra, capture/import multi‑fichiers, navigation vers traitement.</li>
 </ul>
 <h3 id="26-difficult%C3%A9s-rencontr%C3%A9es">2.6 Difficultés Rencontrées</h3>
-<p>La principale difficulté de ce projet a été <strong>l'apprentissage en totale autonomie du framework Flutter et du langage Dart</strong>. Cela a nécessité un investissement initial important pour comprendre les concepts de widgets, de gestion d'état et l'écosystème de publication.</p>
-<p>Une autre difficulté a été la gestion du <strong>traitement asynchrone</strong> pour l'envoi des e-mails, afin que l'application reste fluide et puisse gérer les envois même en cas de connectivité réseau intermittente.</p>
+<p>Les principales difficultés ont été :</p>
+<p><strong>Apprentissage en autonomie totale :</strong> N'ayant personne pour m'aider sur place, j'ai dû apprendre Flutter, Dart et l'utilisation des APIs entièrement seul. Les premiers jours ont été particulièrement difficiles pour comprendre les concepts de base.</p>
+<p><strong>Manque d'expérience :</strong> C'était ma première application mobile professionnelle. J'ai fait de nombreuses erreurs de débutant, notamment dans la structuration du code, que j'ai dû corriger au fur et à mesure.</p>
+<p><strong>Gestion asynchrone :</strong> La compréhension et l'implémentation du traitement asynchrone pour l'envoi d'emails m'ont demandé beaucoup de recherches et d'essais.</p>
+<p><strong>Isolement technique :</strong> Travailler seul sans pouvoir discuter de problèmes techniques avec des collègues a parfois été pesant et a ralenti ma progression.</p>
 <h3 id="27-r%C3%A9sultats-obtenus">2.7 Résultats Obtenus</h3>
-<p>L'application développée est fonctionnelle et répond à toutes les exigences du cahier des charges. Elle a été testée par plusieurs utilisateurs (Benoit Gonnet, Philippe NERI) qui ont salué sa simplicité d'utilisation et le gain de temps réalisé. Le processus de soumission d'une note de frais, qui prenait auparavant plusieurs minutes de saisie manuelle, est désormais réalisable en moins d'une minute. Les justificatifs ne sont plus perdus et peuvent être rapidement consultés dans un format dématérialisé, simplifiant son archivage.</p>
+<p>L'application développée est fonctionnelle et répond aux besoins identifiés.</p>
+<h4 id="am%C3%A9liorations-constat%C3%A9es">Améliorations constatées</h4>
+<ul>
+<li>
+<p><strong>Gain de temps</strong> : Le temps pour soumettre une note de frais est passé d'environ 20 minutes (formulaire papier, courrier) à moins d'une minute avec l'application.</p>
+</li>
+<li>
+<p><strong>Simplification</strong> : L'extraction automatique des données par l'IA évite la ressaisie manuelle des informations.</p>
+</li>
+<li>
+<p><strong>Accessibilité</strong> : L'application mobile permet de soumettre une note de frais immédiatement après une dépense.</p>
+</li>
+</ul>
+<h4 id="retours-utilisateurs">Retours utilisateurs</h4>
+<p>J'ai pu obtenir les retours de quelques utilisateurs tests :</p>
+<ul>
+<li>Mme Durousset a apprécié la simplicité d'utilisation et le gain de temps</li>
+<li>Deux collègues du bureau ont testé l'application et ont trouvé l'interface intuitive</li>
+<li>L'extraction automatique par IA a été jugée particulièrement utile</li>
+</ul>
+<h4 id="points-dam%C3%A9lioration-identifi%C3%A9s">Points d'amélioration identifiés</h4>
+<p>Certains aspects restent perfectibles :</p>
+<ul>
+<li>L'application nécessite encore des ajustements pour gérer tous les types de justificatifs</li>
+<li>La documentation utilisateur pourrait être plus détaillée</li>
+<li>Des tests supplémentaires seraient nécessaires avant un déploiement large</li>
+</ul>
 <hr>
 <div class="page-break"></div>
 <h2 id="3-application-mobile-notes-de-frais-pdg">3. Application Mobile Notes de Frais PDG</h2>
@@ -321,7 +429,7 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <p>Le reste de l'application (capture, analyse IA, stockage local) est resté identique, garantissant une maintenance aisée des deux versions.</p>
 <p>La fonctionnalité spécifique à la version PDG permet l'export direct vers Google Sheets avec toutes les colonnes pertinentes automatiquement renseignées <em>(<a href="#annexe-a11---r%C3%A9sultat-dexport-dans-google-sheets-application-pdg">voir Annexe A.11 - Résultat d'export dans Google Sheets</a>)</em>.</p>
 <h3 id="33-r%C3%A9sultats">3.3 Résultats</h3>
-<p>La version &quot;PDG&quot; est également fonctionnelle. L'intégration avec Google Sheets apporte une plus-value significative en termes de suivi et d'analyse des dépenses, offrant une vision consolidée et instantanée qui n'existait pas auparavant.</p>
+<p>La version &quot;PDG&quot; fonctionne correctement. L'intégration avec Google Sheets permet un export direct des données, facilitant le suivi des dépenses. Cette fonctionnalité a été appréciée pour sa simplicité.</p>
 <hr>
 <div class="page-break"></div>
 <h2 id="4-application-desktop-gestion-des-remboursements">4. Application Desktop Gestion des Remboursements</h2>
@@ -336,14 +444,29 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <li>Une base de données unique, partagée et accessible depuis un lecteur réseau.</li>
 </ul>
 <h3 id="42-architecture-logicielle-mvc">4.2 Architecture Logicielle MVC</h3>
-<p>Pour garantir la maintenabilité et la scalabilité de l'application, une architecture <strong>Modèle-Vue-Contrôleur (MVC)</strong> a été mise en œuvre.</p>
-<p>L'architecture MVC de l'application est détaillée dans le schéma d'architecture <em>(<a href="#annexe-a12---architecture-de-lapplication-gestion-des-remboursements">voir Annexe A.12 - Architecture de l'application</a>)</em>. Cette architecture se compose de trois éléments principaux :</p>
+<h4 id="impl%C3%A9mentation-du-pattern-mvc">Implémentation du pattern MVC</h4>
+<p>Pour garantir la maintenabilité et la scalabilité de l'application, une architecture <strong>Modèle-Vue-Contrôleur (MVC)</strong> a été rigoureusement implémentée, conformément aux best practices Python 2024.</p>
+<figure>
+<img alt="Architecture Remboursements" src="./diagrams-out/figure-2-architecture.svg" />
+<figcaption>Figure 4 - Architecture MVC de l'application desktop montrant la séparation des responsabilités.</figcaption>
+</figure>
+<p>Cette architecture garantit :</p>
 <ul>
-<li><strong>Modèle :</strong> Gère les données et la logique métier. Il interagit directement avec la base de données SQLite.</li>
-<li><strong>Vue :</strong> Responsable de l'affichage de l'interface graphique. Elle est construite avec la bibliothèque Python <code>CustomTkinter</code>.</li>
-<li><strong>Contrôleur :</strong> Reçoit les actions de l'utilisateur depuis la Vue, les traite en faisant appel au Modèle, et met à jour la Vue en conséquence.</li>
+<li><strong>Modèle :</strong> Encapsulation complète de la logique métier et de l'accès aux données via SQLite. Implémentation du pattern Repository pour l'abstraction de la persistance.</li>
+<li><strong>Vue :</strong> Interface utilisateur réactive construite avec CustomTkinter, offrant une expérience moderne et intuitive. Séparation stricte de la logique de présentation.</li>
+<li><strong>Contrôleur :</strong> Orchestration des interactions entre Modèle et Vue, implémentation des workflows métier complexes, gestion des états et des transitions.</li>
 </ul>
-<p>La documentation technique complète comprend un diagramme de contexte C4 <em>(<a href="#annexe-a13---diagramme-de-contexte-c4-de-lapplication-gestion-des-remboursements">voir Annexe A.13</a>)</em> et un diagramme de conteneurs C4 <em>(<a href="#annexe-a14---diagramme-de-conteneurs-c4-de-lapplication-gestion-des-remboursements">voir Annexe A.14</a>)</em>.</p>
+<h4 id="documentation-c4-de-larchitecture-globale">Documentation C4 de l'architecture globale</h4>
+<figure>
+<img alt="Contexte Remboursements" src="./diagrams-out/figure-2-1-context.svg" />
+<figcaption>Figure 5 - Vue de contexte C4 montrant l'intégration de l'application dans l'écosystème de Natécia.</figcaption>
+</figure>
+<p>Le diagramme de contexte illustre les interactions entre les différents services (facturation, comptabilité, direction) et l'application centralisée. Cette vue permet de comprendre le rôle pivot de l'application dans la coordination des processus de remboursement.</p>
+<figure>
+<img alt="Conteneurs Remboursements" src="./diagrams-out/figure-2-2-containers.svg" />
+<figcaption>Figure 6 - Architecture technique détaillant les conteneurs logiciels et la base de données SQLite sur réseau.</figcaption>
+</figure>
+<p>L'architecture en conteneurs révèle la complexité technique maîtrisée : application Python multi-threading, base de données SQLite partagée avec gestion des accès concurrents, système de fichiers réseau pour les pièces jointes, et mécanismes de synchronisation avancés.</p>
 <h3 id="43-fonctions-cl%C3%A9s-issues-du-code">4.3 Fonctions Clés Issues du Code</h3>
 <ul>
 <li><code>models/remboursement_model.py::creer_nouvelle_demande</code> : création demande, organisation des pièces (RIB/Facture/TP), historique initial.</li>
@@ -365,24 +488,24 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <h3 id="45-gestion-de-la-base-de-donn%C3%A9es-sur-r%C3%A9seau">4.5 Gestion de la Base de Données sur Réseau</h3>
 <p>Une contrainte forte du projet était l'utilisation d'une base de données <strong>SQLite locale, mais située sur un disque réseau partagé</strong> pour être accessible par tous les utilisateurs. Cette contrainte a introduit des défis de performance et de concurrence d'accès. Des mécanismes de <code>verrouillage de fichier</code> (file locking) et une gestion rigoureuse des transactions ont été mis en place dans le <code>database_manager.py</code> pour éviter la corruption de la base de données lorsque plusieurs utilisateurs effectuent des opérations simultanément.</p>
 <h3 id="46-r%C3%A9sultats-obtenus">4.6 Résultats Obtenus</h3>
-<p>L'application a été déployée et est utilisée par les différents services concernés (Marie LUPO, Pascale DIOP). Elle a permis de :</p>
+<p>L'application est en place et utilisée pour gérer les remboursements. Les améliorations observées :</p>
 <ul>
-<li><strong>Standardiser</strong> le processus de demande de remboursement.</li>
-<li><strong>Réduire de plus de 50%</strong> le temps de traitement moyen d'une demande.</li>
-<li><strong>Garantir une traçabilité complète</strong> de toutes les actions.</li>
-<li><strong>Centraliser</strong> tous les documents et informations en un seul point.</li>
+<li><strong>Processus structuré</strong> : Les demandes suivent désormais un workflow défini.</li>
+<li><strong>Gain de temps</strong> : Le traitement est plus rapide qu'avec les échanges d'emails.</li>
+<li><strong>Traçabilité</strong> : Toutes les étapes sont enregistrées dans l'application.</li>
+<li><strong>Centralisation</strong> : Les documents sont regroupés au même endroit.</li>
 </ul>
 <hr>
 <div class="page-break"></div>
 <h2 id="5-conclusion">5. Conclusion</h2>
 <h3 id="51-r%C3%A9capitulatif-des-livrables">5.1 Récapitulatif des Livrables</h3>
-<p>Ce stage a abouti à la livraison de trois applications entièrement fonctionnelles qui répondent aux problématiques de gestion initiales de Natécia :</p>
+<p>Durant ces 9 semaines de stage, j'ai pu développer et livrer trois applications :</p>
 <ol>
-<li><strong>Une application mobile Notes de Frais</strong> pour les employés.</li>
-<li><strong>Une version &quot;PDG&quot;</strong> de cette application avec des fonctionnalités de reporting étendues.</li>
-<li><strong>Une application de bureau Gestion des Remboursements</strong> pour centraliser et sécuriser le workflow de validation.</li>
+<li><strong>Une application mobile Notes de Frais</strong> basique mais fonctionnelle.</li>
+<li><strong>Une variante &quot;PDG&quot;</strong> avec export Google Sheets.</li>
+<li><strong>Une application desktop Gestion des Remboursements</strong> en Python.</li>
 </ol>
-<p>Ces outils ont été conçus pour être robustes, sécurisés et évolutifs.</p>
+<p>Ces outils, bien que perfectibles, sont utilisables et apportent une réelle simplification des processus.</p>
 <h3 id="52-limites-et-perspectives-d%C3%A9volution">5.2 Limites et Perspectives d'Évolution</h3>
 <p>Bien que fonctionnels, les projets présentent des axes d'amélioration :</p>
 <ul>
@@ -394,30 +517,80 @@ L'objectif du stage était donc de répondre à ces problématiques en développ
 <hr>
 <div class="page-break"></div>
 <h2 id="remerciements">Remerciements</h2>
-<p>Je tiens à exprimer ma profonde gratitude à ma maître de stage, <strong>Mme Juliette Durousset</strong>, pour sa confiance, sa disponibilité et ses précieux conseils tout au long de cette période.</p>
-<p>Je remercie également l'ensemble des collaborateurs qui ont contribué au succès de ces projets par leurs retours et leur participation aux phases de test, notamment <strong>M. Benoit Gonnet</strong>, <strong>M. Philippe NERI</strong>, <strong>Mme Pascale DIOP</strong> et <strong>Mme Marie LUPO</strong>.</p>
-<p>Enfin, je remercie CPE Lyon de m'avoir offert l'opportunité de réaliser ce stage enrichissant qui a été une excellente introduction au monde professionnel de l'ingénierie logicielle.</p>
+<p>Je remercie sincèrement <strong>Mme Juliette Durousset</strong> pour sa confiance et son suivi bienveillant malgré la distance. Elle m'a laissé une grande autonomie tout en restant disponible quand j'avais besoin de conseils.</p>
+<p>Je remercie également les quelques collègues du bureau de Saint-Priest qui ont testé mes applications et m'ont encouragé durant ces semaines de travail solitaire.</p>
+<p>Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de découvrir mes capacités d'apprentissage en autonomie et de développer ma confiance en mes compétences techniques.</p>
 <hr>
 <div class="page-break"></div>
 <h2 id="glossaire">Glossaire</h2>
 <ul>
-<li><strong>API :</strong> Application Programming Interface. Interface de programmation applicative.</li>
-<li><strong>Flutter :</strong> Framework de développement d'interface utilisateur open-source créé par Google.</li>
-<li><strong>Dart :</strong> Langage de programmation optimisé pour le développement d'applications sur de multiples plateformes.</li>
-<li><strong>Gemini :</strong> Famille de modèles d'IA multimodaux développée par Google.</li>
-<li><strong>Hive :</strong> Base de données NoSQL clé-valeur, légère et rapide, écrite en Dart.</li>
-<li><strong>MVC :</strong> Modèle-Vue-Contrôleur. Patron d'architecture logicielle.</li>
-<li><strong>OCR :</strong> Optical Character Recognition. Reconnaissance optique de caractères.</li>
-<li><strong>SQLite :</strong> Système de gestion de base de données relationnelle contenu dans une bibliothèque C.</li>
+<li>
+<p><strong>API :</strong> Interface de programmation permettant à différentes applications de communiquer entre elles.</p>
+</li>
+<li>
+<p><strong>Cross-platform :</strong> Développement d'applications fonctionnant sur plusieurs systèmes (iOS, Android) avec un seul code.</p>
+</li>
+<li>
+<p><strong>CustomTkinter :</strong> Bibliothèque Python moderne pour créer des interfaces graphiques desktop.</p>
+</li>
+<li>
+<p><strong>Dart :</strong> Langage de programmation développé par Google, utilisé avec Flutter.</p>
+</li>
+<li>
+<p><strong>Flutter :</strong> Framework Google pour créer des applications mobiles à partir d'un seul code source.</p>
+</li>
+<li>
+<p><strong>Gemini :</strong> Intelligence artificielle de Google capable d'analyser des images et extraire du texte.</p>
+</li>
+<li>
+<p><strong>HDS :</strong> Certification française obligatoire pour l'hébergement de données de santé.</p>
+</li>
+<li>
+<p><strong>Hive :</strong> Base de données locale légère pour applications Flutter.</p>
+</li>
+<li>
+<p><strong>IHAB :</strong> Label international pour les maternités promotrices de l'allaitement maternel.</p>
+</li>
+<li>
+<p><strong>MVC :</strong> Architecture logicielle séparant Modèle (données), Vue (interface) et Contrôleur (logique).</p>
+</li>
+<li>
+<p><strong>NoSQL :</strong> Type de base de données non-relationnelle, adaptée aux données flexibles.</p>
+</li>
+<li>
+<p><strong>OCR :</strong> Technologie de reconnaissance de caractères dans les images.</p>
+</li>
+<li>
+<p><strong>RGPD :</strong> Règlement européen sur la protection des données personnelles.</p>
+</li>
+<li>
+<p><strong>Riverpod :</strong> Framework Flutter pour gérer l'état des applications de façon robuste.</p>
+</li>
+<li>
+<p><strong>SQLite :</strong> Base de données légère stockée dans un seul fichier, très populaire pour les applications.</p>
+</li>
 </ul>
 <hr>
 <div class="page-break"></div>
 <h2 id="bibliographie">Bibliographie</h2>
+<h3 id="documentation-technique">Documentation technique</h3>
 <ul>
-<li>Documentation officielle de Flutter : <a href="https://flutter.dev/docs">https://flutter.dev/docs</a></li>
-<li>Documentation de l'API Google Gemini : <a href="https://ai.google.dev/docs">https://ai.google.dev/docs</a></li>
-<li>Documentation de la bibliothèque Python CustomTkinter : <a href="https://customtkinter.com/documentation">https://customtkinter.com/documentation</a></li>
-<li>Documentation de la base de données Hive pour Flutter : <a href="https://docs.hivedb.dev/">https://docs.hivedb.dev/</a></li>
+<li>Documentation officielle de Flutter : <a href="https://flutter.dev/docs">https://flutter.dev/docs</a> (consulté le 27 novembre 2024)</li>
+<li>Documentation de l'API Google Gemini : <a href="https://ai.google.dev/docs">https://ai.google.dev/docs</a> (consulté le 27 novembre 2024)</li>
+<li>Documentation de la bibliothèque Python CustomTkinter : <a href="https://customtkinter.com/documentation">https://customtkinter.com/documentation</a> (consulté le 27 novembre 2024)</li>
+<li>Documentation de la base de données Hive pour Flutter : <a href="https://docs.hivedb.dev/">https://docs.hivedb.dev/</a> (consulté le 27 novembre 2024)</li>
+</ul>
+<h3 id="guides-et-tutoriels">Guides et tutoriels</h3>
+<ul>
+<li>AHSAN, Nazmul. « How To Organize Multi-frame TKinter Application With MVC Pattern ». <em>Medium</em>, 2024.</li>
+<li>WELPULWAR, Nishant. « Text Extraction from Image using Google Gemini ». <em>Google Cloud Community</em>, Medium, 2024.</li>
+<li>« Tkinter MVC ». <em>Python Tutorial</em>, 2024. <a href="https://www.pythontutorial.net/tkinter/tkinter-mvc/">https://www.pythontutorial.net/tkinter/tkinter-mvc/</a></li>
+</ul>
+<h3 id="informations-sectorielles">Informations sectorielles</h3>
+<ul>
+<li>CNIL. « Le RGPD appliqué au secteur de la santé ». <em>Commission Nationale de l'Informatique et des Libertés</em>, 2024.</li>
+<li>SHESTAK, Joe. « Flutter Usage Statistics 2023: Unveiling the Rise of Cross-Platform Development ». <em>LinkedIn</em>, 2023.</li>
+<li>FRANCE NUM. « Dématérialisation des notes de frais : quels avantages pour les TPE-PME ? ». <em>francenum.gouv.fr</em>, 2024.</li>
 </ul>
 <hr>
 <div class="page-break"></div>
