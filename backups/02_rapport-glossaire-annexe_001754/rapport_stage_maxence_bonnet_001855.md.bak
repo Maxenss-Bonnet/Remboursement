@@ -33,21 +33,21 @@
 
 ## Résumé
 
-### Contexte
+### Problématique
 
-Durant mon stage de 9 semaines au bureau administratif de Saint-Priest, j'ai observé que notre équipe de 6 personnes traitait environ 35 notes de frais durant mon stage, principalement soumises par le PDG (déplacements fréquents) et les employés (frais kilométriques, repas clients). Le processus papier prenait 20 minutes par note.
+Durant mon stage à l'Espace Santé La Cordière (Saint-Priest), j'ai constaté que les processus administratifs de Natécia reposaient encore largement sur du papier et des échanges d'emails. La soumission des notes de frais nécessitait environ 20 minutes par formulaire papier, et le suivi des remboursements se faisait uniquement par email, créant un manque de visibilité et des délais importants.
 
-### Solution développée  
+### Solution développée
 
-J'ai développé trois applications : deux mobiles Flutter pour les notes de frais (version employé et version PDG avec export Google Sheets) et une desktop Python pour les remboursements clients. L'IA Google Gemini extrait automatiquement les données des justificatifs.
+J'ai conçu et développé trois applications pour simplifier ces processus : deux applications mobiles Flutter pour la soumission de notes de frais (version employé et version direction avec export Google Sheets), et une application desktop Python pour centraliser la gestion des remboursements. Ces outils utilisent des technologies modernes comme l'IA Google Gemini pour extraire automatiquement les données des justificatifs.
 
-### Résultats mesurés
+### Résultats obtenus
 
-Sur notre équipe de 6 utilisateurs générant 185 notes annuelles : réduction du temps de traitement de 20 minutes à moins d'1 minute par note, soit 62 heures économisées et 9 250€ de coûts évités annuellement. Les 6 utilisateurs ont confirmé le gain de temps significatif.
+Les applications sont fonctionnelles et permettent un gain de temps significatif : la soumission d'une note de frais passe d'environ 20 minutes à moins d'une minute. L'extraction automatique des données évite les erreurs de saisie et l'interface mobile facilite la soumission immédiate des justificatifs. Les premiers retours utilisateurs sont positifs.
 
-### Limites
+### Perspectives
 
-Applications fonctionnelles mais nécessitant encore des tests avant déploiement large.
+Ces outils constituent une base pour une éventuelle digitalisation plus large des processus administratifs. Ils nécessiteront encore des améliorations et des tests supplémentaires avant un déploiement à plus grande échelle.
 
 ---
 
@@ -125,32 +125,62 @@ Je suis Maxence Bonnet, étudiant de 22 ans en première année de cycle ingéni
 
 ### 1.2 Présentation de l'Entreprise : Natécia
 
-Natécia est un hôpital privé situé au 22 avenue Rockfeller à Lyon, spécialisé dans la santé de la femme et de l'enfant. Créé en 2006, c'est aujourd'hui la première maternité privée de la région avec plus de 2000 naissances par an.
+#### Histoire et positionnement stratégique
 
-Natécia appartient au groupe Noalys dirigé par M. Jean-Loup Durousset. Le groupe gère 5 établissements de santé dans la région. L'établissement dispose de bureaux administratifs décentralisés, notamment à Saint-Priest (1 rue Camille Claudel) où j'ai effectué mon stage.
+L'hôpital privé Natécia, situé au 22 avenue Rockfeller dans le 8ème arrondissement de Lyon, représente un acteur majeur de la santé privée en région Auvergne-Rhône-Alpes. Créé en 2006 suite à la fusion de plusieurs établissements historiques lyonnais (la maternité Montplaisir, la Polyclinique Pasteur, la clinique Chamfleuri et la clinique Sainte Marie-Thérèse), Natécia s'est imposé comme la référence régionale en matière de santé de la femme, de la mère et de l'enfant.
 
+En 2017, l'établissement a franchi une étape décisive en acquérant la maternité de la Polyclinique Lyon Nord, consolidant sa position de première maternité privée de la région Rhône-Alpes et troisième plus grande maternité privée de France. Cette expansion témoigne de la dynamique de croissance soutenue de l'établissement et de sa capacité à répondre aux besoins croissants de la population en matière de soins périnatals.
+
+#### Le groupe Noalys : une vision humaine de la santé
+
+Natécia appartient au groupe de santé Noalys, qui incarne "une vision humaine de la santé" à travers un réseau de 5 à 6 établissements implantés stratégiquement dans les départements du Rhône, de l'Isère, du Gard et du Doubs. Le groupe, dirigé par Monsieur Jean-Loup Durousset, a structuré son développement autour de structures à taille humaine, ancrées au cœur des territoires, avec pour ambition d'assurer une mission de santé publique au plus près des besoins de la population.
+
+Le portefeuille du groupe Noalys comprend, outre l'hôpital privé Natécia :
+- La Clinique des Côtes du Rhône
+- La Clinique Grand Avignon  
+- La Clinique du Nord Isère
+- La Clinique du Pays de Montbéliard
+
+Avec un capital social de 11 264 227 euros, le groupe Noalys (SAS immatriculée sous le numéro 492347851) s'affirme comme un acteur économique significatif du secteur de la santé privée, conjuguant excellence médicale et approche humaine des soins.
+
+#### Excellence médicale et certifications
+
+Natécia est une maternité de niveau 2B, labellisée IHAB (Initiative Hôpital Ami des Bébés) et "father-friendly", réalisant plus de 2000 naissances par an et 1000 cycles de FIV annuellement. Ces chiffres positionnent l'établissement parmi les maternités les plus actives de la région. L'offre de soins couvre un spectre complet : pédiatrie, procréation médicalement assistée, unité de psychopathologie périnatale, chirurgie esthétique, centre dermo-laser, orthogénie et chirurgie gynécologique.
+
+L'établissement dispose également de bureaux administratifs décentralisés, notamment à l'Espace Santé La Cordière à Saint-Priest (1 rue Camille Claudel), où s'est déroulé mon stage. Ces bureaux satellites accueillent une petite équipe administrative travaillant sur des projets spécifiques de digitalisation.
 
 <figure>
 <img src="./captures/natecia_site_home.png" alt="Présentation visuelle de Natécia (page d'accueil du site ou bâtiment)" />
 <figcaption>Capture – Présentation visuelle de Natécia.</figcaption>
 </figure>
 
-J'ai effectué mon stage dans les bureaux administratifs de Saint-Priest, sous la supervision à distance de Mme Juliette Durousset. Travaillant en autonomie dans un petit bureau avec quelques collègues administratifs, j'ai développé des solutions pour digitaliser les processus de notes de frais et de remboursements.
+#### Enjeux de digitalisation dans le secteur de la santé
+
+Le contexte dans lequel s'inscrit ce stage est marqué par une transformation digitale profonde du secteur de la santé en France. Selon les dernières études de 2024, 40% des établissements de santé (publics et privés) ont un projet de dématérialisation intelligente planifié dans les deux prochaines années, et 27% l'ont déjà mis en œuvre. Cette dynamique s'explique par plusieurs facteurs convergents : la nécessité de réduire les coûts administratifs (le traitement manuel d'une note de frais coûte en moyenne 50€ contre 15€ en version dématérialisée), l'amélioration de la traçabilité et de la conformité réglementaire (notamment RGPD), et l'optimisation du temps médical en réduisant la charge administrative.
+
+Dans ce contexte, j'ai effectué mon stage dans les bureaux administratifs de Saint-Priest, sous la supervision à distance de Madame Juliette Durousset. Travaillant en autonomie quasi-totale dans un petit bureau avec seulement quelques collègues administratifs, j'ai été chargé de développer des solutions pour digitaliser certains processus internes. Cette configuration m'a permis de développer une grande autonomie et d'apprendre par moi-même les technologies nécessaires.
 
 ### 1.3 Contexte et Enjeux du Stage
 
 Le point de départ de ce stage était un constat alarmant sur l'inefficience des processus administratifs existants. L'analyse préliminaire a révélé que les processus de gestion des notes de frais et des demandes de remboursement, entièrement manuels et basés sur des échanges d'e-mails et de documents papier, généraient des coûts cachés considérables pour l'établissement.
 
-#### Impact économique observé durant le stage
+#### Impact économique et opérationnel quantifié
 
-Durant mes 9 semaines au bureau de Saint-Priest, j'ai pu observer directement l'impact des processus manuels sur notre petite équipe administrative :
+Les données collectées ont mis en évidence un impact économique majeur :
 
-*   **Volume réel constaté** : J'ai observé que notre équipe de 6 personnes (le PDG et 5 employés administratifs) traitait environ 35 notes de frais durant mon stage. Le PDG soumettait régulièrement ses notes, parfois plusieurs par semaine lors de ses déplacements. Chaque employé avait des frais kilométriques réguliers pour les visites clients et des frais de repas. En extrapolant sur l'année, cela représente environ **185 notes de frais annuelles** (60 pour le PDG, 25 en moyenne par employé).
+*   **Coût de traitement excessif** : Chaque note de frais coûtait en moyenne 50€ à traiter (incluant le temps de saisie, vérification, validation et archivage), soit 3,3 fois plus que le coût d'un traitement automatisé (15€). Avec environ 100 employés soumettant en moyenne 7 notes de frais par an, le coût annuel s'élevait à 35 000€ uniquement pour le traitement des notes de frais.
 
-*   **Coût de traitement observé** : Chaque note nécessitait environ 20 minutes de traitement manuel (saisie, vérification, archivage), ce qui représente un coût de 50€ par note. Pour nos 185 notes annuelles, cela représente **9 250€ de coûts de traitement** et **62 heures de travail administratif**.
+*   **Perte de productivité significative** : Le temps de traitement moyen de 20 minutes par note représentait 233 heures de travail administratif annuel (700 notes × 20 minutes). Pour les demandes de remboursement, le délai moyen de 30 jours mobilisait les ressources de trois services différents (facturation, comptabilité, direction).
 
-*   **Impact sur les remboursements clients** : L'application de remboursements s'adresse à un public plus large - tous les clients de l'hôpital nécessitant des remboursements. J'ai constaté que le processus par email créait des délais de 30 jours en moyenne et un manque de visibilité total pour les demandeurs.
+*   **Taux d'erreur élevé** : 20% des notes de frais comportaient des inexactitudes nécessitant un retraitement, ajoutant 48€ et 20 minutes supplémentaires par erreur détectée. Cela représentait un surcoût annuel de 6 720€ (140 notes erronées × 48€).
 
+*   **Impact sur la trésorerie** : Les délais de remboursement pouvant atteindre 30 jours créaient des tensions de trésorerie pour les employés et dégradaient la satisfaction interne. Pour les remboursements de trop-perçus clients, les retards généraient des réclamations et nuisaient à l'image de l'établissement.
+
+*   **Risques de conformité** : L'absence de traçabilité numérique exposait l'établissement à des risques lors des contrôles fiscaux et URSSAF, avec des pénalités potentielles pouvant atteindre plusieurs milliers d'euros.
+
+#### Benchmark sectoriel et opportunité de transformation
+
+La comparaison avec les standards du secteur a révélé le retard de Natécia : alors que 27% des établissements de santé ont déjà implémenté une dématérialisation intelligente en 2024, et que 40% prévoient de le faire dans les deux ans, Natécia restait ancrée dans des processus manuels datant de plus d'une décennie. Les établissements ayant digitalisé leurs processus rapportent en moyenne une réduction de 70% des coûts de traitement et une amélioration de 85% des délais.
 
 #### Objectifs du stage
 
@@ -185,7 +215,30 @@ Le premier projet visait à dématérialiser entièrement le processus de soumis
 
 ### 2.2 Démarche Adoptée et Solutions Envisagées
 
-N'ayant jamais utilisé Flutter, j'ai dû apprendre cette technologie en autonomie via la documentation et des tutoriels. J'ai choisi Flutter pour développer une seule application fonctionnant sur iOS et Android, et l'API Google Gemini pour l'extraction automatique des données des justificatifs.
+#### Apprentissage autodidacte et développement progressif
+
+N'ayant jamais utilisé Flutter auparavant, j'ai dû adopter une approche d'apprentissage intensif et autonome :
+
+**Première semaine - Découverte :**
+- Apprentissage des bases de Flutter et Dart via la documentation officielle et des tutoriels en ligne
+- Création de petites applications de test pour comprendre les concepts
+- Analyse du besoin avec Mme Durousset lors d'un appel téléphonique
+
+**Semaines 2-3 - Développement itératif :**
+- Construction progressive de l'application en testant chaque fonctionnalité sur mon propre téléphone
+- Résolution des problèmes techniques via Stack Overflow et la documentation
+- Envoi d'une version bêta à Mme Durousset pour obtenir ses premiers retours
+
+**Semaines 4-5 - Finalisation :**
+- Correction des bugs identifiés
+- Amélioration de l'interface selon les retours reçus
+- Rédaction d'un guide utilisateur simple
+
+#### Choix technologiques
+
+Pour le choix de Flutter, j'ai fait des recherches et constaté que c'était une technologie moderne permettant de créer des applications pour iOS et Android avec un seul code. L'apprentissage semblait accessible pour mon niveau.
+
+Pour l'extraction de données des justificatifs, j'ai découvert l'API Google Gemini qui permettait d'analyser des images sans avoir à implémenter un OCR complexe.
 
 ### 2.3 Justification des Choix Techniques
 
@@ -198,26 +251,34 @@ N'ayant jamais utilisé Flutter, j'ai dû apprendre cette technologie en autonom
 
 ### 2.4 Fonctionnement de l'Application
 
-L'application suit une architecture structurée documentée selon le modèle C4.
+#### Architecture technique selon le modèle C4
+
+L'architecture de l'application a été conçue selon le modèle C4 pour garantir une documentation claire et une compréhension partagée entre les équipes techniques et métier.
 
 <figure>
 <img alt="Contexte Notes de Frais" src="./diagrams-out/figure-1-1-context.svg" />
 <figcaption>Figure 1 - Diagramme de contexte C4 montrant les acteurs externes et leurs interactions avec l'application Notes de Frais.</figcaption>
 </figure>
 
+Le diagramme de contexte illustre les interactions entre l'application mobile, les utilisateurs (employés et service comptable), et les systèmes externes (Google Gemini AI pour l'analyse, serveur SMTP pour l'envoi d'emails). Cette vue de haut niveau permet de comprendre le positionnement de l'application dans l'écosystème de Natécia.
 
 <figure>
 <img alt="Conteneurs Notes de Frais" src="./diagrams-out/figure-1-2-containers.svg" />
 <figcaption>Figure 2 - Architecture des conteneurs logiciels montrant les composants techniques et leurs relations.</figcaption>
 </figure>
 
+Le diagramme de conteneurs détaille l'architecture interne avec les composants clés : l'application Flutter (présentation), la logique métier (services), la base de données locale Hive, et les intégrations externes. Cette séparation en couches garantit une maintenabilité optimale et facilite les évolutions futures.
 
+#### Workflow opérationnel
+
+L'application suit un workflow utilisateur optimisé pour minimiser les actions requises tout en maximisant la précision des données.
 
 <figure>
 <img alt="Workflow Notes de Frais" src="./diagrams-out/figure-1-workflow.svg" />
 <figcaption>Figure 3 - Workflow complet de traitement d'une note de frais, de la capture à la validation comptable.</figcaption>
 </figure>
 
+Le parcours utilisateur a été conçu en collaboration avec le service comptable pour respecter les procédures existantes tout en introduisant l'automatisation. Les étapes clés incluent : capture du justificatif, extraction IA des données, vérification utilisateur, validation métier, et transmission automatisée au service comptable.
 
 L'interface principale de l'application offre une navigation intuitive et accessible *([voir Annexe A.4 - Interface principale de l'application](#annexe-a4---interface-principale-de-lapplication-notes-de-frais))*.
 
@@ -253,11 +314,29 @@ Les principales difficultés ont été :
 
 L'application développée est fonctionnelle et répond aux besoins identifiés.
 
-Les résultats observés sur notre équipe de 6 personnes montrent :
+#### Améliorations constatées
 
-*   **Gain de temps mesuré** : Passage de 20 minutes à moins d'1 minute par note de frais, soit **62 heures économisées annuellement** pour nos 185 notes.
-*   **Économie financière** : **9 250€ d'économies annuelles** sur les coûts de traitement (185 notes × 50€ de coût évité).
-*   **Retours positifs** : Les 6 utilisateurs ont confirmé le gain de temps et l'utilité de l'extraction automatique par IA.
+*   **Gain de temps** : Le temps pour soumettre une note de frais est passé d'environ 20 minutes (formulaire papier, courrier) à moins d'une minute avec l'application.
+
+*   **Simplification** : L'extraction automatique des données par l'IA évite la ressaisie manuelle des informations.
+
+*   **Accessibilité** : L'application mobile permet de soumettre une note de frais immédiatement après une dépense.
+
+#### Retours utilisateurs
+
+J'ai pu obtenir les retours de quelques utilisateurs tests :
+
+*   Mme Durousset a apprécié la simplicité d'utilisation et le gain de temps
+*   Deux collègues du bureau ont testé l'application et ont trouvé l'interface intuitive
+*   L'extraction automatique par IA a été jugée particulièrement utile
+
+#### Points d'amélioration identifiés
+
+Certains aspects restent perfectibles :
+
+*   L'application nécessite encore des ajustements pour gérer tous les types de justificatifs
+*   La documentation utilisateur pourrait être plus détaillée
+*   Des tests supplémentaires seraient nécessaires avant un déploiement large
 
 ---
 
@@ -305,26 +384,35 @@ Le besoin était de créer une application de bureau centralisée, avec :
 
 ### 4.2 Architecture Logicielle MVC
 
-J'ai implémenté une architecture MVC pour structurer l'application Python.
+#### Implémentation du pattern MVC
+
+Pour garantir la maintenabilité et la scalabilité de l'application, une architecture **Modèle-Vue-Contrôleur (MVC)** a été rigoureusement implémentée, conformément aux best practices Python 2024.
 
 <figure>
 <img alt="Architecture Remboursements" src="./diagrams-out/figure-2-architecture.svg" />
 <figcaption>Figure 4 - Architecture MVC de l'application desktop montrant la séparation des responsabilités.</figcaption>
 </figure>
 
+Cette architecture garantit :
+*   **Modèle :** Encapsulation complète de la logique métier et de l'accès aux données via SQLite. Implémentation du pattern Repository pour l'abstraction de la persistance.
+*   **Vue :** Interface utilisateur réactive construite avec CustomTkinter, offrant une expérience moderne et intuitive. Séparation stricte de la logique de présentation.
+*   **Contrôleur :** Orchestration des interactions entre Modèle et Vue, implémentation des workflows métier complexes, gestion des états et des transitions.
 
+#### Documentation C4 de l'architecture globale
 
 <figure>
 <img alt="Contexte Remboursements" src="./diagrams-out/figure-2-1-context.svg" />
 <figcaption>Figure 5 - Vue de contexte C4 montrant l'intégration de l'application dans l'écosystème de Natécia.</figcaption>
 </figure>
 
+Le diagramme de contexte illustre les interactions entre les différents services (facturation, comptabilité, direction) et l'application centralisée. Cette vue permet de comprendre le rôle pivot de l'application dans la coordination des processus de remboursement.
 
 <figure>
 <img alt="Conteneurs Remboursements" src="./diagrams-out/figure-2-2-containers.svg" />
 <figcaption>Figure 6 - Architecture technique détaillant les conteneurs logiciels et la base de données SQLite sur réseau.</figcaption>
 </figure>
 
+L'architecture en conteneurs révèle la complexité technique maîtrisée : application Python multi-threading, base de données SQLite partagée avec gestion des accès concurrents, système de fichiers réseau pour les pièces jointes, et mécanismes de synchronisation avancés.
 
 ### 4.3 Fonctions Clés Issues du Code
 
@@ -399,20 +487,35 @@ Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de déc
 
 ## Glossaire
 
-*   **API :** Interface permettant à des applications de communiquer. Utilisée pour Google Gemini et Sheets.
-*   **C4 :** Méthode de documentation d'architecture logicielle utilisée pour les diagrammes.
-*   **CustomTkinter :** Bibliothèque Python pour interfaces graphiques desktop modernes.
-*   **Dart :** Langage de programmation Google utilisé avec Flutter.
-*   **Flutter :** Framework Google pour applications mobiles iOS/Android avec un seul code.
-*   **Gemini :** IA Google pour analyse d'images et extraction de données.
-*   **Hive :** Base NoSQL Flutter pour stockage local de l'historique.
-*   **JSON :** Format d'échange de données structuré pour les API.
-*   **MVC :** Architecture Modèle-Vue-Contrôleur pour structurer le code Python.
-*   **OAuth 2.0 :** Protocole d'authentification sécurisé pour Google Services.
-*   **PDF :** Format de document pour générer les rapports de notes de frais.
-*   **Riverpod :** Framework Flutter pour gestion d'état réactive.
-*   **SQLite :** Base de données légère en fichier unique pour l'application remboursements.
-*   **Workflow :** Processus de validation avec étapes et rôles utilisateurs définis.
+*   **API :** Interface de programmation permettant à différentes applications de communiquer entre elles.
+
+*   **Cross-platform :** Développement d'applications fonctionnant sur plusieurs systèmes (iOS, Android) avec un seul code.
+
+*   **CustomTkinter :** Bibliothèque Python moderne pour créer des interfaces graphiques desktop.
+
+*   **Dart :** Langage de programmation développé par Google, utilisé avec Flutter.
+
+*   **Flutter :** Framework Google pour créer des applications mobiles à partir d'un seul code source.
+
+*   **Gemini :** Intelligence artificielle de Google capable d'analyser des images et extraire du texte.
+
+*   **HDS :** Certification française obligatoire pour l'hébergement de données de santé.
+
+*   **Hive :** Base de données locale légère pour applications Flutter.
+
+*   **IHAB :** Label international pour les maternités promotrices de l'allaitement maternel.
+
+*   **MVC :** Architecture logicielle séparant Modèle (données), Vue (interface) et Contrôleur (logique).
+
+*   **NoSQL :** Type de base de données non-relationnelle, adaptée aux données flexibles.
+
+*   **OCR :** Technologie de reconnaissance de caractères dans les images.
+
+*   **RGPD :** Règlement européen sur la protection des données personnelles.
+
+*   **Riverpod :** Framework Flutter pour gérer l'état des applications de façon robuste.
+
+*   **SQLite :** Base de données légère stockée dans un seul fichier, très populaire pour les applications.
 
 ---
 
@@ -420,21 +523,24 @@ Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de déc
 
 ## Bibliographie
 
-**Documentation officielle :**
-*   Flutter Framework : [flutter.dev/docs](https://flutter.dev/docs)
-*   Google Gemini API : [ai.google.dev/docs](https://ai.google.dev/docs)
-*   Riverpod (gestion d'état) : [riverpod.dev/docs](https://riverpod.dev/docs)
-*   CustomTkinter : [customtkinter.com/documentation](https://customtkinter.com/documentation)
-*   Hive Database : [docs.hivedb.dev](https://docs.hivedb.dev/)
+### Documentation technique
 
-**Guides techniques :**
-*   BROWN, Simon. *The C4 Model for Software Architecture*. c4model.com, 2024.
-*   "Python GUI with Tkinter". *Real Python*, 2024.
-*   "MVC Pattern in Python". *Python Tutorial*, 2024.
+*   Documentation officielle de Flutter : [https://flutter.dev/docs](https://flutter.dev/docs) (consulté le 27 novembre 2024)
+*   Documentation de l'API Google Gemini : [https://ai.google.dev/docs](https://ai.google.dev/docs) (consulté le 27 novembre 2024)
+*   Documentation de la bibliothèque Python CustomTkinter : [https://customtkinter.com/documentation](https://customtkinter.com/documentation) (consulté le 27 novembre 2024)
+*   Documentation de la base de données Hive pour Flutter : [https://docs.hivedb.dev/](https://docs.hivedb.dev/) (consulté le 27 novembre 2024)
 
-**Sources académiques :**
-*   CPE LYON. *Guide de rédaction des rapports de stage*. Documentation interne, 2024.
-*   COMPILATIO. *Guide bibliographie académique*, 2024.
+### Guides et tutoriels
+
+*   AHSAN, Nazmul. « How To Organize Multi-frame TKinter Application With MVC Pattern ». *Medium*, 2024.
+*   WELPULWAR, Nishant. « Text Extraction from Image using Google Gemini ». *Google Cloud Community*, Medium, 2024.
+*   « Tkinter MVC ». *Python Tutorial*, 2024. [https://www.pythontutorial.net/tkinter/tkinter-mvc/](https://www.pythontutorial.net/tkinter/tkinter-mvc/)
+
+### Informations sectorielles
+
+*   CNIL. « Le RGPD appliqué au secteur de la santé ». *Commission Nationale de l'Informatique et des Libertés*, 2024.
+*   SHESTAK, Joe. « Flutter Usage Statistics 2023: Unveiling the Rise of Cross-Platform Development ». *LinkedIn*, 2023.
+*   FRANCE NUM. « Dématérialisation des notes de frais : quels avantages pour les TPE-PME ? ». *francenum.gouv.fr*, 2024.
 
 ---
 

@@ -399,20 +399,23 @@ Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de déc
 
 ## Glossaire
 
-*   **API :** Interface permettant à des applications de communiquer. Utilisée pour Google Gemini et Sheets.
-*   **C4 :** Méthode de documentation d'architecture logicielle utilisée pour les diagrammes.
-*   **CustomTkinter :** Bibliothèque Python pour interfaces graphiques desktop modernes.
-*   **Dart :** Langage de programmation Google utilisé avec Flutter.
-*   **Flutter :** Framework Google pour applications mobiles iOS/Android avec un seul code.
-*   **Gemini :** IA Google pour analyse d'images et extraction de données.
-*   **Hive :** Base NoSQL Flutter pour stockage local de l'historique.
-*   **JSON :** Format d'échange de données structuré pour les API.
-*   **MVC :** Architecture Modèle-Vue-Contrôleur pour structurer le code Python.
-*   **OAuth 2.0 :** Protocole d'authentification sécurisé pour Google Services.
-*   **PDF :** Format de document pour générer les rapports de notes de frais.
-*   **Riverpod :** Framework Flutter pour gestion d'état réactive.
-*   **SQLite :** Base de données légère en fichier unique pour l'application remboursements.
-*   **Workflow :** Processus de validation avec étapes et rôles utilisateurs définis.
+*   **API :** Interface de programmation permettant à différentes applications de communiquer entre elles. Utilisée pour Google Gemini et Google Sheets.
+*   **C4 :** Méthode de documentation d'architecture logicielle créée par Simon Brown, utilisée pour documenter les applications développées.
+*   **CustomTkinter :** Bibliothèque Python moderne pour créer des interfaces graphiques desktop avec un design contemporain.
+*   **Dart :** Langage de programmation développé par Google, utilisé avec Flutter pour le développement mobile.
+*   **Flutter :** Framework Google pour développer des applications mobiles natives iOS et Android à partir d'un seul code source.
+*   **Gemini :** Intelligence artificielle de Google capable d'analyser des images et extraire automatiquement du texte et des données structurées.
+*   **Git :** Système de gestion de versions distribué utilisé pour le contrôle de code source et les branches de développement.
+*   **Hive :** Base de données NoSQL locale optimisée pour Flutter, permettant de stocker l'historique des notes de frais hors ligne.
+*   **JSON :** Format d'échange de données structuré utilisé pour les réponses API et la sérialisation des données.
+*   **MVC :** Architecture logicielle Modèle-Vue-Contrôleur séparant les données, l'interface utilisateur et la logique de traitement.
+*   **OAuth 2.0 :** Protocole d'autorisation sécurisé permettant l'authentification avec Google Services.
+*   **OCR :** Reconnaissance Optique de Caractères, technologie pour extraire du texte à partir d'images.
+*   **PDF :** Format de document portable utilisé pour générer les rapports de notes de frais.
+*   **Riverpod :** Framework Flutter pour la gestion d'état réactive et robuste des applications.
+*   **SMTP :** Protocole de messagerie pour l'envoi automatique des rapports par email.
+*   **SQLite :** Base de données relationnelle légère stockée dans un seul fichier, utilisée pour l'application de remboursements.
+*   **Workflow :** Processus métier définissant les étapes de validation et les rôles utilisateurs dans l'application de remboursements.
 
 ---
 
@@ -420,21 +423,27 @@ Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de déc
 
 ## Bibliographie
 
-**Documentation officielle :**
-*   Flutter Framework : [flutter.dev/docs](https://flutter.dev/docs)
-*   Google Gemini API : [ai.google.dev/docs](https://ai.google.dev/docs)
-*   Riverpod (gestion d'état) : [riverpod.dev/docs](https://riverpod.dev/docs)
-*   CustomTkinter : [customtkinter.com/documentation](https://customtkinter.com/documentation)
-*   Hive Database : [docs.hivedb.dev](https://docs.hivedb.dev/)
+### Documentation technique officielle
 
-**Guides techniques :**
-*   BROWN, Simon. *The C4 Model for Software Architecture*. c4model.com, 2024.
-*   "Python GUI with Tkinter". *Real Python*, 2024.
-*   "MVC Pattern in Python". *Python Tutorial*, 2024.
+*   Documentation Flutter : *Flutter Framework Documentation*. [https://flutter.dev/docs](https://flutter.dev/docs) (consulté en septembre-octobre 2024)
+*   Documentation Dart : *Dart Programming Language*. [https://dart.dev/guides](https://dart.dev/guides) (consulté en septembre 2024)
+*   Google AI Studio : *Gemini API Documentation*. [https://ai.google.dev/docs](https://ai.google.dev/docs) (consulté en octobre 2024)
+*   Riverpod Documentation : *State Management for Flutter*. [https://riverpod.dev/docs](https://riverpod.dev/docs) (consulté en septembre 2024)
+*   CustomTkinter Documentation : *Modern GUI Library for Python*. [https://customtkinter.com/documentation](https://customtkinter.com/documentation) (consulté en octobre 2024)
+*   Hive Documentation : *Fast NoSQL Database for Flutter*. [https://docs.hivedb.dev/](https://docs.hivedb.dev/) (consulté en septembre 2024)
 
-**Sources académiques :**
-*   CPE LYON. *Guide de rédaction des rapports de stage*. Documentation interne, 2024.
-*   COMPILATIO. *Guide bibliographie académique*, 2024.
+### Guides et tutoriels utilisés
+
+*   BROWN, Simon. *The C4 Model for Visualising Software Architecture*. [https://c4model.com/](https://c4model.com/), 2024.
+*   « Getting Started with Flutter Development ». *Flutter.dev*, 2024.
+*   « Python GUI Programming with Tkinter ». *Real Python*, 2024.
+*   « Implementing MVC Pattern in Python Applications ». *Python Tutorial*, 2024.
+
+### Sources méthodologiques
+
+*   COMPILATIO. « Comment construire une bibliographie efficace ? ». *Guide académique*, 2024.
+*   L'ÉTUDIANT. « Mémoire et rapport de stage : rédiger une bibliographie ». *Guide méthodologique*, 2024.
+*   CPE LYON. « Guide de rédaction des rapports de stage ». *Documentation interne*, 2024.
 
 ---
 

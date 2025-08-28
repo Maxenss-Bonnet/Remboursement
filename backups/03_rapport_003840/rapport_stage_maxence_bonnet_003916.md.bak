@@ -256,8 +256,8 @@ L'application développée est fonctionnelle et répond aux besoins identifiés.
 Les résultats observés sur notre équipe de 6 personnes montrent :
 
 *   **Gain de temps mesuré** : Passage de 20 minutes à moins d'1 minute par note de frais, soit **62 heures économisées annuellement** pour nos 185 notes.
-*   **Économie financière** : **9 250€ d'économies annuelles** sur les coûts de traitement (185 notes × 50€ de coût évité).
-*   **Retours positifs** : Les 6 utilisateurs ont confirmé le gain de temps et l'utilité de l'extraction automatique par IA.
+*   **Économie financière** : **9 250€ d'économies annuelles** sur les coûts de traitement pour notre équipe.
+*   **Retours positifs** : Les 6 utilisateurs (PDG et 5 employés) ont confirmé la simplicité d'utilisation et l'utilité de l'extraction automatique par IA.
 
 ---
 
@@ -399,20 +399,11 @@ Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de déc
 
 ## Glossaire
 
-*   **API :** Interface permettant à des applications de communiquer. Utilisée pour Google Gemini et Sheets.
-*   **C4 :** Méthode de documentation d'architecture logicielle utilisée pour les diagrammes.
-*   **CustomTkinter :** Bibliothèque Python pour interfaces graphiques desktop modernes.
-*   **Dart :** Langage de programmation Google utilisé avec Flutter.
-*   **Flutter :** Framework Google pour applications mobiles iOS/Android avec un seul code.
-*   **Gemini :** IA Google pour analyse d'images et extraction de données.
-*   **Hive :** Base NoSQL Flutter pour stockage local de l'historique.
-*   **JSON :** Format d'échange de données structuré pour les API.
-*   **MVC :** Architecture Modèle-Vue-Contrôleur pour structurer le code Python.
-*   **OAuth 2.0 :** Protocole d'authentification sécurisé pour Google Services.
-*   **PDF :** Format de document pour générer les rapports de notes de frais.
-*   **Riverpod :** Framework Flutter pour gestion d'état réactive.
-*   **SQLite :** Base de données légère en fichier unique pour l'application remboursements.
-*   **Workflow :** Processus de validation avec étapes et rôles utilisateurs définis.
+*   **API :** Interface permettant à des applications de communiquer entre elles.
+*   **Flutter :** Framework Google pour créer des applications mobiles iOS/Android.
+*   **Gemini :** IA de Google pour l'analyse d'images et l'extraction de texte.
+*   **MVC :** Architecture Modèle-Vue-Contrôleur pour structurer le code.
+*   **SQLite :** Base de données légère stockée dans un fichier.
 
 ---
 
@@ -420,21 +411,10 @@ Enfin, merci à CPE Lyon pour cette opportunité de stage qui m'a permis de déc
 
 ## Bibliographie
 
-**Documentation officielle :**
-*   Flutter Framework : [flutter.dev/docs](https://flutter.dev/docs)
-*   Google Gemini API : [ai.google.dev/docs](https://ai.google.dev/docs)
-*   Riverpod (gestion d'état) : [riverpod.dev/docs](https://riverpod.dev/docs)
-*   CustomTkinter : [customtkinter.com/documentation](https://customtkinter.com/documentation)
-*   Hive Database : [docs.hivedb.dev](https://docs.hivedb.dev/)
-
-**Guides techniques :**
-*   BROWN, Simon. *The C4 Model for Software Architecture*. c4model.com, 2024.
-*   "Python GUI with Tkinter". *Real Python*, 2024.
-*   "MVC Pattern in Python". *Python Tutorial*, 2024.
-
-**Sources académiques :**
-*   CPE LYON. *Guide de rédaction des rapports de stage*. Documentation interne, 2024.
-*   COMPILATIO. *Guide bibliographie académique*, 2024.
+*   Documentation Flutter : [https://flutter.dev/docs](https://flutter.dev/docs)
+*   Documentation Google Gemini : [https://ai.google.dev/docs](https://ai.google.dev/docs)  
+*   Documentation CustomTkinter : [https://customtkinter.com/documentation](https://customtkinter.com/documentation)
+*   « Tkinter MVC ». *Python Tutorial*, 2024.
 
 ---
 
