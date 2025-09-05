@@ -200,6 +200,9 @@ section h2 {
   contain: layout !important;
 }
 
+/* RÈGLES H2 UNIVERSELLES - Plus d'exceptions spécifiques nécessaires */
+/* Tous les H2 utilisent maintenant les règles universelles définies plus haut */
+
 /* AUCUNE EXCEPTION - TOUS LES H2 SAUTENT DE PAGE SANS EXCEPTION */
 /* RÈGLE SUPPRIMÉE : Plus d'exception pour le premier H2 */
 
@@ -286,26 +289,6 @@ h2:nth-of-type(7) {
 h2[id="remerciements"],
 h2[id*="remerciements"],
 h2[id*="6-remerciements"],
-h2:nth-of-type(8) {
-  page-break-before: always !important;
-  break-before: page !important;
-  -webkit-column-break-before: always !important;
-  -moz-column-break-before: always !important;
-  -o-column-break-before: always !important;
-  -ms-column-break-before: always !important;
-  column-break-before: always !important;
-  column-span: all !important;
-  display: block !important;
-  clear: both !important;
-  min-height: 100pt !important;
-  margin-top: 0 !important;
-  padding-top: var(--spacing-2xl) !important;
-}
-
-/* Glossaire */
-h2[id="glossaire"],
-h2[id*="glossaire"],
-h2[id*="7-glossaire"],
 h2:nth-of-type(9) {
   page-break-before: always !important;
   break-before: page !important;
@@ -322,11 +305,13 @@ h2:nth-of-type(9) {
   padding-top: var(--spacing-2xl) !important;
 }
 
+/* SECTION GLOSSAIRE SUPPRIMÉE - Utilise règles H2 universelles + div page-break */
+
 /* Bibliographie */
 h2[id="bibliographie"],
 h2[id*="bibliographie"],
 h2[id*="8-bibliographie"],
-h2:nth-of-type(10) {
+h2:nth-of-type(11) {
   page-break-before: always !important;
   break-before: page !important;
   -webkit-column-break-before: always !important;
@@ -346,7 +331,26 @@ h2:nth-of-type(10) {
 h2[id="annexes"],
 h2[id*="annexes"],
 h2[id*="9-annexes"],
-h2:nth-of-type(11) {
+h2:nth-of-type(12) {
+  page-break-before: always !important;
+  break-before: page !important;
+  -webkit-column-break-before: always !important;
+  -moz-column-break-before: always !important;
+  -o-column-break-before: always !important;
+  -ms-column-break-before: always !important;
+  column-break-before: always !important;
+  column-span: all !important;
+  display: block !important;
+  clear: both !important;
+  min-height: 100pt !important;
+  margin-top: 0 !important;
+  padding-top: var(--spacing-2xl) !important;
+}
+
+/* Annexes - Illustrations */
+h2[id*="annexes-illustrations"],
+h2[id*="9-2-annexes"],
+h2:nth-of-type(13) {
   page-break-before: always !important;
   break-before: page !important;
   -webkit-column-break-before: always !important;
@@ -386,6 +390,150 @@ h2 + ul {
   break-inside: avoid !important;
   orphans: 10 !important;
   widows: 10 !important;
+}
+
+/* =============================================
+   STYLE PROFESSIONNEL GLOSSAIRE OPTIMISÉ
+   ============================================= */
+
+/* Conteneur principal du glossaire */
+.glossaire-section {
+  margin-bottom: var(--spacing-xl);
+  background: linear-gradient(135deg, #fafbfc 0%, #f8f9fa 100%);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 0 8px 8px 0;
+  padding: var(--spacing-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.glossaire-section:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateX(2px);
+}
+
+/* Titres de catégories */
+.glossaire-category {
+  margin: 0 0 var(--spacing-md) 0 !important;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 14pt !important;
+  font-weight: 700 !important;
+  color: var(--color-primary) !important;
+  background: linear-gradient(90deg, var(--color-accent-light), transparent);
+  border-radius: 6px;
+  border-bottom: none !important;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* Styles spécifiques par catégorie */
+.glossaire-section[data-category="technologies"] {
+  border-left-color: #2563eb; /* Bleu tech */
+}
+
+.glossaire-section[data-category="technologies"] .glossaire-category {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.1), transparent);
+  color: #1e40af !important;
+}
+
+.glossaire-section[data-category="concepts"] {
+  border-left-color: #7c3aed; /* Violet concepts */
+}
+
+.glossaire-section[data-category="concepts"] .glossaire-category {
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.1), transparent);
+  color: #6d28d9 !important;
+}
+
+.glossaire-section[data-category="protocoles"] {
+  border-left-color: #059669; /* Vert protocoles */
+}
+
+.glossaire-section[data-category="protocoles"] .glossaire-category {
+  background: linear-gradient(90deg, rgba(5, 150, 105, 0.1), transparent);
+  color: #047857 !important;
+}
+
+.glossaire-section[data-category="reglementaire"] {
+  border-left-color: #dc2626; /* Rouge réglementaire */
+}
+
+.glossaire-section[data-category="reglementaire"] .glossaire-category {
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.1), transparent);
+  color: #b91c1c !important;
+}
+
+/* Termes du glossaire */
+.glossaire-section p {
+  margin-bottom: var(--spacing-md) !important;
+  padding: var(--spacing-sm) var(--spacing-md);
+  line-height: 1.6 !important;
+  font-size: 11pt !important;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.glossaire-section p:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-left-color: var(--color-accent);
+  transform: translateX(4px);
+}
+
+.glossaire-section p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Termes en gras (mots-clés) */
+.glossaire-section p strong {
+  color: var(--color-primary) !important;
+  font-weight: 700 !important;
+  font-size: 11.5pt !important;
+  display: inline-block;
+  min-width: 100px;
+  margin-right: var(--spacing-sm);
+}
+
+/* Style pour l'impression */
+@media print {
+  .glossaire-section {
+    background: rgba(248, 250, 252, 0.3) !important;
+    box-shadow: none !important;
+    border-left-width: 2px !important;
+    margin-bottom: var(--spacing-md) !important;
+    padding: var(--spacing-md) !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  .glossaire-section:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  
+  .glossaire-category {
+    background: rgba(240, 240, 240, 0.5) !important;
+    font-size: 12pt !important;
+  }
+  
+  .glossaire-section p {
+    background: transparent !important;
+    font-size: 10pt !important;
+    margin-bottom: var(--spacing-sm) !important;
+  }
+  
+  .glossaire-section p:hover {
+    transform: none !important;
+    background: transparent !important;
+  }
+  
+  .glossaire-section p strong {
+    font-size: 10.5pt !important;
+  }
 }
 
 /* Gestion spécifique des H1 de chapitre */
@@ -1587,10 +1735,10 @@ h4 + ul li::before {
    Différenciation visuelle du sommaire
    ============================================= */
 
-/* RESET : Annuler les styles du sommaire pour Bibliographie et Glossaire UNIQUEMENT */
+/* RESET : Annuler les styles du sommaire pour Bibliographie UNIQUEMENT */
 /* La Table des Illustrations conserve le style du sommaire */
-h2#bibliographie + ul,
-h2#glossaire + ul {
+/* Le Glossaire utilise maintenant le style standard H2+UL */
+h2#bibliographie + ul {
   /* Annuler le style colonnes du sommaire */
   columns: none !important;
   column-gap: normal !important;
@@ -1616,9 +1764,7 @@ h2#glossaire + ul {
 }
 
 h2#bibliographie + ul::before,
-h2#bibliographie + ul::after,
-h2#glossaire + ul::before,
-h2#glossaire + ul::after {
+h2#bibliographie + ul::after {
   display: none !important;
 }
 
@@ -1709,91 +1855,11 @@ h2#bibliographie + ul li a:hover {
   transform: none !important;
 }
 
-/* =============================================
-   GLOSSAIRE - Style en cartes définitions
-   ============================================= */
+/* SECTION SUPPRIMÉE - GLOSSAIRE n'a plus d'ID spécifique */
+/* Le Glossaire utilise maintenant les règles H2+UL standard */
 
-/* Section Glossaire */
-h2#glossaire + ul {
-  padding-left: 0;
-  list-style: none;
-  margin-top: var(--spacing-xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-h2#glossaire + ul li {
-  /* Reset des styles hérités */
-  background: none !important;
-  border: none !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  transform: none !important;
-  
-  /* Style carte définition */
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: flex-start !important;
-  
-  font-size: 10.5pt !important;
-  line-height: 1.5 !important;
-  margin-bottom: var(--spacing-sm) !important;
-  padding: var(--spacing-md) !important;
-  
-  /* Design carte moderne */
-  background: linear-gradient(135deg, 
-    var(--color-bg-primary) 0%, 
-    var(--color-bg-secondary) 100%) !important;
-  border: 1px solid var(--color-border-light) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
-  
-  /* Transition douce */
-  transition: all 0.2s ease !important;
-  
-  position: relative;
-}
-
-/* Séparateur entre terme et définition - Alignement optimisé */
-h2#glossaire + ul li::before {
-  content: "▸" !important;
-  color: var(--color-accent) !important;
-  font-weight: bold !important;
-  font-size: 12pt !important;
-  
-  margin: 0 var(--spacing-sm) 0 0 !important;
-  line-height: 1.5 !important;
-  flex-shrink: 0 !important;
-  align-self: flex-start !important;
-  margin-top: 1pt !important;
-}
-
-/* Style pour les termes en gras (premier strong) */
-h2#glossaire + ul li strong:first-child {
-  color: var(--color-accent-dark) !important;
-  font-weight: 700 !important;
-  font-size: 10.5pt !important;
-  
-  /* Terme sur sa propre "colonne" flexible */
-  min-width: 120px !important;
-  margin-right: var(--spacing-md) !important;
-  
-  /* Alignement vertical */
-  display: inline-block !important;
-  vertical-align: top !important;
-}
-
-/* Effet survol pour le glossaire */
-h2#glossaire + ul li:hover {
-  background: linear-gradient(135deg, 
-    var(--color-bg-accent) 0%, 
-    var(--color-bg-secondary) 100%) !important;
-  border-color: var(--color-accent-light) !important;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1) !important;
-  transform: translateY(-1px) !important;
-}
+/* TOUTES LES RÈGLES GLOSSAIRE SUPPRIMÉES */
+/* Le Glossaire utilise maintenant le style H2+UL standard sans ID spécifique */
 
 /* =============================================
    MEDIA QUERIES POUR L'IMPRESSION
@@ -1832,46 +1898,10 @@ h2#glossaire + ul li:hover {
     margin-top: 0 !important;
   }
   
-  /* Glossaire pour l'impression - Style identique à la Bibliographie */
-  h2#glossaire + ul {
-    gap: var(--spacing-xs) !important;
-  }
-  
-  h2#glossaire + ul li {
-    font-size: 9.5pt !important;
-    line-height: 1.4 !important;
-    margin-bottom: var(--spacing-xs) !important;
-    padding: var(--spacing-sm) !important;
-    
-    /* Style carte simplifié identique à la Bibliographie */
-    background: rgba(248, 250, 252, 0.3) !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 4px !important;
-    box-shadow: none !important;
-    
-    /* Conserver le layout flex */
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: flex-start !important;
-    
-    /* Protection pagination */
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-  
-  h2#glossaire + ul li::before {
-    font-size: 10pt !important;
-    margin-top: 0 !important;
-  }
-  
-  h2#glossaire + ul li strong:first-child {
-    font-size: 9.5pt !important;
-    min-width: 80px !important;
-  }
+  /* RÈGLES GLOSSAIRE SUPPRIMÉES - Utilise maintenant le style standard */
   
   /* Supprimer les effets de survol à l'impression */
-  h2#bibliographie + ul li:hover,
-  h2#glossaire + ul li:hover {
+  h2#bibliographie + ul li:hover {
     transform: none !important;
     background: inherit !important;
     border-color: inherit !important;
@@ -2077,8 +2107,6 @@ h3[id*="fonctions-cles"] + ul::before {
   h2[id*="5-conclusion"],
   h2[id*="remerciements"],
   h2[id*="6-remerciements"],
-  h2[id*="glossaire"],
-  h2[id*="7-glossaire"],
   h2[id*="bibliographie"],
   h2[id*="8-bibliographie"],
   h2[id*="annexes"],
@@ -2479,7 +2507,6 @@ h2:contains("5."),
 h2:contains("Application"),
 h2:contains("Conclusion"),
 h2:contains("Remerciements"),
-h2:contains("Glossaire"),
 h2:contains("Bibliographie"),
 h2:contains("Annexes") {
   page-break-before: always !important;
@@ -2493,6 +2520,8 @@ h2:contains("Annexes") {
   padding-top: 50pt !important;
   min-height: 150pt !important;
 }
+
+/* RÈGLE INVALIDE SUPPRIMÉE - :contains() n'est pas supporté par CSS standard */
 
 /* Page break pour Word - utilise les classes de l'extension */
 .page-break,
