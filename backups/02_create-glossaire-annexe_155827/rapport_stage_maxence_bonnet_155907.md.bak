@@ -171,7 +171,7 @@ Ce rapport présente les trois applications que j'ai développées durant mes 9 
 
 Le premier projet visait à dématérialiser entièrement le processus de soumission des notes de frais pour les collaborateurs de Natécia. Le cahier des charges fonctionnel était le suivant :
 *   Permettre la capture de justificatifs via l'appareil photo ou l'import de fichiers (images, PDF).
-*   Extraire automatiquement les informations clés (marchand, date, montant, Taxe sur la Valeur Ajoutée (TVA)) grâce à une Intelligence Artificielle (IA) pour automatiser la saisie de remboursement des documents, la gestion des [notes de frais*](#glossaire-notes-de-frais) étant auparavant précaires.
+*   Extraire automatiquement les informations clés (marchand, date, montant, Taxe sur la Valeur Ajoutée (TVA)) grâce à une Intelligence Artificielle (IA) pour automatiser la saisie de remboursement des documents, la gestion des notes de frais* étant auparavant précaires.
 *   Permettre à l'utilisateur de vérifier et corriger les données extraites.
 *   Gérer les notes de frais kilométriques.
 *   Conserver un historique des notes soumises et en attente.
@@ -180,29 +180,29 @@ Le premier projet visait à dématérialiser entièrement le processus de soumis
 
 ### 2.2 Démarche Adoptée et Solutions Envisagées
 
-N'ayant jamais utilisé [Flutter*](#glossaire-flutter), j'ai dû apprendre cette technologie en autonomie via la documentation et des tutoriels. J'ai choisi [Flutter*](#glossaire-flutter) pour développer une seule application fonctionnant sur iOS et Android, et l'[Application Programming Interface (API)*](#glossaire-api) [Google Gemini*](#glossaire-google-gemini) pour l'extraction automatique des données des justificatifs.
+N'ayant jamais utilisé Flutter*, j'ai dû apprendre cette technologie en autonomie via la documentation et des tutoriels. J'ai choisi Flutter* pour développer une seule application fonctionnant sur iOS et Android, et l'Application Programming Interface (API)* Google Gemini* pour l'extraction automatique des données des justificatifs.
 
 ### 2.3 Justification des Choix Techniques
 
 **État de l'art des solutions existantes :** Les solutions du marché (Expensya 8-15€/user/mois, Jenji 6-12€, SAP Concur 15-25€) représenteraient pour Natécia un coût annuel de 23 040€ à 72 000€ (240 salariés). Notre solution interne représente un investissement unique de 9 semaines de stage vs 15-25k€ d'un prestataire externe, avec Return On Investment (ROI) immédiat et absence de frais récurrents.
 
-**Choix Flutter vs alternatives :** Pour le contexte PME santé, Flutter l'emporte sur React Native (performance native, -30% temps développement) et développement natif (2× plus coûteux). Avantages : compilation [Ahead-Of-Time (AOT)*](#glossaire-aot) pour performances iOS/Android optimales, [hot reload*](#glossaire-hot-reload) accélérant les itérations de 40%, single codebase réduisant la maintenance de 50%, conformité [Règlement Général sur la Protection des Données (RGPD)*](#glossaire-rgpd) native via chiffrement [Dart*](#glossaire-dart).
+**Choix Flutter vs alternatives :** Pour le contexte PME santé, Flutter l'emporte sur React Native (performance native, -30% temps développement) et développement natif (2× plus coûteux). Avantages : compilation Ahead-Of-Time (AOT)* pour performances iOS/Android optimales, hot reload* accélérant les itérations de 40%, single codebase réduisant la maintenance de 50%, conformité Règlement Général sur la Protection des Données (RGPD)* native via chiffrement Dart*.
 
 **Technologie d'extraction documentaire :** Google Gemini surpasse Microsoft Form Recognizer (précision 92% vs 87% sur factures françaises) et AWS Textract (coût 50% inférieur). Gemini offre : extraction multilingue français optimisée, API gratuite jusqu'à 60 requêtes/minute (suffisant pour 240 utilisateurs), conformité GDPR avec serveurs européens, précision TVA française 96%.
 
 **Architecture technique retenue :**
 *   **Langage :** Dart (via Flutter) - typage fort, null safety, performances natives
-*   **Framework UI :** [Flutter*](#glossaire-flutter) 3.16+ - Material Design 3, accessibilité [Web Content Accessibility Guidelines (WCAG) 2.1*](#glossaire-wcag)
-*   **Gestion de l'état :** [`Riverpod`*](#glossaire-riverpod) 2.4+ - architecture réactive, testabilité 95%
+*   **Framework UI :** Flutter* 3.16+ - Material Design 3, accessibilité Web Content Accessibility Guidelines (WCAG) 2.1*
+*   **Gestion de l'état :** `Riverpod`* 2.4+ - architecture réactive, testabilité 95%
 *   **Analyse IA :** API `Google Gemini Pro` - extraction JSON structurée, confidence scores
-*   **Stockage local :** [NoSQL*](#glossaire-nosql) [`Hive`*](#glossaire-hive) 2.2+ - chiffrement [AES-256*](#glossaire-aes-256), performances <5ms
-*   **Envoi d'e-mails :** `mailer` 6.0+ - [Simple Mail Transfer Protocol (SMTP)*](#glossaire-smtp) sécurisé, pièces jointes jusqu'à 25MB
+*   **Stockage local :** NoSQL* `Hive`* 2.2+ - chiffrement AES-256*, performances <5ms
+*   **Envoi d'e-mails :** `mailer` 6.0+ - Simple Mail Transfer Protocol (SMTP)* sécurisé, pièces jointes jusqu'à 25MB
 
 **Standards secteur santé respectés :** Hébergement données locales (pas HDS requis car pas de données patients), chiffrement bout-en-bout des justificatifs, authentification forte pour version PDG, logs d'audit pour traçabilité comptable, conformité RGPD avec droit à l'effacement.
 
 ### 2.4 Fonctionnement de l'Application
 
-L'application suit une architecture structurée documentée selon le modèle [C4*](#glossaire-c4).
+L'application suit une architecture structurée documentée selon le modèle C4*.
 
 <figure>
 <img alt="Contexte Notes de Frais" src="./diagrams-out/figure-1-1-context.svg" />
@@ -235,7 +235,7 @@ L'application propose plusieurs fonctionnalités clés documentées visuellement
 
 ### 2.5 Fonctions Clés Issues du Code
 
-- `lib/services/ai_service.dart::extractExpenseDataFromFiles` : appel à [Google Gemini*](#glossaire-google-gemini) avec prompt structuré, extraction [JavaScript Object Notation (JSON)](#glossaire-json) et indices de confiance.
+- `lib/services/ai_service.dart::extractExpenseDataFromFiles` : appel à Google Gemini* avec prompt structuré, extraction JavaScript Object Notation (JSON) et indices de confiance.
 - `lib/services/pdf_service.dart::generateExpenseReportPdf` : génération d'un PDF A4 (tables, totaux Hors Taxes/Taxe sur la Valeur Ajoutée/Toutes Taxes Comprises (HT/TVA/TTC), polices embarquées, logo, sections d'observations).
 - `lib/services/email_service.dart::sendExpenseBatchEmail` : envoi HTML avec pièces jointes (PJ) (PDF récap + justificatifs renommés), objet et copie carbone (CC) salarié.
 - `lib/services/background_task_service.dart::processQueue` : écoute réseau, reprise des envois, nettoyage fichiers, marquage `isSent`.
@@ -245,7 +245,7 @@ L'application propose plusieurs fonctionnalités clés documentées visuellement
 
 Les principales difficultés ont été :
 
-**Apprentissage en autonomie totale :** N'ayant personne pour m'aider sur place, j'ai dû apprendre [Flutter*](#glossaire-flutter), [Dart*](#glossaire-dart) et l'utilisation des [APIs*](#glossaire-api) entièrement seul. Les premiers jours ont été particulièrement difficiles pour comprendre les concepts de base.
+**Apprentissage en autonomie totale :** N'ayant personne pour m'aider sur place, j'ai dû apprendre Flutter*, Dart* et l'utilisation des APIs* entièrement seul. Les premiers jours ont été particulièrement difficiles pour comprendre les concepts de base.
 
 **Manque d'expérience :** C'était ma première application mobile professionnelle. J'ai fait de nombreuses erreurs de débutant, notamment dans la structuration du code, que j'ai dû corriger au fur et à mesure.
 
@@ -301,8 +301,8 @@ L'objectif était de permettre un suivi financier en temps réel et de faciliter
 
 Le projet a donc consisté à dupliquer la base de code existante (via une branche Git distincte, `Switch`) et à y intégrer l'API Google Sheets.
 
-*   **Authentification Google :** Mise en place d'un flux d'authentification [OAuth 2.0*](#glossaire-oauth-2-0) pour permettre à l'application d'accéder aux services Google au nom de l'utilisateur.
-*   **[API*](#glossaire-api) Google Sheets :** Utilisation des bibliothèques `googleapis` et `googleapis_auth` pour écrire une nouvelle ligne dans un Google Sheet spécifié à chaque note de frais validée.
+*   **Authentification Google :** Mise en place d'un flux d'authentification OAuth 2.0* pour permettre à l'application d'accéder aux services Google au nom de l'utilisateur.
+*   **API* Google Sheets :** Utilisation des bibliothèques `googleapis` et `googleapis_auth` pour écrire une nouvelle ligne dans un Google Sheet spécifié à chaque note de frais validée.
 
 Le reste de l'application (capture, analyse IA, stockage local) est resté identique, garantissant une maintenance aisée des deux versions.
 
@@ -331,24 +331,24 @@ Le besoin était de créer une application de bureau centralisée, avec :
 
 ### 4.2 Architecture Logicielle MVC
 
-J'ai implémenté une architecture [Model-View-Controller (MVC)*](#glossaire-mvc) pour structurer l'application Python.
+J'ai implémenté une architecture Model-View-Controller (MVC)* pour structurer l'application Python.
 
 <figure>
 <img alt="Architecture Remboursements" src="./diagrams-out/figure-2-architecture.svg" />
-<figcaption>Figure 4 - Architecture [MVC*](#glossaire-mvc) de l'application desktop montrant la séparation des responsabilités.</figcaption>
+<figcaption>Figure 4 - Architecture MVC* de l'application desktop montrant la séparation des responsabilités.</figcaption>
 </figure>
 
 
 
 <figure>
 <img alt="Contexte Remboursements" src="./diagrams-out/figure-2-1-context.svg" />
-<figcaption>Figure 5 - Vue de contexte [C4*](#glossaire-c4) montrant l'intégration de l'application dans l'écosystème de Natécia.</figcaption>
+<figcaption>Figure 5 - Vue de contexte C4* montrant l'intégration de l'application dans l'écosystème de Natécia.</figcaption>
 </figure>
 
 
 <figure>
 <img alt="Conteneurs Remboursements" src="./diagrams-out/figure-2-2-containers.svg" />
-<figcaption>Figure 6 - Architecture technique détaillant les conteneurs logiciels et la base de données [SQLite*](#glossaire-sqlite) sur réseau.</figcaption>
+<figcaption>Figure 6 - Architecture technique détaillant les conteneurs logiciels et la base de données SQLite* sur réseau.</figcaption>
 </figure>
 
 
@@ -374,7 +374,7 @@ L'application desktop propose une interface complète pour la gestion des rembou
 
 ### 4.5 Gestion de la Base de Données sur Réseau
 
-Une contrainte forte du projet était l'utilisation d'une base de données **[SQLite*](#glossaire-sqlite) locale, mais située sur un disque réseau partagé** pour être accessible par tous les utilisateurs. Cette contrainte a introduit des défis de performance et de concurrence d'accès. Des mécanismes de `verrouillage de fichier` ([file locking*](#glossaire-file-locking)) et une gestion rigoureuse des transactions ont été mis en place dans le `database_manager.py` pour éviter la corruption de la base de données lorsque plusieurs utilisateurs effectuent des opérations simultanément.
+Une contrainte forte du projet était l'utilisation d'une base de données **SQLite* locale, mais située sur un disque réseau partagé** pour être accessible par tous les utilisateurs. Cette contrainte a introduit des défis de performance et de concurrence d'accès. Des mécanismes de `verrouillage de fichier` (file locking*) et une gestion rigoureuse des transactions ont été mis en place dans le `database_manager.py` pour éviter la corruption de la base de données lorsque plusieurs utilisateurs effectuent des opérations simultanément.
 
 ### 4.6 Résultats Obtenus
 
@@ -394,7 +394,7 @@ L'application desktop est pleinement déployée avec des métriques de performan
 *   **Coûts évités** : Pas de solution équivalente sur marché PME santé
 
 **Architecture technique validée :**
-*   **Base [SQLite*](#glossaire-sqlite) réseau** : 6 utilisateurs concurrents sans conflit (lock optimisé)
+*   **Base SQLite* réseau** : 6 utilisateurs concurrents sans conflit (lock optimisé)
 *   **Performance requêtes** : <200ms pour 95% des opérations
 *   **Workflow 4 étapes** : Demande → Constat → Validation → Paiement
 *   **Rôles différenciés** : 4 profils (demandeur, comptable, validateur, admin)
@@ -450,65 +450,65 @@ L'équipe administrative du bureau de Saint-Priest pour leur patience durant les
 <div class="glossaire-section" data-category="technologies">
 <h3 class="glossaire-category">🔧 Technologies & Langages</h3>
 
-<a id="glossaire-flutter"></a>**Flutter :** Framework open-source de Google pour le développement d'applications natives iOS, Android, web et desktop depuis un seul code source Dart. Utilise son propre moteur de rendu (Skia) et compilation AOT pour des performances natives optimales.
+**Flutter :** Framework open-source de Google pour le développement d'applications natives iOS, Android, web et desktop depuis un seul code source Dart. Utilise son propre moteur de rendu (Skia) et compilation AOT pour des performances natives optimales.
 
-<a id="glossaire-python"></a>**Python :** Langage de programmation polyvalent utilisé pour le développement de l'application desktop de gestion des remboursements.
+**Python :** Langage de programmation polyvalent utilisé pour le développement de l'application desktop de gestion des remboursements.
 
-<a id="glossaire-dart"></a>**Dart :** Langage de programmation orienté objet développé par Google, constituant la base technique de Flutter.
+**Dart :** Langage de programmation orienté objet développé par Google, constituant la base technique de Flutter.
 
-<a id="glossaire-google-gemini"></a>**Google Gemini :** Intelligence artificielle générative multimodale de Google pour l'analyse de texte, images et documents. Utilisée pour l'extraction automatique des données des justificatifs (60 requêtes/minute gratuites, précision 94% sur factures françaises).
+**Google Gemini :** Intelligence artificielle générative multimodale de Google pour l'analyse de texte, images et documents. Utilisée pour l'extraction automatique des données des justificatifs (60 requêtes/minute gratuites, précision 94% sur factures françaises).
 
-<a id="glossaire-google-sheets"></a>**Google Sheets :** Service de tableur en ligne de Google, intégré dans la version PDG pour l'export automatique des données.
+**Google Sheets :** Service de tableur en ligne de Google, intégré dans la version PDG pour l'export automatique des données.
 
-<a id="glossaire-hive"></a>**Hive :** Base de données NoSQL légère optimisée pour Flutter, offrant un stockage local avec chiffrement AES-256.
+**Hive :** Base de données NoSQL légère optimisée pour Flutter, offrant un stockage local avec chiffrement AES-256.
 
-<a id="glossaire-sqlite"></a>**SQLite :** Système de gestion de base de données relationnelle embarquée, implémenté comme une bibliothèque C. Stockage dans un fichier unique, conformité ACID, support JSONB depuis 2024. Utilisée pour l'application desktop sur réseau partagé.
+**SQLite :** Système de gestion de base de données relationnelle embarquée, implémenté comme une bibliothèque C. Stockage dans un fichier unique, conformité ACID, support JSONB depuis 2024. Utilisée pour l'application desktop sur réseau partagé.
 
-<a id="glossaire-riverpod"></a>**Riverpod :** Bibliothèque de gestion d'état réactive pour applications Flutter, offrant une architecture testable et une séparation claire des préoccupations avec injection de dépendances.
+**Riverpod :** Bibliothèque de gestion d'état réactive pour applications Flutter, offrant une architecture testable et une séparation claire des préoccupations avec injection de dépendances.
 
-<a id="glossaire-aes-256"></a>**AES-256 :** Advanced Encryption Standard 256 bits, algorithme de chiffrement symétrique sécurisé utilisé pour le stockage local des données dans Hive.
+**AES-256 :** Advanced Encryption Standard 256 bits, algorithme de chiffrement symétrique sécurisé utilisé pour le stockage local des données dans Hive.
 </div>
 
 <div class="glossaire-section" data-category="concepts">
 <h3 class="glossaire-category">💡 Concepts Techniques</h3>
 
-<a id="glossaire-aot"></a>**AOT :** Ahead-Of-Time compilation, technique de compilation anticipée permettant des performances natives optimales sur mobile.
+**AOT :** Ahead-Of-Time compilation, technique de compilation anticipée permettant des performances natives optimales sur mobile.
 
-<a id="glossaire-hot-reload"></a>**Hot Reload :** Fonctionnalité Flutter permettant le rechargement instantané du code pendant le développement sans perdre l'état de l'application.
+**Hot Reload :** Fonctionnalité Flutter permettant le rechargement instantané du code pendant le développement sans perdre l'état de l'application.
 
-<a id="glossaire-mvc"></a>**MVC :** Model-View-Controller, motif d'architecture logicielle lançé en 1978, séparant les données (Model), l'affichage (View) et la logique de contrôle (Controller). Améliore la maintenabilité, la collaboration d'équipe et permet des tests indépendants.
+**MVC :** Model-View-Controller, motif d'architecture logicielle lançé en 1978, séparant les données (Model), l'affichage (View) et la logique de contrôle (Controller). Améliore la maintenabilité, la collaboration d'équipe et permet des tests indépendants.
 
-<a id="glossaire-nosql"></a>**NoSQL :** Not Only Structured Query Language, type de bases de données non-relationnelles optimisées pour les données semi-structurées, offrant flexibilité et performance pour les applications modernes.
+**NoSQL :** Not Only Structured Query Language, type de bases de données non-relationnelles optimisées pour les données semi-structurées, offrant flexibilité et performance pour les applications modernes.
 
-<a id="glossaire-c4"></a>**C4 :** Méthodologie de documentation architecturale (Context, Containers, Components, Code) développée par Simon Brown pour visualiser l'architecture logicielle à différents niveaux d'abstraction.
+**C4 :** Méthodologie de documentation architecturale (Context, Containers, Components, Code) développée par Simon Brown pour visualiser l'architecture logicielle à différents niveaux d'abstraction.
 
-<a id="glossaire-file-locking"></a>**File locking :** Mécanisme de verrouillage de fichier pour éviter les accès concurrents et prévenir la corruption des données lors d'opérations simultanées sur SQLite.
+**File locking :** Mécanisme de verrouillage de fichier pour éviter les accès concurrents et prévenir la corruption des données lors d'opérations simultanées sur SQLite.
 
-<a id="glossaire-notes-de-frais"></a>**Notes de frais :** Documents comptables permettant le remboursement de frais professionnels engagés dans le cadre de l'activité, soumis à validation hierarchique et contrôle fiscal.
+**Notes de frais :** Documents comptables permettant le remboursement de frais professionnels engagés dans le cadre de l'activité, soumis à validation hierarchique et contrôle fiscal.
 </div>
 
 <div class="glossaire-section" data-category="protocoles">
 <h3 class="glossaire-category">🔗 Protocoles & Standards</h3>
 
-<a id="glossaire-api"></a>**API :** Application Programming Interface, ensemble de règles permettant à des applications de communiquer entre elles.
+**API :** Application Programming Interface, ensemble de règles permettant à des applications de communiquer entre elles.
 
-<a id="glossaire-https"></a>**HTTPS :** HyperText Transfer Protocol Secure, protocole de communication web sécurisé par chiffrement, obligatoire pour les données sensibles.
+**HTTPS :** HyperText Transfer Protocol Secure, protocole de communication web sécurisé par chiffrement, obligatoire pour les données sensibles.
 
-<a id="glossaire-json"></a>**JSON :** JavaScript Object Notation, format de données structuré et léger utilisé pour l'échange d'informations entre systèmes.
+**JSON :** JavaScript Object Notation, format de données structuré et léger utilisé pour l'échange d'informations entre systèmes.
 
-<a id="glossaire-oauth-2-0"></a>**OAuth 2.0 :** Protocole standard d'autorisation sécurisée pour l'accès délégué, permettant à un utilisateur d'accorder l'accès à ses données sans partager ses identifiants. Basé sur l'échange de tokens et fonctionne avec HTTPS.
+**OAuth 2.0 :** Protocole standard d'autorisation sécurisée pour l'accès délégué, permettant à un utilisateur d'accorder l'accès à ses données sans partager ses identifiants. Basé sur l'échange de tokens et fonctionne avec HTTPS.
 
-<a id="glossaire-saas"></a>**SaaS :** Software as a Service, modèle de distribution logicielle par abonnement cloud (Expensya, Jenji, SAP Concur).
+**SaaS :** Software as a Service, modèle de distribution logicielle par abonnement cloud (Expensya, Jenji, SAP Concur).
 
-<a id="glossaire-smtp"></a>**SMTP :** Simple Mail Transfer Protocol, protocole standard pour l'envoi sécurisé d'emails avec authentification et chiffrement.
+**SMTP :** Simple Mail Transfer Protocol, protocole standard pour l'envoi sécurisé d'emails avec authentification et chiffrement.
 </div>
 
 <div class="glossaire-section" data-category="reglementaire">
 <h3 class="glossaire-category">⚖️ Aspects Réglementaires</h3>
 
-<a id="glossaire-rgpd"></a>**RGPD :** Règlement Général sur la Protection des Données, cadre légal européen pour la protection des données personnelles depuis 2018.
+**RGPD :** Règlement Général sur la Protection des Données, cadre légal européen pour la protection des données personnelles depuis 2018.
 
-<a id="glossaire-wcag"></a>**WCAG :** Web Content Accessibility Guidelines, normes du W3C définissant les standards d'accessibilité web pour garantir l'accès aux personnes en situation de handicap (niveau 2.1 AA minimum requis pour les applications professionnelles).
+**WCAG :** Web Content Accessibility Guidelines, normes du W3C définissant les standards d'accessibilité web pour garantir l'accès aux personnes en situation de handicap (niveau 2.1 AA minimum requis pour les applications professionnelles).
 </div>
 
 ---
